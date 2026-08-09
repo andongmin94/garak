@@ -78,8 +78,9 @@ Compiler 책임은 editable model을 검증하고 runtime에서 직접 실행할
 
 Phase 1C.1의 최소 Product Compiler는 Studio와 독립된 headless TypeScript entry point로 strict project
 validation, identity derivation, deterministic `GARAKCPD` v1 compile과 Windows VST3 packaging을
-수행한다. General graph/interface compiler의 언어와 process 배치, 그리고 Studio 연결 방식은 이
-결정으로 확정하지 않는다.
+수행한다. Phase 1C.2 Studio의 Electron main은 동일한 callable Product Compiler workflow를 직접
+호출한다. 이 authoring/export 연결은 general graph/interface compiler와 native preview/audio Engine의
+언어 또는 process 배치를 확정하지 않는다.
 
 ### Generated Plugin Runtime
 
@@ -137,9 +138,10 @@ Authoring audition은 같은 project 의미를 입력으로 사용하지만 expo
 
 제품 제작의 현재 milestone 순서는 다음과 같다.
 
-1. Phase 1C.1 — Product Contracts and Headless Windows VST3 Export
-2. Phase 1C.2 — Studio Product Workspace and Export UX
-3. 첫 상용 배포 전 cross-platform release gate
+1. Phase 1C.1 — Product Contracts and Headless Windows VST3 Export — 완료
+2. Phase 1C.2 — Studio Product Workspace and Export UX — 완료
+3. Phase 2 — Project Evolution and Persistent Migration — 다음 milestone
+4. 후속 product capability를 단계적으로 구현한 뒤 첫 상용 배포 전 cross-platform release gate
 
 Release gate에는 macOS arm64/x86_64 및 Universal VST3, macOS AU, signing/notarization, installer와
 Windows/macOS 실제 DAW 검증이 포함된다. 첫 상용 v0.1 목표는 계속 Windows VST3, macOS Universal VST3와 macOS
@@ -179,7 +181,9 @@ Phase 0A에서는 BLOOM의 DSP algorithm, node 목록, control range/curve 또�
 
 ## 미결정 사항과 필요한 검증
 
-- General graph/interface compiler의 process/language 배치와 Phase 1C.2 Studio 연결 방식
+- General graph/interface compiler와 native preview/audio Engine의 process/language 배치. Phase 1C.2의
+  project authoring/export는 Electron main이 callable Product Compiler를 직접 호출하는 경계로 확정됐지만,
+  이 결정은 realtime preview 또는 general graph compiler topology를 정하지 않는다.
 - Minimal v1 이후 `.garak`과 general compiled runtime data의 physical container 및 schema technology
 - macOS VST3/AU와 장기 cross-platform generated runtime packaging 선택
 - Format adapter SDK와 renderer/layout/audio-device 등 외부 구현의 적합성

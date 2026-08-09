@@ -1,2 +1,9 @@
-// Phase 0B preload intentionally adds no values to Window.
+import type { GarakStudioApi } from './shared/product_api.mts';
+
+declare global {
+  interface Window {
+    readonly garakStudio: Readonly<GarakStudioApi>;
+  }
+}
+
 export {};

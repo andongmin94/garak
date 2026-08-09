@@ -1,15 +1,14 @@
 import { fileURLToPath } from "node:url";
 
-import { diagnosticFor, fail } from "./errors.ts";
-import { compileProductFile, exportWindowsProduct } from "./export_windows.ts";
-import type { ProductConfiguration } from "./export_windows.ts";
-import { deriveProductIdentity, PHASE_1A_1B_FUIDS } from "./identity.ts";
-import { inspectionFor } from "./project_model.ts";
 import {
-  assertNoBatchCollisions,
-  batchRecord,
-  loadProductProject,
-} from "./validation.ts";
+  compileProductProject,
+  diagnosticFor,
+  exportProductProject,
+  inspectProductProject,
+  validateProductProjects,
+} from "./api.ts";
+import type { ProductConfiguration } from "./api.ts";
+import { fail } from "./errors.ts";
 
 type Command = "validate" | "inspect" | "compile" | "export";
 
@@ -146,47 +145,17 @@ function writeJson(value: unknown): void {
 }
 
 async function execute(arguments_: ParsedArguments): Promise<void> {
-  const projects = [];
-  for (const projectPath of arguments_.projects) {
-    projects.push(await loadProductProject(projectPath));
-  }
-
   if (arguments_.command === "validate") {
-    const records = projects.map((project) => batchRecord(project));
-    assertNoBatchCollisions(records);
-    for (const record of records) {
-      const reservedCollision = [
-        record.identity.processorFuid,
-        record.identity.controllerFuid,
-      ].find((fuid) => PHASE_1A_1B_FUIDS.includes(fuid));
-      if (reservedCollision !== undefined) {
-        fail(
-          "GARAK_IDENTITY_SPIKE_COLLISION",
-          "product.json.productId",
-          `Derived FUID collides with a Phase 1A/1B fixture: ${reservedCollision}`,
-        );
-      }
-    }
-    writeJson({
-      valid: true,
-      products: records.map((record) => ({
-        project: record.project.sourceDirectory,
-        productId: record.project.productId,
-        name: record.project.name,
-        processorFuid: record.identity.processorFuid,
-        controllerFuid: record.identity.controllerFuid,
-      })),
-    });
+    writeJson(await validateProductProjects(arguments_.projects));
     return;
   }
 
-  const project = projects[0];
-  if (project === undefined) {
+  const projectPath = arguments_.projects[0];
+  if (projectPath === undefined) {
     usageFailure("Exactly one product project is required.");
   }
-  const identity = deriveProductIdentity(project.productId);
   if (arguments_.command === "inspect") {
-    writeJson(inspectionFor(project, identity));
+    writeJson(await inspectProductProject(projectPath));
     return;
   }
 
@@ -195,8 +164,8 @@ async function execute(arguments_: ParsedArguments): Promise<void> {
       usageFailure("Command 'compile' requires --output.");
     }
     writeJson(
-      await compileProductFile({
-        project,
+      await compileProductProject({
+        projectPath,
         outputFile: arguments_.output,
         force: arguments_.force,
       }),
@@ -210,8 +179,8 @@ async function execute(arguments_: ParsedArguments): Promise<void> {
   ) {
     usageFailure("Command 'export' requires --output and --configuration.");
   }
-  const result = await exportWindowsProduct({
-    project,
+  const result = await exportProductProject({
+    projectPath,
     configuration: arguments_.configuration,
     outputDirectory: arguments_.output,
     repositoryRoot: REPOSITORY_ROOT,

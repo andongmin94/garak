@@ -16,7 +16,9 @@
     "studio:lint": "pnpm --dir studio lint",
     "studio:format": "pnpm --dir studio format",
     "studio:format:check": "pnpm --dir studio format:check",
+    "studio:test": "pnpm --dir studio test",
     "studio:typecheck": "pnpm --dir studio typecheck",
+    "studio:verify:product-workflow": "pnpm --dir studio verify:product-workflow",
     "studio:build": "pnpm --dir studio build"
   }
 }

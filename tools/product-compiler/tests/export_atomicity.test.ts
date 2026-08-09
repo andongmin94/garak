@@ -17,6 +17,7 @@ import {
 } from "../src/export_windows.ts";
 import { sha256Hex } from "../src/compiled_product.ts";
 import { ProductCompilerError } from "../src/errors.ts";
+import { retryOwnedCleanup } from "../src/owned_cleanup.ts";
 import {
   bundleSnapshot,
   createFakeArtifacts,
@@ -645,11 +646,22 @@ test("export publication stays successful and reports bounded cleanup failures",
       ],
     );
     assert.equal(replaced.cleanupDiagnostics.length, 2);
+    assert.deepEqual(
+      replaced.cleanupDiagnostics.map((diagnostic) => diagnostic.orphan.kind),
+      ["export-stage", "export-backup"],
+    );
     assert.deepEqual((await readdir(outputDirectory)).sort(), [
       ".garak-product-export-stage-cleanup-warning",
       "Artist Gain Warm.vst3",
       "Artist Gain Warm.vst3.garak-backup-cleanup-warning",
     ]);
+    for (const diagnostic of replaced.cleanupDiagnostics) {
+      assert.deepEqual(await retryOwnedCleanup(diagnostic.orphan), {
+        targetPath: diagnostic.orphan.targetPath,
+        removed: true,
+      });
+    }
+    assert.deepEqual(await readdir(outputDirectory), ["Artist Gain Warm.vst3"]);
   });
 });
 

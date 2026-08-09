@@ -331,9 +331,14 @@ export function validateProjectValue(
   };
 }
 
-export async function loadProductProject(
+export interface LoadedProductProject {
+  readonly project: ProductProject;
+  readonly sourceBytes: Buffer;
+}
+
+export async function loadProductProjectSource(
   projectPath: string,
-): Promise<ProductProject> {
+): Promise<LoadedProductProject> {
   const projectDirectory = path.resolve(projectPath);
   const projectLeaf = path.basename(projectDirectory);
   if (
@@ -446,7 +451,16 @@ export async function loadProductProject(
       `${PRODUCT_JSON_FILENAME} is not valid UTF-8.`,
     );
   }
-  return validateProjectValue(parseStrictJson(text), projectDirectory);
+  return {
+    project: validateProjectValue(parseStrictJson(text), projectDirectory),
+    sourceBytes: bytes,
+  };
+}
+
+export async function loadProductProject(
+  projectPath: string,
+): Promise<ProductProject> {
+  return (await loadProductProjectSource(projectPath)).project;
 }
 
 export function batchRecord(

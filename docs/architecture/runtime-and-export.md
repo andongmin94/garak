@@ -1,9 +1,9 @@
 # Garak Runtime and Export
 
-- 문서 상태: Phase 1C product creation 경로 반영
-- 최종 갱신: 2026-08-10
+- 문서 상태: Phase 1C.2 Studio Product workflow 경계 반영
+- 최종 갱신: 2026-08-12
 - 권위 범위: compiled runtime contract, product compilation/export 단계와 generated runtime 전략 평가 기준
-- 관련 문서: [v0.1 제품 요구사항](../product/v0.1-prd.md), [시스템 개요](system-overview.md), [프로젝트 모델](project-model.md), [모듈 경계](module-boundaries.md), [Realtime과 quality](realtime-and-quality.md), [Minimal Garak Product Project](minimal-garak-product-project.md), [Product Identity Derivation](product-identity-derivation.md), [Compiled Product Data v1](compiled-product-data-v1.md), [Product State v1](product-state-v1.md), [ADR 0003 — Proposed](../adr/0003-generated-plugin-runtime-strategy.md), [ADR 0004](../adr/0004-windows-macos-and-plugin-formats.md), [ADR 0005 — Windows v0.x Accepted](../adr/0005-windows-v0x-prebuilt-product-runtime.md)
+- 관련 문서: [v0.1 제품 요구사항](../product/v0.1-prd.md), [시스템 개요](system-overview.md), [프로젝트 모델](project-model.md), [모듈 경계](module-boundaries.md), [Realtime과 quality](realtime-and-quality.md), [Minimal Garak Product Project](minimal-garak-product-project.md), [Product Identity Derivation](product-identity-derivation.md), [Compiled Product Data v1](compiled-product-data-v1.md), [Product State v1](product-state-v1.md), [ADR 0003 — Proposed](../adr/0003-generated-plugin-runtime-strategy.md), [ADR 0004](../adr/0004-windows-macos-and-plugin-formats.md), [ADR 0005 — Windows v0.x Accepted](../adr/0005-windows-v0x-prebuilt-product-runtime.md), [ADR 0006 — Studio workflow](../adr/0006-studio-product-workflow-boundary.md)
 
 ## 문서의 역할
 
@@ -132,6 +132,28 @@ Phase 1C.1 fault matrix는 compile/export의 backup 준비, publication, rollbac
 Phase 1C.2 Studio는 이 commit 의미를 다시 구현하거나 바꾸지 않고 diagnostic을 사용자에게 표시하고
 transaction-owned orphan을 안전하게 정리하는 UX만 제공한다.
 
+### Phase 1C.2 Studio authoring boundary
+
+Studio Product workspace는 headless path의 별도 frontend이지 두 번째 compiler/exporter가 아니다.
+
+1. Renderer는 vendor, name, version과 Gain default의 editable draft만 다룬다. Product ID, physical path,
+   category/template와 cleanup target은 main-owned session/capability다.
+2. Sandboxed preload는 new/open/validate/save/export/cleanup의 fixed typed methods만 노출한다. Raw IPC,
+   generic invoke/send, Node/filesystem/shell/process를 renderer에 제공하지 않는다.
+3. Electron main은 callable Product Compiler workflow를 직접 호출한다. CLI text output을 parse하거나
+   native addon/별도 compiler subprocess를 만들지 않는다.
+4. Project create/save는 compiler-owned canonical serializer와 whole-directory atomic transaction을
+   사용한다. Invalid draft, Product ID mismatch와 external revision conflict는 mutation 전에 거부한다.
+5. Export는 disk의 saved project를 다시 읽고 main-owned output dialog와 explicit overwrite confirmation을
+   거친 뒤 validator를 포함한 canonical export를 호출한다.
+6. Success result의 identity/hash/inventory/child exit와 `cleanupDiagnostics`를 그대로 표시한다. Cleanup은
+   main이 보관한 opaque ID를 compiler-owned revalidation 함수에 전달하며 arbitrary path deletion API를
+   만들지 않는다.
+
+상세 process/security 결정은 [ADR 0006](../adr/0006-studio-product-workflow-boundary.md)이 소유한다.
+Repository-local prebuilt Runtime tree를 소비하는 현재 Windows workflow는 installed Studio의
+resource/installer layout을 결정하지 않으며 missing artifact에는 structured failure로 fail closed한다.
+
 ### Windows Unicode export boundary
 
 Project vendor/name와 output/bundle path는 valid UTF-8 contract이고 Windows system ACP에 의미를 맡기지
@@ -251,9 +273,10 @@ Spike 결과는 재현 명령, tool/SDK version, package 구조, validator outpu
 
 현재 제품 제작 순서:
 
-1. Phase 1C.1 — Product Contracts and Headless Windows VST3 Export
-2. Phase 1C.2 — Studio Product Workspace and Export UX
-3. 첫 상용 배포 전 cross-platform release gate
+1. Phase 1C.1 — Product Contracts and Headless Windows VST3 Export — 완료
+2. Phase 1C.2 — Studio Product Workspace and Export UX — 완료
+3. Phase 2 — Project Evolution and Persistent Migration — 다음 milestone
+4. 후속 product capability를 단계적으로 구현한 뒤 첫 상용 배포 전 cross-platform release gate
 
 첫 상용 목표:
 
@@ -323,7 +346,8 @@ Obsolete 내부 compiler API, adapter, generated wrapper template 또는 pre-rel
 - Generated runtime redistribution와 third-party notices를 실제 license가 어떻게 허용할 것인가?
 
 Windows v0.x 범위를 넘어서는 질문은 cross-platform release gate, dependency/license 검토와 packaging
-prototype evidence 뒤 ADR 또는 구현 ExecPlan에서 결정한다. Phase 1C.2는 headless compiler/export
-contract를 바꾸지 않고 Studio Product Workspace와 Export UX를 연결하는 다음 제품 milestone이다.
-Atomic publication에 대해서는 `cleanupDiagnostics` surfacing과 transaction-owned orphan cleanup UX만
-추가한다.
+prototype evidence 뒤 ADR 또는 구현 ExecPlan에서 결정한다. 완료된 Phase 1C.2는 headless
+compiler/export contract를 바꾸지 않고 Studio Product Workspace와 Export UX를 연결했다. Atomic
+publication에 대해서는 `cleanupDiagnostics` 표시와 transaction-owned orphan cleanup UX만 추가했으며,
+다음 milestone인 Phase 2는 이 검증된 project lifecycle 위에서 project evolution과 persistent migration을
+다룬다.

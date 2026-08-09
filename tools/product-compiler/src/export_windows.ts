@@ -22,6 +22,8 @@ import { ProductCompilerError, fail } from "./errors.ts";
 import type { Diagnostic } from "./errors.ts";
 import { deriveProductIdentity } from "./identity.ts";
 import { parseAndValidateModuleInfo } from "./module_info.ts";
+import { ownedCleanupDiagnostic } from "./owned_cleanup.ts";
+import type { OwnedCleanupDiagnostic } from "./owned_cleanup.ts";
 import {
   BYPASS_PARAMETER_ID,
   GAIN_PARAMETER_ID,
@@ -76,7 +78,7 @@ export interface ExportWindowsResult {
   readonly controllerFuid: string;
   readonly inventory: readonly string[];
   readonly childProcesses: readonly ChildProcessLog[];
-  readonly cleanupDiagnostics: readonly Diagnostic[];
+  readonly cleanupDiagnostics: readonly OwnedCleanupDiagnostic[];
 }
 
 export interface CompileFileOptions {
@@ -237,7 +239,7 @@ async function removeOwnedSibling(
   await fileSystem.remove(value);
 }
 
-function cleanupDiagnostic(
+function compileCleanupDiagnostic(
   code: string,
   diagnosticPath: string,
   target: string,
@@ -638,7 +640,7 @@ export async function compileProductFile(
       );
     } catch (error) {
       cleanupDiagnostics.push(
-        cleanupDiagnostic(
+        compileCleanupDiagnostic(
           "GARAK_COMPILE_POST_COMMIT_CLEANUP",
           "compile.cleanup",
           backup,
@@ -727,7 +729,7 @@ export async function exportWindowsProduct(
   let operationFailed = false;
   let operationFailure: unknown;
   let result: ExportWindowsResult | undefined;
-  const cleanupDiagnostics: Diagnostic[] = [];
+  const cleanupDiagnostics: OwnedCleanupDiagnostic[] = [];
 
   try {
     if ((await pathExists(stageParent)) || (await pathExists(backupBundle))) {
@@ -966,9 +968,11 @@ export async function exportWindowsProduct(
         );
       }
       cleanupDiagnostics.push(
-        cleanupDiagnostic(
+        ownedCleanupDiagnostic(
           "GARAK_EXPORT_POST_COMMIT_STAGE_CLEANUP",
           "export.cleanup.stage",
+          "export-stage",
+          outputDirectory,
           stageParent,
           error,
         ),
@@ -997,9 +1001,11 @@ export async function exportWindowsProduct(
       );
     } catch (error) {
       cleanupDiagnostics.push(
-        cleanupDiagnostic(
+        ownedCleanupDiagnostic(
           "GARAK_EXPORT_POST_COMMIT_BACKUP_CLEANUP",
           "export.cleanup.backup",
+          "export-backup",
+          outputDirectory,
           backupBundle,
           error,
         ),

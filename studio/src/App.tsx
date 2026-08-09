@@ -6,16 +6,16 @@ import { ProductWorkspace } from './features/product/ProductWorkspace';
 import { SoundWorkspace } from './features/sound/SoundWorkspace';
 
 const workspaces = [
-  { id: 'sound', label: 'Sound', content: <SoundWorkspace /> },
-  { id: 'control', label: 'Control', content: <ControlWorkspace /> },
-  { id: 'interface', label: 'Interface', content: <InterfaceWorkspace /> },
-  { id: 'product', label: 'Product', content: <ProductWorkspace /> },
+  { id: 'sound', label: 'Sound', status: 'Placeholder', content: <SoundWorkspace /> },
+  { id: 'control', label: 'Control', status: 'Placeholder', content: <ControlWorkspace /> },
+  { id: 'interface', label: 'Interface', status: 'Placeholder', content: <InterfaceWorkspace /> },
+  { id: 'product', label: 'Product', status: 'Active', content: <ProductWorkspace /> },
 ] as const;
 
 type WorkspaceId = (typeof workspaces)[number]['id'];
 
 export function App() {
-  const [activeWorkspace, setActiveWorkspace] = useState<WorkspaceId>('sound');
+  const [activeWorkspace, setActiveWorkspace] = useState<WorkspaceId>('product');
   const tabElements = useRef<Array<HTMLButtonElement | null>>([]);
 
   function selectAdjacentWorkspace(
@@ -54,9 +54,9 @@ export function App() {
       <header className="app-header">
         <div>
           <p className="eyebrow">Garak Studio</p>
-          <h1>Product authoring workspace</h1>
+          <h1>Build your product contract</h1>
         </div>
-        <p className="phase-badge">Phase 0B scaffold</p>
+        <p className="phase-badge">Phase 1C.2 · Windows</p>
       </header>
 
       <div className="workspace-layout">
@@ -87,7 +87,7 @@ export function App() {
                   }}
                 >
                   <span>{workspace.label}</span>
-                  <span className="tab-status">Placeholder</span>
+                  <span className="tab-status">{workspace.status}</span>
                 </button>
               );
             })}

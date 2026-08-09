@@ -8,7 +8,9 @@
     "lint": "eslint . --max-warnings 0",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "test": "node --test --test-isolation=none --test-concurrency=1 tests/*.test.mts",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.node.json",
+    "verify:product-workflow": "node scripts/verify_product_workflow.mts",
     "build": "pnpm typecheck && vite build"
   },
   "dependencies": {

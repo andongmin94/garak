@@ -67,6 +67,8 @@ Phase 1B는 Windows x64에서만 Alternative A의 same-binary/module-relative-de
 
 Phase 1C.1의 canonical Windows product path는 minimal directory `.garak` project를 headless Product Compiler로 strict validation·inspection·compilation한 뒤 configuration별 prebuilt `Garak Product Runtime v1`과 deterministic `product.garakbin`, product별 `moduleinfo.json`을 결합하는 local-only export다. 이 경로는 product-specific C++ compile/link를 수행하지 않으며 Phase 1B descriptor나 thin-wrapper fixture를 compatibility fallback으로 읽지 않는다. 상세 계약은 [Minimal Garak Product Project](docs/architecture/minimal-garak-product-project.md), [Product Identity Derivation](docs/architecture/product-identity-derivation.md), [Compiled Product Data v1](docs/architecture/compiled-product-data-v1.md)과 [Product State v1](docs/architecture/product-state-v1.md)을 따른다.
 
+Phase 1C.2의 canonical Studio product path는 Electron main이 side-effect-free Product Compiler facade를 직접 호출하는 repository-local workflow다. Main은 native dialog, trusted sender와 opaque document/output/cleanup capability를 소유하고 preload는 new/open/validate/save/export/cleanup의 fixed typed API만 renderer에 노출한다. Renderer에는 filesystem, shell, process, raw IPC 또는 arbitrary path mutation 권한을 주지 않는다. Studio와 CLI는 같은 validation, canonical serialization, atomic project transaction과 export 구현을 사용한다. 이 bounded process/security 결정은 [ADR 0006](docs/adr/0006-studio-product-workflow-boundary.md)을 따른다.
+
 ## Realtime audio 규칙
 
 Audio process callback과 그 하위 경로에서는 다음을 금지한다.
@@ -118,7 +120,7 @@ Obsolete 내부 API, pre-release draft, unused adapter와 낡은 실행 경로�
 
 Steinberg VST3 SDK만 exact Git pin으로 도입했다. Phase 1A adapter, Phase 1B A/B fixture와 ADR 0005의 Phase 1C.1 Windows x64 v0.x Product Runtime 경계에서 build·validator를 검증했으며 [Phase 1A dependency 상태](docs/status/phase-1a-vst3-dependency.md)에 pin과 license 경계를 기록한다. 이 검증은 macOS/AU, 상용 재배포 또는 전체 legal audit의 승인이 아니다. Recursive checkout에 포함된 VSTGUI도 build/link하지 않는다. 그 밖의 audio/plugin/graphics 후보는 계속 미설치·미검증·미승인 상태다.
 
-Phase 0B Studio scaffold의 exact direct dependency 16개는 [Phase 0B dependency 상태](docs/status/phase-0b-dependencies.md)에 기록한다. Phase 1C.1 Product Compiler의 runtime third-party dependency는 0이며 development dependency는 저장소의 exact TypeScript quality toolchain을 재사용한다. Studio와 compiler dependency는 generated plugin에 전이되지 않는다. 모든 추가 도입은 [Dependency and License Policy](docs/architecture/dependency-policy.md)를 따른다.
+Phase 0B에서 확정한 Studio exact direct dependency 16개는 Phase 1C.2에서도 유지하며 [Phase 0B dependency 상태](docs/status/phase-0b-dependencies.md)에 기준선을 기록한다. Product Compiler의 runtime third-party dependency는 0이며 development dependency는 저장소의 exact TypeScript quality toolchain을 재사용한다. Studio와 compiler dependency는 generated plugin에 전이되지 않는다. 모든 추가 도입은 [Dependency and License Policy](docs/architecture/dependency-policy.md)를 따른다.
 
 ## 대표 검증 명령
 
@@ -138,6 +140,7 @@ pnpm install --frozen-lockfile
 pnpm studio:lint
 pnpm studio:format:check
 pnpm studio:typecheck
+pnpm studio:test
 pnpm studio:build
 ```
 
@@ -203,6 +206,13 @@ cmake --preset product-runtime-werror --fresh
 cmake --build --preset product-runtime-werror-build --clean-first
 cmake --preset product-runtime-clang-tidy --fresh
 cmake --build --preset product-runtime-clang-tidy-build --clean-first
+```
+
+Phase 1C.2 repository-local Studio ProductService smoke는 해당 configuration의 Product Runtime을 위 명령으로 먼저 build한 뒤 실행한다. Temp physical project의 new→validate→save→reopen parity와 immutable Product ID를 확인한 후 reference project를 실제 export한다. 이는 packaged Studio나 installer 검증이 아니다.
+
+```text
+pnpm --dir studio verify:product-workflow --configuration Debug
+pnpm --dir studio verify:product-workflow --configuration Release
 ```
 
 `tools/product-compiler/**`에는 이 root `AGENTS.md`만 적용한다. `native/**`에는 [native instructions](native/AGENTS.md)가 추가 적용되고, `native/adapters/vst3/**`에는 [VST3 adapter instructions](native/adapters/vst3/AGENTS.md)도 적용된다. `studio/**`에는 [Studio instructions](studio/AGENTS.md)가 추가 적용된다.

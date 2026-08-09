@@ -4,9 +4,11 @@ Garak(가락)은 음악가, 프로듀서와 사운드 디자이너가 자신의 
 
 ## 현재 상태
 
-저장소는 Phase 0A/0B, Phase 1A와 Phase 1B 기준선을 보존한 채 **Phase 1C.1 — Product Contracts and Headless Windows VST3 Export**를 Windows x64에서 PASS로 완료했다. Phase 1B 기준선은 commit `4203138f13a83e652c04405061fcd2c2ec362c27`이다. Minimal directory `.garak` project 두 개를 strict headless Product Compiler로 deterministic compiled data와 stable identity로 변환하고, configuration별 prebuilt `Garak Product Runtime v1`을 재사용해 `Artist Gain Warm`과 `Artist Gain Bright` VST3를 product-specific C++ compile/link 없이 export한다.
+저장소는 Phase 0A/0B, Phase 1A/1B와 Phase 1C.1 기준선을 보존한 채 **Phase 1C.2 — Garak Studio Product Workspace and Export UX**를 Windows x64에서 PASS로 완료했다. Studio Product workspace에서 minimal directory `.garak` product를 만들고 열고 편집하고 검증하고 atomic 저장한 뒤, 같은 canonical Product Compiler를 통해 Debug 또는 Release white-label VST3를 export할 수 있다.
 
-현재 product path는 `product.json` 하나를 가진 최소 directory package, versioned SHA-256 FUID derivation, `Garak Compiled Product Data v1`, product-bound `Garak Product State v1`, four-command Product Compiler와 local-only Windows VST3 export다. Debug/Release CTest 7/7, Warm/Bright official validator standard 47/47·extensive 537/537, repeated export determinism과 immutable build-tree/no-native-build evidence를 통과했다. Studio는 여전히 Phase 0B placeholder shell이며 Phase 1C.2 UX, native IPC, 범용 DSP graph, final single-file `.garak`, 실제 plugin editor와 commercial packaging은 아직 없다.
+Renderer에는 filesystem, shell, process 또는 raw IPC 권한이 없다. Electron main이 dialog, opaque document/output/cleanup capability와 trusted sender를 소유하고, preload는 new/open/validate/save/export/cleanup의 fixed typed API만 노출한다. Studio와 CLI는 같은 side-effect-free Product Compiler facade를 사용하며 Studio direct dependency 16개와 Product Compiler runtime third-party dependency 0을 유지한다.
+
+Product Compiler quality gate와 52/52 test, Studio quality gate와 10/10 test, production build, bounded Electron launch, ProductService Debug/Release lifecycle/export와 Phase 1C.1 Runtime Debug/Release fresh clean build 177/177·CTest 7/7·no-native-build evidence가 모두 통과했다. ProductService smoke는 temp physical project의 new→validate→save→reopen parity와 immutable Product ID를 확인한 뒤 exact three-file reference export와 validator/inspection child 5/5 exit 0을 검증했다. 범용 DSP graph, final single-file `.garak`, 실제 plugin editor와 commercial packaging은 아직 없다.
 
 생성 플러그인의 목표는 Garak Studio가 없는 컴퓨터에서 독립적으로 오프라인 동작하는 white-label native 제품이다. 생성물에는 Electron, Chromium, Node.js 또는 임의의 JavaScript runtime을 넣지 않는다.
 
@@ -14,7 +16,7 @@ macOS VST3/Universal, AU, Apple Clang, representative DAW, Developer ID signing,
 
 ## 빠른 시작
 
-아래 명령은 2026-08-10 Windows x64에서 실제로 통과했다. Native 명령은 Visual Studio x64 Developer Command 환경에서 저장소 루트 기준으로 실행한다. 현재 검증 환경은 Node.js 24.19.0, pnpm 11.16.0, MSVC 19.51, CMake 4.3.1과 Ninja 1.13.2다.
+아래 명령은 2026-08-12 Windows x64에서 실제로 통과했다. Native 명령은 Visual Studio x64 Developer Command 환경에서 저장소 루트 기준으로 실행한다. 현재 검증 환경은 Node.js 24.19.0, pnpm 11.16.0, MSVC 19.51, CMake 4.3.1과 Ninja 1.13.2다.
 
 ### Native configure, build, test와 run
 
@@ -45,11 +47,23 @@ pnpm --dir studio exec install-electron --no
 pnpm studio:lint
 pnpm studio:format:check
 pnpm studio:typecheck
+pnpm studio:test
 pnpm studio:build
 pnpm studio:dev
 ```
 
 `pnpm studio:dev`는 `127.0.0.1:5173`의 local development server와 Studio 창을 계속 실행한다. 종료할 때 `Ctrl+C`를 사용한다. Production build output은 `studio/dist/`와 `studio/dist-electron/`에 생성되며 Git 대상에서 제외된다. Studio direct dependency 기준선은 runtime 2개와 development 14개, 합계 16개다.
+
+### Phase 1C.2 Studio Product workflow 검증
+
+아래 workflow smoke는 Phase 1C.1의 해당 configuration Runtime과 도구를 먼저 build한 뒤 실행한다. 실제 `ProductService`로 temp physical `.garak`을 new→validate→save→reopen해 field/Product ID parity를 확인하고, reference project를 연 뒤 canonical export를 호출해 exact three-file inventory와 moduleinfotool create/validate, inspector, official Validator standard/extensive의 child 5개가 모두 exit 0인지 확인한다.
+
+```text
+pnpm --dir studio verify:product-workflow --configuration Debug
+pnpm --dir studio verify:product-workflow --configuration Release
+```
+
+이 명령은 repository-local development workflow다. Packaged Studio에 Runtime과 도구를 공급하는 installer contract를 검증하지 않는다.
 
 ### Phase 1C.1 Product Compiler와 Windows x64 product export
 
@@ -262,6 +276,7 @@ Phase 1B는 두 대안을 Windows x64의 동일한 Gain behavior와 identity/pac
 - [ADR 0003 — Generated Plugin Runtime Strategy](docs/adr/0003-generated-plugin-runtime-strategy.md) — Proposed
 - [ADR 0004 — Windows, macOS, and Plugin Formats](docs/adr/0004-windows-macos-and-plugin-formats.md) — Accepted
 - [ADR 0005 — Windows v0.x Prebuilt Product Runtime](docs/adr/0005-windows-v0x-prebuilt-product-runtime.md) — Accepted (Windows x64 v0.x scope)
+- [ADR 0006 — Studio Product Workflow Boundary](docs/adr/0006-studio-product-workflow-boundary.md) — Accepted (repository-local Phase 1C.2 scope)
 
 ### 계획과 상태
 
@@ -279,14 +294,16 @@ Phase 1B는 두 대안을 Windows x64의 동일한 Gain behavior와 identity/pac
 - [Phase 1C.1 ExecPlan](plans/0005-phase-1c1-product-contracts-and-headless-windows-export.md)
 - [Phase 1C.1 product fixtures](docs/status/phase-1c1-product-fixtures.md)
 - [Phase 1C.1 headless export validation](docs/status/phase-1c1-headless-export-validation.md)
+- [Phase 1C.2 ExecPlan](plans/0006-phase-1c2-studio-product-workspace-and-export-ux.md)
+- [Phase 1C.2 Studio Product workflow validation](docs/status/phase-1c2-studio-product-workspace-validation.md)
 
 저장소 작업 규칙과 문서 우선순위는 [AGENTS.md](AGENTS.md)를 따른다.
 
 ## 정확한 다음 milestone
 
-다음 권장 작업은 별도 승인과 ExecPlan이 필요한 **Phase 1C.2 — Garak Studio Product Workspace and Export UX**다. 검증된 headless Product Compiler/export를 Studio Product workspace에서 호출하는 최소 authoring UX이며 아직 착수하지 않았다. 별도 compiler, runtime 또는 renderer-side filesystem 경로를 만들지 않는다.
+다음 권장 작업은 별도 승인과 ExecPlan이 필요한 **Phase 2 — Project Evolution and Persistent Migration**이다. Phase 1C.1의 minimal Gain schema와 Phase 1C.2의 Studio project lifecycle 위에 versioned project evolution, released identity lifecycle, explicit migration과 compiled-data mismatch 정책을 추가한다.
 
-Phase 1C의 Windows Product Creation Vertical Slice 가운데 Phase 1C.1만 완료했고 Studio UX인 Phase 1C.2는 미착수다. ADR 0003은 계속 Proposed이고 ADR 0005만 Windows x64 v0.x 범위에서 Accepted다. macOS VST3/Universal, AU, representative DAW, signing/notarization, installer와 commercial packaging은 첫 상용 배포 전 release gate로 미검증 상태다.
+Phase 1C의 Windows Product Creation Vertical Slice는 완료했다. ADR 0003은 계속 Proposed이고 ADR 0005와 ADR 0006은 각각 Windows x64 v0.x Runtime 및 repository-local Studio workflow 범위에서만 Accepted다. macOS VST3/Universal, AU, representative DAW, signing/notarization, installer와 commercial packaging은 첫 상용 배포 전 release gate로 미검증 상태다.
 
 ## License
 

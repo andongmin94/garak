@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
-    "target": "ES2022",
-    "lib": ["ES2022"],
+    "target": "ES2024",
+    "lib": ["ES2024"],
     "allowJs": false,
     "skipLibCheck": true,
     "esModuleInterop": true,
@@ -14,6 +14,7 @@
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "resolveJsonModule": true,
+    "allowImportingTsExtensions": true,
     "isolatedModules": true,
     "noEmit": true,
     "types": ["node"],
@@ -21,5 +22,5 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true
   },
-  "include": ["electron", "vite.config.mts"]
+  "include": ["electron", "scripts", "tests", "vite.config.mts"]
 }

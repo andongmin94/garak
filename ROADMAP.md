@@ -1,9 +1,9 @@
 # Garak Roadmap
 
-- 문서 상태: Phase 1C.1 Windows x64 product creation 검증 기준선
-- 최종 갱신: 2026-08-10
-- 현재 단계: Phase 0B, Phase 1A, Phase 1B와 Phase 1C.1 Windows x64 PASS. Phase 1C.2 미착수.
-- 관련 문서: [v0.1 제품 요구사항](docs/product/v0.1-prd.md), [시스템 개요](docs/architecture/system-overview.md), [모듈 경계](docs/architecture/module-boundaries.md), [프로젝트 모델](docs/architecture/project-model.md), [Minimal Garak Product Project](docs/architecture/minimal-garak-product-project.md), [Product Identity](docs/architecture/product-identity-derivation.md), [Compiled Product Data v1](docs/architecture/compiled-product-data-v1.md), [Product State v1](docs/architecture/product-state-v1.md), [Runtime과 export](docs/architecture/runtime-and-export.md), [Realtime과 quality](docs/architecture/realtime-and-quality.md), [Parameter와 state](docs/architecture/parameter-and-state.md), [Interface Designer](docs/architecture/interface-designer.md), [의존성 정책](docs/architecture/dependency-policy.md), [VST3 Adapter](docs/architecture/vst3-adapter.md), [Phase 0A ExecPlan](plans/0001-phase-0a-repository-foundation.md), [Phase 0B ExecPlan](plans/0002-phase-0b-buildable-native-and-studio-scaffolds.md), [Phase 1A ExecPlan](plans/0003-phase-1a-windows-minimal-vst3-gain-shell.md), [Phase 1A validation](docs/status/phase-1a-vst3-validation.md), [Phase 1B ExecPlan](plans/0004-phase-1b-generated-runtime-ab-spike.md), [Phase 1C.1 ExecPlan](plans/0005-phase-1c1-product-contracts-and-headless-windows-export.md)
+- 문서 상태: Phase 1C Windows x64 Product Creation Vertical Slice 검증 기준선
+- 최종 갱신: 2026-08-12
+- 현재 단계: Phase 0B, Phase 1A, Phase 1B와 Phase 1C.1/1C.2 Windows x64 PASS. 정확한 다음 milestone은 Phase 2.
+- 관련 문서: [v0.1 제품 요구사항](docs/product/v0.1-prd.md), [시스템 개요](docs/architecture/system-overview.md), [모듈 경계](docs/architecture/module-boundaries.md), [프로젝트 모델](docs/architecture/project-model.md), [Minimal Garak Product Project](docs/architecture/minimal-garak-product-project.md), [Product Identity](docs/architecture/product-identity-derivation.md), [Compiled Product Data v1](docs/architecture/compiled-product-data-v1.md), [Product State v1](docs/architecture/product-state-v1.md), [Runtime과 export](docs/architecture/runtime-and-export.md), [Realtime과 quality](docs/architecture/realtime-and-quality.md), [Parameter와 state](docs/architecture/parameter-and-state.md), [Interface Designer](docs/architecture/interface-designer.md), [의존성 정책](docs/architecture/dependency-policy.md), [VST3 Adapter](docs/architecture/vst3-adapter.md), [Phase 0A ExecPlan](plans/0001-phase-0a-repository-foundation.md), [Phase 0B ExecPlan](plans/0002-phase-0b-buildable-native-and-studio-scaffolds.md), [Phase 1A ExecPlan](plans/0003-phase-1a-windows-minimal-vst3-gain-shell.md), [Phase 1A validation](docs/status/phase-1a-vst3-validation.md), [Phase 1B ExecPlan](plans/0004-phase-1b-generated-runtime-ab-spike.md), [Phase 1C.1 ExecPlan](plans/0005-phase-1c1-product-contracts-and-headless-windows-export.md), [Phase 1C.2 ExecPlan](plans/0006-phase-1c2-studio-product-workspace-and-export-ux.md), [Phase 1C.2 validation](docs/status/phase-1c2-studio-product-workspace-validation.md)
 
 ## 진행 원칙
 
@@ -128,13 +128,38 @@ Windows에서 `.garak` project부터 독립적인 white-label VST3까지 이어�
 
 #### Phase 1C.2 — Garak Studio Product Workspace and Export UX
 
-**정확한 다음 제안이며 아직 착수하지 않았다.** 별도 승인과 ExecPlan 뒤 검증된 headless Product Compiler/export를 Studio Product workspace에 연결한다. 최소 project open/create/edit/save, typed process boundary, validation feedback, Debug/Release export와 결과 표시를 제공하되 compiler/runtime contract를 복제하거나 renderer에 filesystem/shell 권한을 주지 않는다.
+[Phase 1C.2 ExecPlan](plans/0006-phase-1c2-studio-product-workspace-and-export-ux.md)에 따라 2026-08-12 **PASS**로 완료했다.
+
+핵심 산출물:
+
+- Studio와 CLI가 공유하는 side-effect-free Product Compiler facade, canonical project serializer와 atomic directory create/save
+- Electron main이 소유하는 dialog, opaque document/output/cleanup capability와 trusted-sender 검증
+- new/open/edit/validate/save와 Debug/Release export를 제공하는 Product workspace
+- Identity, hash, exact inventory, validator child result와 post-commit cleanup warning/result 표시
+- Renderer filesystem/shell/process/raw IPC 권한 0인 fixed typed preload API
+
+수용 결과:
+
+- Product Compiler format/lint/typecheck와 52/52 test, Studio format/lint/typecheck와 10/10 test가 PASS했다.
+- Production build는 renderer 21 modules, main 16 modules, preload 3 modules로 완료했고 bounded Electron dev launch도 통과했다.
+- Actual ProductService Debug/Release smoke가 각각 temp physical project의 new→validate→save→reopen parity와 immutable Product ID를 확인한 뒤 exact three-file reference export, child 5/5 exit 0와 stable compiled/moduleinfo hash를 검증했다.
+- Product Runtime Debug/Release fresh configure와 clean build 177/177, no-native-build artifact 772/641개 불변·forbidden invocation 0, CTest 7/7이 PASS했다.
+- Studio external direct dependency 16개와 Product Compiler runtime third-party dependency 0을 유지했다.
+
+명시적 비범위:
+
+- Packaged Studio runtime/tool distribution, installer, signing/notarization과 actual DAW
+- macOS VST3/Universal, AU와 Apple Clang/Xcode 검증
+- Final single-file `.garak`, version migration, general DSP graph, macro, preset/asset와 custom editor
+- Sound/Control/Interface functional workspace와 native audition
 
 #### Cross-platform release gate
 
 macOS VST3/Universal, AU, Apple Clang, representative DAW, Developer ID signing, notarization과 installer는 Phase 1C.2의 선행 조건이 아니다. 첫 상용 배포 전에 별도 CI 또는 Mac 장비에서 검증하고 그 evidence로 ADR 0003의 Accepted/Superseded 여부를 결정한다. 현재 Windows PASS를 이 항목의 완료로 표현하지 않는다.
 
 ## Phase 2 — Project Evolution and Persistent Migration
+
+**정확한 다음 milestone이며 아직 착수하지 않았다.** 별도 승인과 ExecPlan 뒤 Phase 1C의 canonical project lifecycle을 versioned evolution과 persistent migration으로 확장한다.
 
 ### 진입 조건
 

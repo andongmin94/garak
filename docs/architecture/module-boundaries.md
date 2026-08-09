@@ -1,9 +1,9 @@
 # Garak Module Boundaries
 
-- 문서 상태: Phase 1C product creation 경계 반영
-- 최종 갱신: 2026-08-10
+- 문서 상태: Phase 1C.2 Studio Product workflow 경계 반영
+- 최종 갱신: 2026-08-12
 - 권위 범위: first-party 책임, dependency direction, public contract와 third-party adapter 경계
-- 관련 문서: [시스템 개요](system-overview.md), [프로젝트 모델](project-model.md), [Runtime과 export](runtime-and-export.md), [의존성 정책](dependency-policy.md), [Product Identity Derivation](product-identity-derivation.md), [Compiled Product Data v1](compiled-product-data-v1.md), [Product State v1](product-state-v1.md), [ADR 0002](../adr/0002-no-juce-and-adapter-boundaries.md), [ADR 0005](../adr/0005-windows-v0x-prebuilt-product-runtime.md)
+- 관련 문서: [시스템 개요](system-overview.md), [프로젝트 모델](project-model.md), [Runtime과 export](runtime-and-export.md), [의존성 정책](dependency-policy.md), [Product Identity Derivation](product-identity-derivation.md), [Compiled Product Data v1](compiled-product-data-v1.md), [Product State v1](product-state-v1.md), [ADR 0002](../adr/0002-no-juce-and-adapter-boundaries.md), [ADR 0005](../adr/0005-windows-v0x-prebuilt-product-runtime.md), [ADR 0006](../adr/0006-studio-product-workflow-boundary.md)
 
 ## 문서의 역할
 
@@ -104,9 +104,15 @@ Studio는 TypeScript이고 Native Engine은 C++20이므로 다음 의미가 언�
 Phase 1C.1의 최소 경로는 strict `product.json`을 읽는 headless TypeScript compiler가 first-party
 `GARAKCPD` v1 bytes를 만들고 C++ Runtime이 같은 normative layout을 byte-wise 검증하는 경계다.
 Product ID에서 processor/controller FUID를 양쪽이 독립적으로 derive해 stored bytes를 대조한다.
-이 선택은 general graph/interface model의 generated bindings, IPC 또는 native compiler 배치를 정하지
-않는다. TypeScript와 C++ 구현을 각각 독립적인 semantic source of truth로 두지 않고 normative 문서와
+TypeScript와 C++ 구현을 각각 독립적인 semantic source of truth로 두지 않고 normative 문서와
 cross-language conformance fixture를 공통 계약으로 사용한다.
+
+Phase 1C.2의 Product authoring process boundary는 [ADR 0006](../adr/0006-studio-product-workflow-boundary.md)이
+소유한다. Sandboxed renderer는 fixed typed preload method만 호출하고 Electron main이 dialog, physical
+path, opaque document/cleanup capability와 orchestration을 소유한다. Main과 CLI는 같은 callable Product
+Compiler workflow를 호출하며 renderer/main에 validation, serialization 또는 atomic transaction을
+복제하지 않는다. 이 좁은 결정은 general graph/interface generated binding, native preview/Engine IPC와
+audio-device process 배치를 정하지 않는다.
 
 ## Graph와 node 경계
 
@@ -166,7 +172,7 @@ Third-party 원본은 가능한 한 수정하지 않는다. Garak naming이나 f
 
 - General graph/interface compiler의 최종 source tree, namespace, package와 build target 수
 - C++ ABI 또는 plugin-internal dynamic library 경계
-- TypeScript/C++ schema generation 및 IPC 방식
+- General TypeScript/C++ schema generation 및 native Engine IPC 방식
 - 구체 dependency, renderer, layout, audio-device와 serialization 구현
 - Node registry/factory API와 built-in node 목록
 - Thread communication primitive
