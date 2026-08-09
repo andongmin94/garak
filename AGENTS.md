@@ -59,11 +59,13 @@ Third-party 원본은 가능한 한 수정하지 않는다. 필요한 변경만 
 - Sound가 달라지는 node implementation은 기존 version을 덮어쓰지 않고 새 version으로 추가한다.
 - `.garak`, preset과 DAW state에는 schema version과 명시적 migration 경계를 둔다. Compiled runtime data는 compatibility를 판정할 contract version을 가지되, 이전 blob을 migrate, rebuild 또는 reject할지는 runtime/export 정책으로 결정한다.
 
-Generated runtime을 제품과 결합하는 방식은 아직 결정되지 않았다. [ADR 0003](docs/adr/0003-generated-plugin-runtime-strategy.md)이 Proposed인 동안 prebuilt runtime 방식이나 thin wrapper 방식을 기본값으로 가정하지 않는다.
+Cross-platform generated runtime 결합 방식은 아직 결정되지 않았다. [ADR 0003](docs/adr/0003-generated-plugin-runtime-strategy.md)은 계속 Proposed이며 Windows 결과를 macOS/AU의 기본값이나 최종안으로 일반화하지 않는다. 단, [ADR 0005](docs/adr/0005-windows-v0x-prebuilt-product-runtime.md)는 Windows x64 VST3와 Garak v0.x에 한정해 prebuilt Product Runtime plus compiled product data 방식을 Accepted로 정한다.
 
 Phase 1A의 `Garak Gain Spike`는 fixed-metadata editorless VST3 adapter spike일 뿐이다. Compiled product data를 prebuilt runtime에 삽입하거나 product별 wrapper를 생성하지 않으므로 ADR 0003의 어느 대안도 구현·선호·채택한 증거로 사용하지 않는다.
 
 Phase 1B는 Windows x64에서만 Alternative A의 same-binary/module-relative-descriptor package와 Alternative B의 product별 thin factory wrapper compile/link를 비교한 private experimental fixture다. A/B 각각 두 제품과 Phase 1A Gain baseline의 five-module coexistence를 검증했지만 이는 product compiler, production compiled data contract 또는 runtime 전략 선택이 아니다. [ADR 0003](docs/adr/0003-generated-plugin-runtime-strategy.md)은 계속 Proposed이며 A/B 어느 쪽도 채택·선호·기본값이 아니다.
+
+Phase 1C.1의 canonical Windows product path는 minimal directory `.garak` project를 headless Product Compiler로 strict validation·inspection·compilation한 뒤 configuration별 prebuilt `Garak Product Runtime v1`과 deterministic `product.garakbin`, product별 `moduleinfo.json`을 결합하는 local-only export다. 이 경로는 product-specific C++ compile/link를 수행하지 않으며 Phase 1B descriptor나 thin-wrapper fixture를 compatibility fallback으로 읽지 않는다. 상세 계약은 [Minimal Garak Product Project](docs/architecture/minimal-garak-product-project.md), [Product Identity Derivation](docs/architecture/product-identity-derivation.md), [Compiled Product Data v1](docs/architecture/compiled-product-data-v1.md)과 [Product State v1](docs/architecture/product-state-v1.md)을 따른다.
 
 ## Realtime audio 규칙
 
@@ -114,9 +116,9 @@ Obsolete 내부 API, pre-release draft, unused adapter와 낡은 실행 경로�
 - 허용 목록은 자동 승인이 아니다. 실제 license text, notice, transitive dependency와 배포 방식을 검토한다.
 - 저장소 자체의 license는 미정이다. 지시와 법률 검토 없이 `LICENSE`를 만들거나 license를 선택하지 않는다.
 
-Steinberg VST3 SDK만 Phase 1A/1B Windows x64 adapter 기술 spike를 위해 exact Git pin으로 도입·검증했으며 [Phase 1A dependency 상태](docs/status/phase-1a-vst3-dependency.md)에 pin과 license 경계를 기록한다. 이 검증은 generated runtime 일반 사용, macOS, 상용 재배포 또는 전체 legal audit의 승인이 아니다. Recursive checkout에 포함된 VSTGUI도 build/link하지 않는다. 그 밖의 audio/plugin/graphics 후보는 계속 미설치·미검증·미승인 상태다.
+Steinberg VST3 SDK만 exact Git pin으로 도입했다. Phase 1A adapter, Phase 1B A/B fixture와 ADR 0005의 Phase 1C.1 Windows x64 v0.x Product Runtime 경계에서 build·validator를 검증했으며 [Phase 1A dependency 상태](docs/status/phase-1a-vst3-dependency.md)에 pin과 license 경계를 기록한다. 이 검증은 macOS/AU, 상용 재배포 또는 전체 legal audit의 승인이 아니다. Recursive checkout에 포함된 VSTGUI도 build/link하지 않는다. 그 밖의 audio/plugin/graphics 후보는 계속 미설치·미검증·미승인 상태다.
 
-Phase 0B Studio scaffold의 exact direct dependency는 [Phase 0B dependency 상태](docs/status/phase-0b-dependencies.md)에 기록한다. Studio dependency는 generated plugin에 전이되지 않는다. 모든 추가 도입은 [Dependency and License Policy](docs/architecture/dependency-policy.md)를 따른다.
+Phase 0B Studio scaffold의 exact direct dependency 16개는 [Phase 0B dependency 상태](docs/status/phase-0b-dependencies.md)에 기록한다. Phase 1C.1 Product Compiler의 runtime third-party dependency는 0이며 development dependency는 저장소의 exact TypeScript quality toolchain을 재사용한다. Studio와 compiler dependency는 generated plugin에 전이되지 않는다. 모든 추가 도입은 [Dependency and License Policy](docs/architecture/dependency-policy.md)를 따른다.
 
 ## 대표 검증 명령
 
@@ -174,6 +176,36 @@ cmake --build --preset runtime-strategy-clang-tidy-build --clean-first
 ```
 
 Alternative A product output은 `out/build/runtime-strategy-{debug|release}/runtime-products/`에 두고, Data Runtime template, Alternative B thin products와 Gain baseline은 같은 build root의 `VST3/{Debug|Release}/`에 둔다. 이 경로 구분이나 Windows PASS를 macOS, AU, DAW, signing/notarization, installer 또는 product compiler 완료로 일반화하지 않는다.
+
+Phase 1C.1의 headless Product Compiler와 Windows Product Runtime v1 대표 재현 명령은 다음과 같다. Native 명령은 Visual Studio x64 Developer Command 환경에서 실행하고 no-native-build evidence script는 미리 build된 tree를 소비하는 일반 PowerShell에서 실행한다. 세부 artifact와 validator 계약은 [VST3 Adapter](docs/architecture/vst3-adapter.md)를 따른다.
+
+```text
+pnpm product:lint
+pnpm product:format:check
+pnpm product:typecheck
+pnpm product:test
+pnpm product:validate --project examples/products/artist-gain-warm.garak
+pnpm product:inspect --project examples/products/artist-gain-bright.garak
+pnpm product:compile --project examples/products/artist-gain-warm.garak --output out/compiled/artist-gain-warm/product.garakbin
+
+cmake --preset product-runtime-debug --fresh
+cmake --build --preset product-runtime-debug-build --clean-first
+pnpm product:export --project examples/products/artist-gain-warm.garak --configuration Debug --output out/exports/phase-1c1/debug --force --validate
+tools\product-compiler\scripts\verify_headless_export_no_build.ps1 -Configuration Debug
+ctest --preset product-runtime-debug-test --no-tests=error
+
+cmake --preset product-runtime-release --fresh
+cmake --build --preset product-runtime-release-build --clean-first
+tools\product-compiler\scripts\verify_headless_export_no_build.ps1 -Configuration Release
+ctest --preset product-runtime-release-test --no-tests=error
+
+cmake --preset product-runtime-werror --fresh
+cmake --build --preset product-runtime-werror-build --clean-first
+cmake --preset product-runtime-clang-tidy --fresh
+cmake --build --preset product-runtime-clang-tidy-build --clean-first
+```
+
+`tools/product-compiler/**`에는 이 root `AGENTS.md`만 적용한다. `native/**`에는 [native instructions](native/AGENTS.md)가 추가 적용되고, `native/adapters/vst3/**`에는 [VST3 adapter instructions](native/adapters/vst3/AGENTS.md)도 적용된다. `studio/**`에는 [Studio instructions](studio/AGENTS.md)가 추가 적용된다.
 
 ## 작업 방식과 저장소 안전
 

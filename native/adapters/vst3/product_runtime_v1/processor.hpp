@@ -1,0 +1,52 @@
+#ifndef GARAK_ADAPTERS_VST3_PRODUCT_RUNTIME_V1_PROCESSOR_HPP_INCLUDED
+#define GARAK_ADAPTERS_VST3_PRODUCT_RUNTIME_V1_PROCESSOR_HPP_INCLUDED
+
+#include "garak/runtime/product_v1/compiled_product.hpp"
+
+#include "public.sdk/source/vst/vstaudioeffect.h"
+
+#include <atomic>
+#include <cstdint>
+
+namespace garak::adapter::vst3::product_runtime_v1 {
+
+class GainProcessor final : public Steinberg::Vst::AudioEffect {
+public:
+  GainProcessor(garak::runtime::product_v1::Identifier product_id, double default_gain_normalized,
+                const garak::runtime::product_v1::Identifier& controller_class_id) noexcept;
+
+  static Steinberg::FUnknown* create_instance(void* context);
+
+  Steinberg::tresult PLUGIN_API initialize(Steinberg::FUnknown* context) override;
+  Steinberg::tresult PLUGIN_API setBusArrangements(Steinberg::Vst::SpeakerArrangement* inputs,
+                                                   Steinberg::int32 input_count,
+                                                   Steinberg::Vst::SpeakerArrangement* outputs,
+                                                   Steinberg::int32 output_count) override;
+  Steinberg::tresult PLUGIN_API
+  canProcessSampleSize(Steinberg::int32 symbolic_sample_size) override;
+  Steinberg::tresult PLUGIN_API setProcessing(Steinberg::TBool state) override;
+  Steinberg::tresult PLUGIN_API process(Steinberg::Vst::ProcessData& data) override;
+  Steinberg::tresult PLUGIN_API setState(Steinberg::IBStream* state) override;
+  Steinberg::tresult PLUGIN_API getState(Steinberg::IBStream* state) override;
+
+private:
+  void apply_pending_state() noexcept;
+  void publish_processed_state(std::uint64_t processing_generation) noexcept;
+  void write_snapshot_non_realtime(std::uint64_t packed_state) noexcept;
+  [[nodiscard]] std::uint64_t read_snapshot_non_realtime() noexcept;
+
+  static_assert(std::atomic<std::uint64_t>::is_always_lock_free);
+
+  garak::runtime::product_v1::Identifier product_id_{};
+  std::atomic<std::uint64_t> pending_state_{};
+  std::atomic<std::uint64_t> pending_generation_{};
+  std::atomic<std::uint64_t> snapshot_state_{};
+  std::atomic<std::uint64_t> snapshot_sequence_{};
+  std::uint64_t applied_generation_{};
+  double current_gain_normalized_{};
+  bool current_bypass_{};
+};
+
+} // namespace garak::adapter::vst3::product_runtime_v1
+
+#endif

@@ -246,8 +246,11 @@ pnpm studio:build
 
 Windows validator와 local hosting test 결과를 위 항목의 통과로 일반화하지 않는다.
 
-## 정확한 다음 작업
+## 후속 milestone 정합화
 
-`Phase 1C — macOS VST3 Runtime Strategy Portability Spike`
-
-Phase 1C는 이번 작업에서 시작하거나 구현하지 않았다.
+Phase 1B 완료 당시의 `Phase 1C — macOS VST3 Runtime Strategy Portability Spike` 제안은 후속 사용자
+지시와 [ExecPlan 0005](../../plans/0005-phase-1c1-product-contracts-and-headless-windows-export.md)에
+따라 superseded됐다. 현재 milestone은 `Phase 1C — Windows Product Creation Vertical Slice`이고,
+Phase 1C.1 headless Windows export 뒤 Phase 1C.2 Studio Product Workspace/Export UX가 이어진다.
+macOS VST3/AU/signing/notarization/실제 DAW 검증은 폐기하지 않고 첫 상용 배포 전 cross-platform
+release gate로 이동했다. 이 변경은 Phase 1B Windows-only PASS나 ADR 0003 Proposed 상태를 바꾸지 않는다.

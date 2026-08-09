@@ -4,15 +4,17 @@ Garak(가락)은 음악가, 프로듀서와 사운드 디자이너가 자신의 
 
 ## 현재 상태
 
-저장소는 Phase 0A 문서 기준선과 Phase 0B buildable scaffold, Phase 1A fixed Gain 기준선을 보존한 채 **Phase 1B — Generated Runtime A/B Comparison**의 Windows x64 기술 spike를 PASS로 완료했다. Debug/Release에서 Alternative A 두 제품, Alternative B 두 제품과 `Garak Gain Spike` 기준선이 다섯 module로 함께 load되며 CTest 5/5를 통과했다. 각 bundle/configuration의 official validator 결과는 standard 47/47, extensive 537/537, warning/failure 0이다.
+저장소는 Phase 0A/0B, Phase 1A와 Phase 1B 기준선을 보존한 채 **Phase 1C.1 — Product Contracts and Headless Windows VST3 Export**를 Windows x64에서 PASS로 완료했다. Phase 1B 기준선은 commit `4203138f13a83e652c04405061fcd2c2ec362c27`이다. Minimal directory `.garak` project 두 개를 strict headless Product Compiler로 deterministic compiled data와 stable identity로 변환하고, configuration별 prebuilt `Garak Product Runtime v1`을 재사용해 `Artist Gain Warm`과 `Artist Gain Bright` VST3를 product-specific C++ compile/link 없이 export한다.
 
-현재 구현은 `0.0.0` version API, Native smoke/test, Sound / Control / Interface / Product placeholder Studio shell, Gain/Bypass와 20-byte state를 가진 고정 `Garak Gain Spike`, 그리고 runtime 결합 전략만 비교하는 private experimental VST3 fixture다. Alternative A는 같은 prebuilt inner binary에 module-relative descriptor를 결합해 compiler/linker 없이 두 product bundle을 package하고, Alternative B는 product별 thin factory wrapper를 각각 compile/link한다. 범용 DSP graph, `.garak`, production compiled runtime data, native IPC, 실제 plugin editor, product compiler와 export pipeline은 아직 없다. 실제 DAW host, macOS VST3, AU, Apple Clang, signing/notarization, installer와 macOS Electron launch도 검증하지 않았다.
+현재 product path는 `product.json` 하나를 가진 최소 directory package, versioned SHA-256 FUID derivation, `Garak Compiled Product Data v1`, product-bound `Garak Product State v1`, four-command Product Compiler와 local-only Windows VST3 export다. Debug/Release CTest 7/7, Warm/Bright official validator standard 47/47·extensive 537/537, repeated export determinism과 immutable build-tree/no-native-build evidence를 통과했다. Studio는 여전히 Phase 0B placeholder shell이며 Phase 1C.2 UX, native IPC, 범용 DSP graph, final single-file `.garak`, 실제 plugin editor와 commercial packaging은 아직 없다.
 
 생성 플러그인의 목표는 Garak Studio가 없는 컴퓨터에서 독립적으로 오프라인 동작하는 white-label native 제품이다. 생성물에는 Electron, Chromium, Node.js 또는 임의의 JavaScript runtime을 넣지 않는다.
 
+macOS VST3/Universal, AU, Apple Clang, representative DAW, Developer ID signing, notarization과 installer는 Windows 개발의 선행 병목이 아니라 첫 상용 배포 전 **Cross-platform release gate**다. 아직 검증하지 않았으며 Windows PASS로 일반화하지 않는다.
+
 ## 빠른 시작
 
-아래 명령은 2026-08-09 Windows x64에서 실제로 통과했다. Native 명령은 Visual Studio x64 Developer Command 환경에서 저장소 루트 기준으로 실행한다. 현재 검증 환경은 MSVC 19.51, CMake 4.3.1과 Ninja 1.13.2다.
+아래 명령은 2026-08-10 Windows x64에서 실제로 통과했다. Native 명령은 Visual Studio x64 Developer Command 환경에서 저장소 루트 기준으로 실행한다. 현재 검증 환경은 Node.js 24.19.0, pnpm 11.16.0, MSVC 19.51, CMake 4.3.1과 Ninja 1.13.2다.
 
 ### Native configure, build, test와 run
 
@@ -47,7 +49,46 @@ pnpm studio:build
 pnpm studio:dev
 ```
 
-`pnpm studio:dev`는 `127.0.0.1:5173`의 local development server와 Studio 창을 계속 실행한다. 종료할 때 `Ctrl+C`를 사용한다. Production build output은 `studio/dist/`와 `studio/dist-electron/`에 생성되며 Git 대상에서 제외된다.
+`pnpm studio:dev`는 `127.0.0.1:5173`의 local development server와 Studio 창을 계속 실행한다. 종료할 때 `Ctrl+C`를 사용한다. Production build output은 `studio/dist/`와 `studio/dist-electron/`에 생성되며 Git 대상에서 제외된다. Studio direct dependency 기준선은 runtime 2개와 development 14개, 합계 16개다.
+
+### Phase 1C.1 Product Compiler와 Windows x64 product export
+
+Product Compiler의 runtime third-party dependency는 0이다. `validate`와 `inspect`는 source를 읽기만 하고, `compile`은 deterministic `product.garakbin`을 만들며, `export`는 미리 build한 Runtime과 validator/inspection tool을 사용한다.
+
+```text
+pnpm product:lint
+pnpm product:format:check
+pnpm product:typecheck
+pnpm product:test
+pnpm product:validate --project examples/products/artist-gain-warm.garak
+pnpm product:inspect --project examples/products/artist-gain-bright.garak
+pnpm product:compile --project examples/products/artist-gain-warm.garak --output out/compiled/artist-gain-warm/product.garakbin
+```
+
+Debug와 Release prebuilt Runtime을 각각 build한 뒤 일반 PowerShell의 evidence runner로 Warm/Bright를 두 번씩 export하고, 그 산출물을 입력으로 CTest를 실행한다. Runner는 native build-tool 호출 0, build input 불변, repeated hash parity와 official validator standard/extensive 결과를 확인한다.
+
+```text
+git submodule update --init --recursive third_party/vst3sdk
+
+cmake --preset product-runtime-debug --fresh
+cmake --build --preset product-runtime-debug-build --clean-first
+pnpm product:export --project examples/products/artist-gain-warm.garak --configuration Debug --output out/exports/phase-1c1/debug --force --validate
+tools\product-compiler\scripts\verify_headless_export_no_build.ps1 -Configuration Debug
+ctest --preset product-runtime-debug-test --no-tests=error
+
+cmake --preset product-runtime-release --fresh
+cmake --build --preset product-runtime-release-build --clean-first
+pnpm product:export --project examples/products/artist-gain-bright.garak --configuration Release --output out/exports/phase-1c1/release --force --validate
+tools\product-compiler\scripts\verify_headless_export_no_build.ps1 -Configuration Release
+ctest --preset product-runtime-release-test --no-tests=error
+
+cmake --preset product-runtime-werror --fresh
+cmake --build --preset product-runtime-werror-build --clean-first
+cmake --preset product-runtime-clang-tidy --fresh
+cmake --build --preset product-runtime-clang-tidy-build --clean-first
+```
+
+Export output은 `out/exports/phase-1c1/{debug|release}/`, no-native-build report는 `out/reports/vst3/product-runtime/`에 있으며 모두 Git 대상에서 제외된다. System/user VST3 directory에는 쓰지 않는다.
 
 ### Phase 1A Windows x64 VST3
 
@@ -178,17 +219,17 @@ tools\vst3\package_data_runtime_variant.ps1 `
 - Native build: CMake, Ninja, Windows의 MSVC, macOS의 Apple Clang
 - JUCE를 사용하지 않음
 - First-party model/API와 third-party SDK/library를 adapter 경계로 분리
-- 기술 검증 순서: Windows x64 VST3 → macOS arm64/x86_64 VST3 → macOS AU
+- 제품 개발 우선순위: Windows x64 VST3 vertical path를 먼저 완성하고 macOS VST3/Universal과 AU는 첫 상용 배포 전 release gate에서 검증
 - 첫 상용 format 목표: Windows VST3, macOS Universal VST3, macOS AU
 
-Steinberg VST3 SDK `v3.8.0_build_66`은 Phase 1A/1B Windows x64 adapter 기술 spike에 한정해 exact pin과 build/validator를 검증했다. 이는 범용 generated runtime, macOS, commercial redistribution 또는 전체 legal audit의 승인이 아니다. VSTGUI는 recursive checkout에만 존재하고 build/link하지 않는다. Skia, CanvasKit, Yoga, XYFlow, miniaudio, KissFFT와 FlatBuffers는 계속 미설치·미검증·미승인 후보다. 상세 경계는 [Phase 1A dependency 상태](docs/status/phase-1a-vst3-dependency.md)에 기록한다.
+Steinberg VST3 SDK `v3.8.0_build_66`은 exact pin으로 Phase 1A adapter, Phase 1B comparison fixture와 Phase 1C.1 Windows x64 Product Runtime에서 build/validator를 검증했다. 이는 macOS/AU, commercial redistribution 또는 전체 legal audit의 승인이 아니다. VSTGUI는 recursive checkout에만 존재하고 build/link하지 않는다. Skia, CanvasKit, Yoga, XYFlow, miniaudio, KissFFT와 FlatBuffers는 계속 미설치·미검증·미승인 후보다. 상세 경계는 [Phase 1A dependency 상태](docs/status/phase-1a-vst3-dependency.md)와 [dependency policy](docs/architecture/dependency-policy.md)에 기록한다.
 
-Generated plugin runtime 결합 방식은 [ADR 0003](docs/adr/0003-generated-plugin-runtime-strategy.md)이 `Proposed`인 동안 미결정이다. 다음 두 대안 중 어느 것도 현재 기본값이나 채택안이 아니다.
+Cross-platform generated plugin runtime 결합 방식은 [ADR 0003](docs/adr/0003-generated-plugin-runtime-strategy.md)이 `Proposed`인 동안 미결정이다. Phase 1B의 다음 두 대안 중 어느 것도 macOS/AU의 기본값이나 최종 채택안이 아니다.
 
 - A: 같은 prebuilt inner binary에 product별 module-relative descriptor와 metadata를 package
 - B: product별 thin native factory wrapper를 compile/link하고 common implementation을 재사용
 
-Phase 1B는 두 대안을 Windows x64의 동일한 Gain behavior와 identity/packaging/validation 기준으로 구현·비교했다. 이 결과는 bounded experimental evidence이며 어느 대안도 채택·선호·기본값으로 만들지 않는다.
+Phase 1B는 두 대안을 Windows x64의 동일한 Gain behavior와 identity/packaging/validation 기준으로 구현·비교했다. 이 bounded evidence를 근거로 [ADR 0005](docs/adr/0005-windows-v0x-prebuilt-product-runtime.md)는 Windows x64 VST3와 Garak v0.x에만 prebuilt Product Runtime plus compiled product data 방식을 Accepted로 정했다. ADR 0003은 계속 Proposed다.
 
 ## 문서 지도
 
@@ -203,6 +244,10 @@ Phase 1B는 두 대안을 Windows x64의 동일한 Gain behavior와 identity/pac
 - [시스템 개요](docs/architecture/system-overview.md)
 - [모듈 경계](docs/architecture/module-boundaries.md)
 - [Project model](docs/architecture/project-model.md)
+- [Minimal Garak Product Project](docs/architecture/minimal-garak-product-project.md)
+- [Product Identity Derivation](docs/architecture/product-identity-derivation.md)
+- [Compiled Product Data v1](docs/architecture/compiled-product-data-v1.md)
+- [Product State v1](docs/architecture/product-state-v1.md)
 - [Runtime과 export](docs/architecture/runtime-and-export.md)
 - [Realtime과 quality](docs/architecture/realtime-and-quality.md)
 - [Parameter와 state](docs/architecture/parameter-and-state.md)
@@ -216,6 +261,7 @@ Phase 1B는 두 대안을 Windows x64의 동일한 Gain behavior와 identity/pac
 - [ADR 0002 — No JUCE and Adapter Boundaries](docs/adr/0002-no-juce-and-adapter-boundaries.md) — Accepted
 - [ADR 0003 — Generated Plugin Runtime Strategy](docs/adr/0003-generated-plugin-runtime-strategy.md) — Proposed
 - [ADR 0004 — Windows, macOS, and Plugin Formats](docs/adr/0004-windows-macos-and-plugin-formats.md) — Accepted
+- [ADR 0005 — Windows v0.x Prebuilt Product Runtime](docs/adr/0005-windows-v0x-prebuilt-product-runtime.md) — Accepted (Windows x64 v0.x scope)
 
 ### 계획과 상태
 
@@ -230,14 +276,17 @@ Phase 1B는 두 대안을 Windows x64의 동일한 Gain behavior와 identity/pac
 - [Phase 1A VST3 dependency](docs/status/phase-1a-vst3-dependency.md)
 - [Phase 1A VST3 validation](docs/status/phase-1a-vst3-validation.md)
 - [Phase 1B ExecPlan](plans/0004-phase-1b-generated-runtime-ab-spike.md)
+- [Phase 1C.1 ExecPlan](plans/0005-phase-1c1-product-contracts-and-headless-windows-export.md)
+- [Phase 1C.1 product fixtures](docs/status/phase-1c1-product-fixtures.md)
+- [Phase 1C.1 headless export validation](docs/status/phase-1c1-headless-export-validation.md)
 
 저장소 작업 규칙과 문서 우선순위는 [AGENTS.md](AGENTS.md)를 따른다.
 
 ## 정확한 다음 milestone
 
-다음 권장 작업은 별도 승인과 ExecPlan이 필요한 **Phase 1C — macOS VST3 Runtime Strategy Portability Spike**다. 이는 Phase 1B의 Windows x64 evidence를 macOS arm64/x86_64에서 재검증하자는 제안일 뿐이며 아직 착수하지 않았다.
+다음 권장 작업은 별도 승인과 ExecPlan이 필요한 **Phase 1C.2 — Garak Studio Product Workspace and Export UX**다. 검증된 headless Product Compiler/export를 Studio Product workspace에서 호출하는 최소 authoring UX이며 아직 착수하지 않았다. 별도 compiler, runtime 또는 renderer-side filesystem 경로를 만들지 않는다.
 
-Phase 1A와 Phase 1B Windows x64 spike만 완료했으며 Phase 1 전체는 아직 미완료다. ADR 0003은 계속 Proposed이고 어느 대안도 채택·선호·기본값이 아니다. macOS VST3, AU, representative DAW, signing/notarization, installer, product compiler와 commercial packaging은 미검증이다.
+Phase 1C의 Windows Product Creation Vertical Slice 가운데 Phase 1C.1만 완료했고 Studio UX인 Phase 1C.2는 미착수다. ADR 0003은 계속 Proposed이고 ADR 0005만 Windows x64 v0.x 범위에서 Accepted다. macOS VST3/Universal, AU, representative DAW, signing/notarization, installer와 commercial packaging은 첫 상용 배포 전 release gate로 미검증 상태다.
 
 ## License
 

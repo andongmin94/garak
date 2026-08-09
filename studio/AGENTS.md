@@ -29,9 +29,12 @@
 
 - UI는 미구현 기능을 작동하는 것처럼 표현하지 않는다. Placeholder에는 현재 phase와
   미구현 상태를 명시한다.
-- Phase 0B에서는 네 workspace shell과 local tab state만 유지한다. File open/save,
-  export, DSP control, native IPC, persistence, routing과 product domain model을 추가하지
-  않는다.
+- 현재 Studio 구현은 Phase 0B의 네 workspace shell과 local tab state만 유지한다. Phase 1C.1의
+  Product Compiler, minimal `.garak` contract와 Windows export는 Studio 밖 headless 경로이며 Studio
+  source, manifest 또는 IPC를 변경하지 않았다.
+- `Phase 1C.2 — Garak Studio Product Workspace and Export UX`는 아직 미착수다. 그 ExecPlan이 승인되기
+  전에는 file open/save, export UI, DSP control, native IPC, persistence, routing과 product domain
+  model을 추가하거나 placeholder가 headless export를 제공하는 것처럼 표시하지 않는다.
 - Plain CSS와 system font를 사용한다. 외부 font, design system, theme system 또는 UI
   framework를 추가하지 않는다.
 - 생성 플러그인에 Studio code, Electron, Chromium, Node.js 또는 JavaScript runtime이
@@ -39,6 +42,9 @@
 
 ## Dependency
 
+- Studio direct dependency 기준선은 runtime 2개와 development 14개, 합계 16개다. Phase 1C.1에서도
+  manifest와 Studio lock importer는 이 기준선을 유지한다. Product Compiler는 별도 workspace package이고
+  runtime third-party dependency가 0이므로 Studio dependency로 계산하거나 renderer에 import하지 않는다.
 - Dependency를 추가하기 전에 기존 package와 type이 요구 능력을 제공하는지 확인한다.
 - 새 dependency의 실제 필요성, maintenance, transitive cost, license와 generated-plugin
   포함 여부를 검토하고 exact version으로 고정한다.

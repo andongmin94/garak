@@ -1,15 +1,18 @@
 # Garak System Overview
 
-- 문서 상태: Phase 0A architecture 기준선
-- 최종 갱신: 2026-08-09
+- 문서 상태: Phase 1C product creation 경로 반영
+- 최종 갱신: 2026-08-10
 - 권위 범위: 전체 시스템 문맥, 최상위 구성 요소와 authoring-to-runtime 흐름
-- 관련 문서: [제품 비전](../product/vision.md), [v0.1 제품 요구사항](../product/v0.1-prd.md), [모듈 경계](module-boundaries.md), [프로젝트 모델](project-model.md), [Runtime과 export](runtime-and-export.md), [Phase 0A ExecPlan](../../plans/0001-phase-0a-repository-foundation.md)
+- 관련 문서: [제품 비전](../product/vision.md), [v0.1 제품 요구사항](../product/v0.1-prd.md), [모듈 경계](module-boundaries.md), [프로젝트 모델](project-model.md), [Runtime과 export](runtime-and-export.md), [Minimal Garak Product Project](minimal-garak-product-project.md), [ADR 0005](../adr/0005-windows-v0x-prebuilt-product-runtime.md)
 
 ## 문서의 역할
 
 이 문서는 Garak이 제품 의도를 편집 가능한 project에서 독립적인 native audio plugin으로 바꾸는 전체 구조를 설명한다. 세부 schema, realtime 규칙, parameter/state 의미, interface scene과 dependency 승인 정책은 각각의 전문 architecture 문서가 권위를 가진다. 이 문서는 그 결정을 중복 정의하지 않고 시스템 수준의 관계와 불변식을 연결한다.
 
-Phase 0A는 specification freeze 단계이다. 여기서 이름을 붙인 구성 요소는 책임을 설명하는 논리적 경계이며, C++ library, TypeScript package, process, executable 또는 배포 단위의 물리 구조를 확정하지 않는다.
+구성 요소 이름은 우선 논리적 책임을 뜻한다. 다만 Phase 1C.1이 정한 Windows x64 VST3 v0.x의
+minimal project, headless Product Compiler, compiled product data와 prebuilt Runtime 경계는 현재의
+구체적 canonical path다. 이 제한된 수직 경로를 아직 미결정인 general graph/UI compiler 또는
+cross-platform package 구조로 일반화하지 않는다.
 
 ## 제품 architecture의 중심 계약
 
@@ -57,9 +60,10 @@ Studio preview는 project의 sound/control/interface 의미를 빠르게 확인�
 
 ### Garak Project Model
 
-Project Model은 `.garak`에 저장되는 제품 의도를 정의한다. Product identity, graph, parameter와 macro, interface scene, preset, asset reference와 metadata가 하나의 versioned aggregate를 이룬다. Physical container, serialization technology와 asset embedding 방식은 아직 정하지 않았다.
+Project Model은 `.garak`에 저장되는 제품 의도를 정의한다. Product identity, graph, parameter와 macro, interface scene, preset, asset reference와 metadata가 하나의 versioned aggregate를 이룬다. Phase 1C.1의 최소 source는 unpacked `.garak` directory 안의 exact `product.json` 하나이며 `garak.gain-v1` 제품 identity, metadata와 default만 표현한다. General graph/interface/preset project의 최종 physical container, serialization technology와 asset embedding 방식은 아직 정하지 않았다.
 
-세부 권위는 [프로젝트 모델](project-model.md)에 있다.
+장기 의미의 세부 권위는 [프로젝트 모델](project-model.md), 현재 최소 physical contract는
+[Minimal Garak Product Project](minimal-garak-product-project.md)에 있다.
 
 ### Garak Compilers
 
@@ -72,7 +76,10 @@ Compiler 책임은 editable model을 검증하고 runtime에서 직접 실행할
 - interface scene와 binding compile
 - preset, asset와 product metadata 검증
 
-Compiler가 Studio process 안에서 실행되는지, 별도 native process인지, 또는 여러 단계로 나뉘는지는 미결정이다.
+Phase 1C.1의 최소 Product Compiler는 Studio와 독립된 headless TypeScript entry point로 strict project
+validation, identity derivation, deterministic `GARAKCPD` v1 compile과 Windows VST3 packaging을
+수행한다. General graph/interface compiler의 언어와 process 배치, 그리고 Studio 연결 방식은 이
+결정으로 확정하지 않는다.
 
 ### Generated Plugin Runtime
 
@@ -88,7 +95,11 @@ Runtime은 authoring 기능이나 `.garak` editor를 포함하지 않는다. 필
 
 ### Product Compiler, Export와 Validation
 
-Product Compiler와 export pipeline은 project validation부터 target plugin package와 검증 결과까지의 재현 가능한 경로를 소유한다. Generated runtime을 제품과 결합하는 구체 전략은 아직 선택하지 않았다. 두 대안과 결정 절차는 [Runtime과 export](runtime-and-export.md) 및 Proposed 상태의 [ADR 0003](../adr/0003-generated-plugin-runtime-strategy.md)에 기록한다.
+Product Compiler와 export pipeline은 project validation부터 target plugin package와 검증 결과까지의
+재현 가능한 경로를 소유한다. Windows x64 VST3 v0.x는 [ADR 0005](../adr/0005-windows-v0x-prebuilt-product-runtime.md)에
+따라 prebuilt Product Runtime과 formal product data를 결합하며 product별 C++ compile/link를 하지
+않는다. Cross-platform/macOS/AU의 장기 결합 전략은 계속 Proposed인
+[ADR 0003](../adr/0003-generated-plugin-runtime-strategy.md)의 권위 아래 미결정이다.
 
 ### Adapters
 
@@ -98,13 +109,14 @@ Adapters는 Garak contract와 plugin format, renderer, layout, audio device, ope
 
 ```text
 Product creator
-  → Garak Studio
-  → versioned .garak project
+  → Garak Studio or headless authoring handoff
+  → versioned unpacked .garak project
   → validation and product compilation
-  → versioned compiled runtime data + metadata/assets/presets
-  → generated-runtime packaging strategy (undecided)
-  → format/platform adapter and package
-  → validator and host checks
+  → versioned GARAKCPD product data + format metadata
+  → Windows v0.x: prebuilt Product Runtime packaging
+  → VST3 adapter and bundle
+  → official validator and first-party inspection
+  → release gate: signing, installation and target DAW checks
   → independent native plugin product
   → DAW and plugin end user
 ```
@@ -123,13 +135,16 @@ Authoring audition은 같은 project 의미를 입력으로 사용하지만 expo
 
 ## 플랫폼과 format 경로
 
-기술 검증 순서는 다음으로 확정되어 있다.
+제품 제작의 현재 milestone 순서는 다음과 같다.
 
-1. Windows x64 VST3
-2. macOS arm64/x86_64 VST3
-3. macOS AU
+1. Phase 1C.1 — Product Contracts and Headless Windows VST3 Export
+2. Phase 1C.2 — Studio Product Workspace and Export UX
+3. 첫 상용 배포 전 cross-platform release gate
 
-첫 상용 v0.1 목표는 Windows VST3, macOS Universal VST3와 macOS AU이다. 검증 순서는 뒤의 format을 v0.1 범위에서 제외한다는 뜻이 아니다. Format 목표와 순서의 결정은 [ADR 0004](../adr/0004-windows-macos-and-plugin-formats.md)가 권위를 가진다.
+Release gate에는 macOS arm64/x86_64 및 Universal VST3, macOS AU, signing/notarization, installer와
+Windows/macOS 실제 DAW 검증이 포함된다. 첫 상용 v0.1 목표는 계속 Windows VST3, macOS Universal VST3와 macOS
+AU이며 macOS/AU를 제거하거나 Windows 결과로 대체하지 않는다. Format 목표의 권위는
+[ADR 0004](../adr/0004-windows-macos-and-plugin-formats.md)에 있다.
 
 ## Reference product가 검증하는 경로
 
@@ -164,9 +179,9 @@ Phase 0A에서는 BLOOM의 DSP algorithm, node 목록, control range/curve 또�
 
 ## 미결정 사항과 필요한 검증
 
-- Product Compiler의 process/language 배치와 Studio 연결 방식
-- `.garak`과 compiled runtime data의 physical container 및 schema technology
-- Generated runtime packaging 대안 A/B 중 선택
+- General graph/interface compiler의 process/language 배치와 Phase 1C.2 Studio 연결 방식
+- Minimal v1 이후 `.garak`과 general compiled runtime data의 physical container 및 schema technology
+- macOS VST3/AU와 장기 cross-platform generated runtime packaging 선택
 - Format adapter SDK와 renderer/layout/audio-device 등 외부 구현의 적합성
 - Preview와 native runtime의 audio/visual parity 측정 방법과 허용 오차
 - 지원 OS/DAW matrix, CPU/latency/memory budget와 accessibility threshold

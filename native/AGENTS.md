@@ -1,7 +1,7 @@
 # Garak Native Instructions
 
 The repository-root `AGENTS.md` applies throughout this directory. These rules add constraints for
-the native build and source tree.
+the native build and source tree. `adapters/vst3/AGENTS.md` adds a third layer below that subtree.
 
 - Use C++20 with CMake and Ninja, without compiler extensions. Keep ownership explicit and prefer
   RAII and value semantics; never introduce a raw owning pointer or call `new` or `delete`
@@ -19,9 +19,12 @@ the native build and source tree.
   a corresponding test.
 - Realtime code follows the root realtime rules and `docs/architecture/realtime-and-quality.md`.
   The current boundary is the private `spikes/gain` kernel, the fixed Phase 1A editorless VST3
-  adapter, and the private Phase 1B `runtime_strategy_spike` comparison fixture. Phase 1B is not a
-  generic runtime or product compiler; do not expand it into graph, project, export, UI, MIDI,
-  sidechain or production packaging APIs without a later approved ExecPlan.
+  adapter, the private Phase 1B `runtime_strategy_spike` comparison fixture, and Phase 1C.1's
+  formal `runtime/product_v1` plus `adapters/vst3/product_runtime_v1` Windows path. Phase 1B is not
+  a generic runtime or product compiler. Phase 1C.1 is limited to the fixed `garak.gain-v1`
+  compiled-data/state contract; do not expand either path into a general graph, UI, MIDI,
+  sidechain, asset, preset, installer or cross-platform packaging API without a later approved
+  ExecPlan.
 - Do not add a third-party native dependency without the repository-level dependency and license
   review.
 
@@ -157,5 +160,39 @@ bundles in each configuration passed official validator standard 47/47 and exten
 with zero warnings or failures. Alternative A outputs are under
 `out/build/runtime-strategy-{debug|release}/runtime-products/`; the template, thin products, and
 Gain baseline are under the corresponding `VST3/{Debug|Release}/` directory. This does not select
-Alternative A or B: ADR 0003 remains Proposed, and macOS, AU, representative DAWs,
-signing/notarization, installers, and the product compiler remain unverified.
+Alternative A or B for cross-platform use: ADR 0003 remains Proposed. Phase 1B itself did not
+verify macOS, AU, representative DAWs, signing/notarization, installers or a production Product
+Compiler.
+
+Run the Phase 1C.1 Windows x64 Product Runtime v1 path after the same exact recursive SDK checkout.
+The aggregate presets preserve the Phase 0, Phase 1A and Phase 1B modules and add the formal
+compiled-product/state Runtime, inspector and seven-module coexistence tests:
+
+```text
+cmake --preset product-runtime-debug --fresh
+cmake --build --preset product-runtime-debug-build --clean-first
+tools\product-compiler\scripts\verify_headless_export_no_build.ps1 -Configuration Debug
+ctest --preset product-runtime-debug-test --no-tests=error
+
+cmake --preset product-runtime-release --fresh
+cmake --build --preset product-runtime-release-build --clean-first
+tools\product-compiler\scripts\verify_headless_export_no_build.ps1 -Configuration Release
+ctest --preset product-runtime-release-test --no-tests=error
+
+cmake --preset product-runtime-werror --fresh
+cmake --build --preset product-runtime-werror-build --clean-first
+cmake --preset product-runtime-clang-tidy --fresh
+cmake --build --preset product-runtime-clang-tidy-build --clean-first
+```
+
+After each Debug or Release build and before CTest, run the export-only evidence from ordinary PowerShell. The
+script exports Warm and Bright twice, admits only the prebuilt `moduleinfotool`, first-party
+inspector and official validator child processes, rejects native build-tool invocation, and proves
+that the input build tree is unchanged.
+
+Final products are under `out/exports/phase-1c1/{debug|release}/`; evidence is under
+`out/reports/vst3/product-runtime/`. Debug/Release CTest 7/7 and Warm/Bright official validator
+standard 47/47 plus extensive 537/537 passed with zero warnings, failures or crashes. This is the
+[ADR 0005](../docs/adr/0005-windows-v0x-prebuilt-product-runtime.md) Windows x64 v0.x path only.
+ADR 0003 remains Proposed, and macOS VST3/Universal, AU, representative DAWs,
+signing/notarization and installers remain a pre-commercial cross-platform release gate.

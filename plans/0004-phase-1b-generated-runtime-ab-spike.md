@@ -700,5 +700,9 @@ Proposed이며 이번 PASS는 A/B 선택, macOS/AU, 실제 DAW, signing/notariza
 
 ## 다음 단계
 
-정확한 다음 작업 제안은 `Phase 1C — macOS VST3 Runtime Strategy Portability Spike` 하나뿐이다.
-이번 plan에서는 이를 구현하지 않는다.
+이 계획을 완료할 당시 제안했던 `Phase 1C — macOS VST3 Runtime Strategy Portability Spike`는
+2026-08-09 사용자 지시와 [ExecPlan 0005](0005-phase-1c1-product-contracts-and-headless-windows-export.md)에
+따라 후속 milestone 지위를 잃고 첫 상용 배포 전 cross-platform release gate로 이동했다. 현재 제품
+순서는 `Phase 1C — Windows Product Creation Vertical Slice`, 그 안의 Phase 1C.1 headless export와
+Phase 1C.2 Studio Product Workspace/Export UX다. 이 정합화는 Phase 1B 결과나 ADR 0003 Proposed 상태를
+소급해 바꾸지 않는다.

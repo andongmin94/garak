@@ -68,3 +68,7 @@ endif()
 if(GARAK_BUILD_RUNTIME_STRATEGY_SPIKE)
   add_subdirectory(runtime_strategy_spike)
 endif()
+
+if(GARAK_BUILD_PRODUCT_RUNTIME_V1)
+  add_subdirectory(product_runtime_v1)
+endif()

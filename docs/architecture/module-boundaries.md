@@ -1,13 +1,13 @@
 # Garak Module Boundaries
 
-- 문서 상태: Phase 0A architecture 기준선
-- 최종 갱신: 2026-08-09
+- 문서 상태: Phase 1C product creation 경계 반영
+- 최종 갱신: 2026-08-10
 - 권위 범위: first-party 책임, dependency direction, public contract와 third-party adapter 경계
-- 관련 문서: [시스템 개요](system-overview.md), [프로젝트 모델](project-model.md), [Runtime과 export](runtime-and-export.md), [의존성 정책](dependency-policy.md), [ADR 0002](../adr/0002-no-juce-and-adapter-boundaries.md)
+- 관련 문서: [시스템 개요](system-overview.md), [프로젝트 모델](project-model.md), [Runtime과 export](runtime-and-export.md), [의존성 정책](dependency-policy.md), [Product Identity Derivation](product-identity-derivation.md), [Compiled Product Data v1](compiled-product-data-v1.md), [Product State v1](product-state-v1.md), [ADR 0002](../adr/0002-no-juce-and-adapter-boundaries.md), [ADR 0005](../adr/0005-windows-v0x-prebuilt-product-runtime.md)
 
 ## 문서의 역할
 
-이 문서는 Garak이 직접 소유해야 하는 capability를 나누고 각 경계를 통해 어떤 의미만 오갈 수 있는지 정의한다. 표의 이름은 논리적 module responsibility이다. Phase 0B의 실제 directory, CMake target, TypeScript package, process 또는 ABI를 미리 확정하지 않는다.
+이 문서는 Garak이 직접 소유해야 하는 capability를 나누고 각 경계를 통해 어떤 의미만 오갈 수 있는지 정의한다. 표의 이름은 논리적 module responsibility이다. Phase 1C.1에서 실제 TypeScript Product Compiler와 C++ Product Runtime으로 구현되는 항목도 그 물리 target을 모든 후속 compiler/runtime의 영구 배치로 일반화하지 않는다.
 
 Dependency 선택과 license 승인 절차는 [의존성 정책](dependency-policy.md)이 권위를 가진다. 이 문서는 어떤 external implementation을 선택하더라도 지켜야 하는 architecture 격리 규칙을 정의한다.
 
@@ -25,16 +25,16 @@ Dependency 선택과 license 승인 절차는 [의존성 정책](dependency-poli
 | 논리적 책임 | 소유하는 것 | 소유하지 않는 것 |
 | --- | --- | --- |
 | Studio Authoring | Sound/Control/Interface/Product workflow, editing command와 사용자 진단 표현 | Native plugin runtime, third-party 타입을 포함한 영속 제품 계약 |
-| Project Model | `.garak` semantic model, schema version, identity/reference와 project migration | DSP 실행, host format object, physical serialization library API |
+| Project Model | `.garak` semantic model, schema version, identity/reference와 project migration; Phase 1C.1 minimal unpacked directory 계약 | DSP 실행, host format object, third-party serialization library API |
 | DSP Graph Model | Node instance, typed port, connection과 graph validity 의미 | Renderer interaction model, host process buffer 타입 |
 | DSP Node Contract | `NodeDescriptor`에 해당하는 first-party descriptor, node configuration와 implementation version contract | Third-party DSP object를 public node contract로 노출하는 것 |
 | Graph Compiler | Graph validation, execution ordering, buffer planning와 latency propagation | Audio-device I/O, plugin package 생성 |
 | Parameter and Macro | Public/internal parameter, macro mapping, automation normalization와 smoothing contract | Host SDK parameter object |
 | State and Preset | Default, preset, DAW/plugin state schema와 migration | `.garak` 전체 project migration, format SDK stream 타입 |
 | Interface Scene | Scene tree, style, layout intent, reusable control와 binding 의미 | 특정 renderer canvas, layout-node 또는 Studio DOM 타입 |
-| Product Compiler | Project의 여러 domain을 일관된 compiled product definition으로 변환 | Target package 설치와 host-specific registration 자체 |
-| Native Runtime | Compiled schedule, parameter/state와 native interface 실행 | Authoring editor와 `.garak` mutation |
-| Export and Validation | Target 선택, packaging orchestration, validator/host result 수집과 설명 | Format SDK 타입을 core compiler에 누출하는 것 |
+| Product Compiler | Strict project validation, identity derivation과 deterministic compiled product definition 생성 | Native host lifecycle; Windows v0.x에서 product별 C++ source generation/compile/link |
+| Native Runtime | Validated compiled definition, parameter/state와 native interface 실행 | Authoring editor, `.garak` mutation과 Phase 1B descriptor fallback |
+| Export and Validation | Target 선택, Windows v0.x prebuilt Runtime packaging, atomic output, validator/inspector result 수집과 설명 | Format SDK 타입을 core compiler에 누출하는 것 |
 | Adapters | External API와 Garak public contract 사이 변환 | Product semantics와 장기 identity 정책 결정 |
 
 `Project Model`, `Graph Compiler` 같은 명칭은 별도 binary를 의미하지 않는다. 한 물리 target에 여러 책임을 둘 수 있지만 dependency rule과 테스트 가능한 seam은 보존해야 한다.
@@ -67,9 +67,11 @@ third-party or platform API → adapter implementation only
 
 ### Format adapter
 
-DAW host의 process, parameter, state, editor와 lifecycle 호출을 Garak runtime contract로 변환한다. Format-specific class registration, stream, string, event와 bus 타입은 adapter 내부에 머문다. Product/plugin identity를 format representation으로 인코딩하는 방식은 adapter가 수행하지만 identity 자체의 정책은 [프로젝트 모델](project-model.md)이 소유한다.
+DAW host의 process, parameter, state, editor와 lifecycle 호출을 Garak runtime contract로 변환한다. Format-specific class registration, stream, string, event와 bus 타입은 adapter 내부에 머문다. Product/plugin identity를 format representation으로 인코딩하는 방식은 adapter가 수행하지만 identity 자체의 정책은 [프로젝트 모델](project-model.md)과 [Product Identity Derivation](product-identity-derivation.md)이 소유한다.
 
-VST3 output은 확정 목표지만 특정 SDK 채택은 아직 검증되지 않았다. 목표 format과 그 구현 후보를 같은 결정으로 취급하지 않는다.
+Windows x64 VST3 adapter에는 Phase 1A에서 admission한 exact Steinberg SDK pin만 사용한다. 이 제한된
+admission을 macOS/AU, generated Runtime의 다른 dependency 또는 commercial redistribution 승인으로
+일반화하지 않는다.
 
 ### Rendering adapter
 
@@ -99,7 +101,12 @@ Studio는 TypeScript이고 Native Engine은 C++20이므로 다음 의미가 언�
 - compiled runtime data compatibility
 - diagnostic의 stable category와 source location
 
-이를 JSON, generated bindings, binary schema, IPC 또는 native process 중 무엇으로 연결할지는 미결정이다. Phase 0A에서 TypeScript model과 C++ model을 독립적인 진실로 중복 정의하거나 특정 schema library를 전제하지 않는다. [프로젝트 모델](project-model.md)이 language-neutral semantic source이고 physical representation은 후속 spike에서 정한다.
+Phase 1C.1의 최소 경로는 strict `product.json`을 읽는 headless TypeScript compiler가 first-party
+`GARAKCPD` v1 bytes를 만들고 C++ Runtime이 같은 normative layout을 byte-wise 검증하는 경계다.
+Product ID에서 processor/controller FUID를 양쪽이 독립적으로 derive해 stored bytes를 대조한다.
+이 선택은 general graph/interface model의 generated bindings, IPC 또는 native compiler 배치를 정하지
+않는다. TypeScript와 C++ 구현을 각각 독립적인 semantic source of truth로 두지 않고 normative 문서와
+cross-language conformance fixture를 공통 계약으로 사용한다.
 
 ## Graph와 node 경계
 
@@ -118,13 +125,19 @@ Project는 node type과 implementation version을 함께 참조한다. 소리가
 
 Compiler는 편집 가능한 graph와 mapping을 검증한 뒤 runtime에서 구조 변경 없이 실행 가능한 schedule, buffer plan, latency와 precomputed mapping으로 낮춘다. Runtime은 compiled definition을 소비하며 `.garak` graph를 audio callback에서 해석하거나 변경하지 않는다.
 
-Compiled data의 구체 schema와 Runtime ABI는 미결정이다. 다만 서로 호환되지 않는 compiler/runtime 조합을 감지하고 설명 가능한 오류로 거부할 수 있어야 한다. Runtime artifact의 version contract는 [Runtime과 export](runtime-and-export.md)가 소유한다.
+Phase 1C.1의 `garak.gain-v1` subset은 [Compiled Product Data v1](compiled-product-data-v1.md)의 exact
+`GARAKCPD` layout을 사용한다. Runtime은 loaded module-relative resource를 bounded, byte-wise,
+validate-then-commit 방식으로 읽고 version, identity, metadata와 exact parameter table이 맞지 않으면
+factory 공개 전에 fail closed한다. Phase 1B의 11-line ASCII descriptor는 별도 regression fixture이며
+새 Runtime schema 또는 compatibility input이 아니다. General graph schedule와 Runtime ABI는 계속
+미결정이고 version contract의 상위 권위는 [Runtime과 export](runtime-and-export.md)가 가진다.
 
 ## Parameter, state와 UI 경계
 
 - Host automation은 format adapter가 first-party parameter identity와 value representation으로 변환한다.
 - Macro mapping과 smoothing은 미리 compile하여 runtime에 전달한다.
-- Preset/DAW state parsing과 migration은 audio callback 밖에서 수행한다.
+- Preset/DAW state parsing과 migration은 audio callback 밖에서 수행한다. Phase 1C.1 Product Runtime은
+  Product ID에 bind된 exact [Product State v1](product-state-v1.md) snapshot만 validate-then-commit한다.
 - Interface control은 stable parameter 또는 macro binding을 사용하며 renderer object를 직접 참조하지 않는다.
 - Meter 전달은 GUI가 audio process callback을 직접 호출하지 않는 bounded non-blocking 경계를 사용해야 한다. 구체 primitive는 미정이다.
 
@@ -149,9 +162,9 @@ Audio callback에서는 exception을 경계 밖으로 전파하거나 파일 로
 
 Third-party 원본은 가능한 한 수정하지 않는다. Garak naming이나 formatting에 맞추기 위한 대규모 변경을 하지 않으며, 필요한 수정은 작고 검토 가능한 patch set으로 격리한다. Fork 또는 patch가 adapter 경계를 우회해 external type을 core API에 노출할 근거가 되지 않는다.
 
-## Phase 0A에서 정하지 않는 것
+## 현재 경로가 정하지 않는 것
 
-- 실제 source tree, namespace, package와 build target 수
+- General graph/interface compiler의 최종 source tree, namespace, package와 build target 수
 - C++ ABI 또는 plugin-internal dynamic library 경계
 - TypeScript/C++ schema generation 및 IPC 방식
 - 구체 dependency, renderer, layout, audio-device와 serialization 구현

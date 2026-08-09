@@ -2,20 +2,23 @@
 
 - Status: Proposed
 - Date: 2026-08-09
-- 관련 문서: [Runtime과 export](../architecture/runtime-and-export.md), [프로젝트 모델](../architecture/project-model.md), [시스템 개요](../architecture/system-overview.md), [v0.1 제품 요구사항](../product/v0.1-prd.md), [VST3 Adapter](../architecture/vst3-adapter.md), [Phase 1A VST3 Identity](../status/phase-1a-vst3-identity.md), [Phase 1B VST3 Product Identities](../status/phase-1b-vst3-identities.md), [Phase 1B Runtime Strategy Artifacts](../status/phase-1b-runtime-strategy-artifacts.md), [ADR 0004](0004-windows-macos-and-plugin-formats.md)
+- 관련 문서: [Runtime과 export](../architecture/runtime-and-export.md), [프로젝트 모델](../architecture/project-model.md), [시스템 개요](../architecture/system-overview.md), [v0.1 제품 요구사항](../product/v0.1-prd.md), [VST3 Adapter](../architecture/vst3-adapter.md), [Phase 1A VST3 Identity](../status/phase-1a-vst3-identity.md), [Phase 1B VST3 Product Identities](../status/phase-1b-vst3-identities.md), [Phase 1B Runtime Strategy Artifacts](../status/phase-1b-runtime-strategy-artifacts.md), [ADR 0004](0004-windows-macos-and-plugin-formats.md), [ADR 0005](0005-windows-v0x-prebuilt-product-runtime.md), [Compiled Product Data v1](../architecture/compiled-product-data-v1.md), [Product State v1](../architecture/product-state-v1.md)
 
 ## Context
 
 Garak이 생성한 plugin은 Studio가 없는 컴퓨터에서 독립적으로 오프라인 동작해야 한다. Product별 영구 identity, compiled DSP/control/interface definition, preset, asset와 metadata를 포함하되 Electron, Chromium, Node.js 또는 임의의 JavaScript runtime을 포함하지 않아야 한다.
 
-Editable `.garak` project는 source of truth이고 compiled runtime data는 versioned derived artifact이다. Export는 이 data와 native Garak Runtime을 target plugin package로 결합해야 한다. Phase 1A는 fixed editorless module에서 VST3 class registration, Windows bundle과 official validator의 최소 format 경계를 확인했다. Phase 1B는 Windows x64의 같은 Gain/state contract로 prebuilt data runtime과 product-specific thin wrapper를 실제 구현해 identity, side-by-side load, package-only reproduction, validator와 artifact delta를 비교했다. 그러나 `.garak` compiled product data, production export, code signing과 macOS notarization은 확인하지 않았으므로 runtime 결합 전략을 장기 결정할 근거는 여전히 부족하다. Format-neutral runtime contract와 export 단계는 [Runtime과 export](../architecture/runtime-and-export.md)가 정의한다.
+Editable `.garak` project는 source of truth이고 compiled runtime data는 versioned derived artifact이다. Export는 이 data와 native Garak Runtime을 target plugin package로 결합해야 한다. Phase 1A는 fixed editorless module에서 VST3 class registration, Windows bundle과 official validator의 최소 format 경계를 확인했다. Phase 1B는 Windows x64의 같은 Gain/state contract로 prebuilt data runtime과 product-specific thin wrapper를 실제 구현해 identity, side-by-side load, package-only reproduction, validator와 artifact delta를 비교했다.
+
+그 비교 뒤 [ADR 0005](0005-windows-v0x-prebuilt-product-runtime.md)는 Windows x64 VST3의 v0.x 제품 제작 경로에 한해서 Alternative A를 Accepted로 정했다. 이는 이 ADR의 cross-platform 결정을 대신하지 않는다. macOS VST3, AU, Universal packaging, signing/notarization, installer와 상용 배포 전 DAW 검증에는 아직 같은 선택 근거가 없으므로 이 ADR은 계속 `Proposed`다. Format-neutral 장기 계약과 export 단계는 [Runtime과 export](../architecture/runtime-and-export.md)가 정의한다.
 
 ## Proposal
 
 Phase 1A의 공통 Windows x64 VST3 format baseline 위에서 아래 두 대안을 같은 최소 reference
-plugin과 수용 기준으로 구현·비교한다. Phase 1B Windows spike는 이 비교 evidence를 만들었지만
-전략 선택에 필요한 cross-platform, signing/export와 legal evidence는 남아 있다. 현재 어느 대안도
-채택안, 선호안 또는 임시 기본값이 아니다.
+plugin과 수용 기준으로 구현·비교한다. Phase 1B Windows spike는 이 비교 evidence를 만들었다.
+Windows x64 VST3 v0.x에는 ADR 0005의 제한된 선택을 적용하지만, cross-platform, macOS/AU,
+signing/notarization과 commercial redistribution 범위에서는 어느 대안도 채택안, 선호안 또는 임시
+기본값이 아니다.
 
 ### Phase 1A 관찰
 
@@ -63,8 +66,25 @@ JavaScript runtime와 VSTGUI가 없다. Exact hash와 size는
 
 이 관찰은 data-driven factory와 thin wrapper가 모두 최소 Windows contract를 만족할 수 있음을
 보인다. Code signing, signed artifact mutation, macOS module-relative resource lookup, Universal
-binary, notarization, AU, production compiled data와 export UX는 검증하지 않았다. 따라서 어느
-대안에도 우선순위나 기본값을 부여하지 않는다.
+binary, notarization, AU, production compiled data와 export UX는 검증하지 않았다. Phase 1B 관찰만으로는
+어느 대안에도 우선순위나 기본값을 부여하지 않았다.
+
+### Windows v0.x의 제한된 후속 결정
+
+ADR 0005는 Phase 1B 결과를 근거로 Windows x64 VST3 v0.x에서 prebuilt Runtime plus product data를
+선택했다. Phase 1C.1은 Phase 1B의 11-line ASCII descriptor를 이름만 바꾸어 재사용하지 않고 다음
+별도 first-party 계약을 사용한다.
+
+- unpacked `.garak` directory와 strict `product.json` source
+- deterministic product/FUID derivation
+- `Contents/Resources/product.garakbin`의 `GARAKCPD` v1 compiled data
+- Product ID에 bind된 exact `GARAKPST` v1 DAW/plugin state
+- Studio와 독립된 headless compiler/export 경계
+
+Phase 1B Data Runtime, descriptor와 Alternative B thin wrapper는 regression/reference evidence로
+보존한다. 새 Product Runtime은 descriptor를 읽거나 compiled-data failure를 이전 경로로 fallback하지
+않는다. 이 local decision은 macOS VST3/AU나 장기 cross-platform packaging 선택을 암묵적으로 승인하지
+않는다.
 
 ### Alternative A — Prebuilt Garak Runtime plus Product Data
 
@@ -150,17 +170,23 @@ Compiled runtime data 모델보다 훨씬 큰 code-generation surface를 도입�
 
 비용과 리스크:
 
-- Product compiler와 export architecture는 선택 전까지 A/B 모두를 허용하는 contract 수준에 머물러야 한다.
+- Cross-platform Product Compiler와 export architecture는 장기 선택 전까지 A/B 모두를 평가할 수 있는
+  first-party contract를 유지해야 한다. Windows x64 VST3 v0.x의 canonical export는 ADR 0005를 따른다.
 - 같은 reference plugin을 두 방식과 두 configuration으로 계속 검증하는 비용이 든다.
-- Windows spike의 physical layout과 linking evidence는 생겼지만 production runtime/data container,
-  wrapper generator, signing 순서와 cross-platform layout은 미결정으로 남는다.
+- Windows spike의 physical layout과 linking evidence는 생겼고 Phase 1C.1 minimal data contract가
+  정해졌지만 general/cross-platform runtime data, wrapper 역할, signing 순서와 package layout은
+  미결정으로 남는다.
 - 다른 architecture 문서나 Phase 계획이 한 대안을 전제로 작성되면 Proposed 상태와 충돌한다.
 
 ## Follow-up and Validation
 
 Phase 1B Windows spike는 Phase 1A가 확립한 VST3 format baseline에서 두 대안을 같은 editorless
-Gain/Bypass/state reference로 비교했다. 다음 validation은 이 결과를 선택으로 승격하는 것이 아니라
-아직 없는 production/cross-platform evidence를 채우는 단계다.
+Gain/Bypass/state reference로 비교했다. Phase 1C.1은 Windows v0.x에 한정된 ADR 0005 결정 위에서
+formal project/compiled-data/state contract와 headless export를 만든다. 그 다음 제품 milestone은 이
+검증된 headless 경로를 호출하는 **Phase 1C.2 — Studio Product Workspace and Export UX**다.
+
+Cross-platform evidence는 현재 Windows 제품 제작을 멈추는 선행 milestone이 아니라 첫 상용 배포 전
+release gate다. 그 gate는 이 ADR의 장기 결정을 위해 아직 없는 다음 evidence를 채운다.
 
 두 대안에 동일하게 요구할 증거:
 
@@ -176,17 +202,17 @@ Gain/Bypass/state reference로 비교했다. 다음 validation은 이 결과를 
 - Dependency license, notice와 Garak Runtime 재배포 조건 검토
 
 Evidence는 tool/SDK version, 재현 명령, package 구조, validator output과 실패를 기록해야 한다.
-다음 단계는 최소한 macOS arm64/x86_64와 Universal VST3, module-relative data lookup, signing과
-notarization, package-only/export reproducibility, production compiled-data schema와 corruption/version
-failure, dependency redistribution/legal scope를 같은 기준으로 비교한다. Alternative B에는 export
-toolchain 공급/caching/diagnostic evidence, Alternative A에는 signed artifact staging과 resource
-integrity evidence가 추가로 필요하다.
+첫 상용 배포 전 cross-platform release gate는 최소한 macOS arm64/x86_64와 Universal VST3,
+module-relative data lookup, AU, signing/notarization, installer, 실제 DAW, dependency
+redistribution/legal scope를 같은 기준으로 비교한다. Alternative B에는 export toolchain
+공급/caching/diagnostic evidence, Alternative A에는 signed artifact staging과 resource integrity
+evidence가 추가로 필요하다.
 
 한 대안이 Windows에서 작거나 먼저 package됐다는 이유만으로 선택하지 않는다. 필요한 evidence와
 제품 요구 trade-off를 결정한 뒤 이 ADR을 `Accepted`로 갱신하거나 선택을 기록한 후속 ADR로
 `Superseded`한다. 둘 다 수용 기준을 만족하지 못하면 실패를 숨기지 않고 새 대안을 `Proposed`로
 기록한다.
 
-Phase 1B는 Windows x64 A/B prototype, product packaging과 비교 evidence를 만들었지만 macOS,
-signing/notarization, production `.garak` export와 legal acceptance를 만들지 않았다. 따라서 이 ADR은
-계속 `Proposed`이며 runtime packaging 전략은 미결정이다.
+ADR 0005가 Windows x64 VST3 v0.x의 packaging 경로를 정했어도 macOS, AU, Universal packaging,
+signing/notarization, installer, 실제 DAW와 commercial redistribution 결론은 만들지 않는다. 따라서
+이 ADR은 계속 `Proposed`이며 그 cross-platform runtime packaging 전략은 미결정이다.

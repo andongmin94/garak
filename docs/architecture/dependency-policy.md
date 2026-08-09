@@ -1,14 +1,17 @@
 # Dependency and License Policy
 
-- 상태: Phase 1A Windows VST3 admission과 Phase 1B A/B dependency evidence 반영
+- 상태: Phase 1A/1B evidence와 Phase 1C Windows product 경계 반영
 - 권위: dependency 도입, 후보 상태, adapter, third-party source와 license 검토
-- 관련 문서: [v0.1 PRD](../product/v0.1-prd.md), [Realtime and Quality](realtime-and-quality.md), [Interface Designer](interface-designer.md), [VST3 Adapter](vst3-adapter.md), [Phase 1A VST3 Dependency](../status/phase-1a-vst3-dependency.md), [Phase 1B Runtime Strategy Artifacts](../status/phase-1b-runtime-strategy-artifacts.md)
+- 관련 문서: [v0.1 PRD](../product/v0.1-prd.md), [Realtime and Quality](realtime-and-quality.md), [Interface Designer](interface-designer.md), [VST3 Adapter](vst3-adapter.md), [Compiled Product Data v1](compiled-product-data-v1.md), [Phase 1A VST3 Dependency](../status/phase-1a-vst3-dependency.md), [Phase 1B Runtime Strategy Artifacts](../status/phase-1b-runtime-strategy-artifacts.md), [ADR 0005](../adr/0005-windows-v0x-prebuilt-product-runtime.md)
 
 ## 목적과 현재 상태
 
-잘 유지되는 library가 전체 복잡성과 위험을 줄이면 활용하되 `.garak`, graph/runtime, parameter/state, scene와 export contract는 Garak이 소유한다. Phase 0A에서는 외부 SDK/library를 다운로드, 설치 또는 통합하지 않았다. Phase 1A에서는 공식 Steinberg VST3 SDK의 exact tag `v3.8.0_build_66`, superproject commit `9fad9770f2ae8542ab1a548a68c1ad1ac690abe0`을 recursive Git submodule로 고정하고 Windows x64의 고정 editorless VST3 adapter 범위에서 checkout, Debug/Release build와 official validator를 검증했다. Phase 1B는 이 exact checkout과 기존 first-party Gain implementation만 사용해 runtime packaging A/B를 비교했으며 dependency를 추가하지 않았다.
+잘 유지되는 library가 전체 복잡성과 위험을 줄이면 활용하되 `.garak`, graph/runtime, parameter/state, scene와 export contract는 Garak이 소유한다. Phase 0A에서는 외부 SDK/library를 다운로드, 설치 또는 통합하지 않았다. Phase 1A에서는 공식 Steinberg VST3 SDK의 exact tag `v3.8.0_build_66`, superproject commit `9fad9770f2ae8542ab1a548a68c1ad1ac690abe0`을 recursive Git submodule로 고정하고 Windows x64의 고정 editorless VST3 adapter 범위에서 checkout, Debug/Release build와 official validator를 검증했다. Phase 1B는 이 exact checkout과 기존 first-party Gain implementation만 사용해 runtime packaging A/B를 비교했으며 dependency를 추가하지 않았다. ADR 0005는 같은 admitted SDK 경계 위에서 Windows x64 VST3 v0.x의 prebuilt Product Runtime을 선택하지만 새 serialization dependency를 채택하지 않는다.
 
-이 admission과 Phase 1B evidence는 Windows 기술 spike에만 한정된다. VSTGUI는 recursive checkout에는 존재하지만 build/link하지 않는다. macOS, production generated runtime 채택, commercial distribution, trademark/notice와 전체 transitive legal audit는 승인하거나 완료하지 않았다.
+Phase 1A/1B evidence와 ADR 0005의 선택은 Windows x64 VST3 범위에만 한정된다. VSTGUI는 recursive
+checkout에는 존재하지만 build/link하지 않는다. macOS VST3/AU, signing/notarization, installer,
+실제 DAW release matrix, commercial distribution, trademark/notice와 전체 transitive legal audit는
+승인하거나 완료하지 않았다.
 
 상태 용어:
 
@@ -36,7 +39,7 @@ scope는 Phase 1A dependency 상태 문서에 기록한다.
 
 | 후보 | 검토 capability | 현재 상태 |
 | --- | --- | --- |
-| Steinberg VST3 SDK | VST3 format adapter | Phase 1A admission; 같은 exact pin으로 Phase 1B Windows A/B build/validator 검증 |
+| Steinberg VST3 SDK | VST3 format adapter | Phase 1A admission; 같은 exact pin으로 Phase 1B Windows A/B evidence 및 ADR 0005의 Windows v0.x Product Runtime 경계 |
 | Skia | generated native UI rendering | 미설치·미검증·미승인 |
 | CanvasKit | Studio interface preview rendering | 미설치·미검증·미승인 |
 | Yoga | layout calculation adapter | 미설치·미검증·미승인 |
@@ -84,8 +87,10 @@ manifest와 lockfile의 exact direct dependency 16개는 기능적으로 바뀌�
 Alternative A는 configuration별 prebuilt template binary를 Data Alpha/Beta에 byte-for-byte 복사하고
 first-party descriptor와 generated moduleinfo만 추가한다. Product package-only 단계는 compiler/linker를
 호출하지 않는다. Alternative B는 각 product wrapper와 static common implementation을 same SDK targets에
-link한다. 두 방식 모두 SDK redistribution/legal 의무를 제거하지 않으며 어느 방식도 production
-dependency admission의 선호안 또는 기본값이 아니다.
+link한다. Phase 1B evidence만으로는 어느 방식도 기본값이 아니었고 두 방식 모두 SDK
+redistribution/legal 의무를 제거하지 않는다. 이후 ADR 0005가 Alternative A를 Windows x64 VST3 v0.x의
+product path로만 선택했으며 macOS/AU 또는 commercial redistribution dependency admission으로
+일반화하지 않는다.
 
 Repository 자체 license는 계속 미정이며 top-level `LICENSE`를 만들지 않았다. SDK superproject와
 nested license/notice inventory는 [third-party dependency manifest](../../third_party/dependencies.yml)에
@@ -93,6 +98,23 @@ nested license/notice inventory는 [third-party dependency manifest](../../third
 남아 있다. Commercial redistribution notice, Steinberg trademark, generated product notice 제공 방식과
 전체 transitive legal review는 unresolved다. Phase 1B validator와 binary evidence를 법률 승인으로
 해석하지 않는다.
+
+### Phase 1C.1 Product Compiler와 Runtime dependency 경계
+
+- Editable project, FUID derivation, `GARAKCPD`와 `GARAKPST`는 first-party contract다.
+- Headless Product Compiler는 Node.js built-in file, path, crypto와 text facilities로 strict validation,
+  SHA-256 derivation, binary emission과 package staging을 수행한다. Generated plugin에는 Node.js 또는
+  compiler code가 전이되지 않는다.
+- Fixed binary layout은 raw byte encoding/decoding으로 충분하므로 FlatBuffers 또는 다른 serialization
+  package를 도입하지 않는다. FlatBuffers는 계속 미설치·미검증·미승인 후보다.
+- Windows Product Runtime은 Phase 1A에서 admission한 exact VST3 SDK pin과 first-party C++20 code만
+  plugin link 경계에 둔다. `moduleinfotool`, inspector와 validator hosting code는 build/export/test
+  tool이며 generated product module dependency가 아니다.
+- Phase 1B ASCII descriptor와 Thin wrapper는 regression/reference target이다. 새 Runtime이 이를
+  compatibility parser, fallback 또는 transitive production path로 포함하지 않는다.
+
+이 경계는 Phase 1C.1 검증 결과를 미리 PASS로 선언하지 않는다. Exact compiler manifest, binary import,
+SDK pin, bundle content와 validator evidence는 구현 검증 및 status 문서에서 별도로 기록한다.
 
 ## First-party 경계와 Adapter 규칙
 
@@ -161,7 +183,9 @@ File-level copyleft, 수정 source, relinking, static/dynamic linking과 배포 
 
 예외를 암묵적으로 만들지 않고 필요하면 사업·법률 영향과 대안을 먼저 결정한다.
 
-저장소 license, Studio license와 generated Runtime redistribution permission은 미결정이다. Phase 0A에서 `LICENSE`를 만들지 않으며 제품 정책 가설을 법적 허가로 표현하지 않는다.
+저장소 license, Studio license와 generated Runtime redistribution permission은 미결정이다. 사용자
+지시와 법률 검토 없이 top-level `LICENSE`를 만들지 않으며 제품 정책 가설을 법적 허가로 표현하지
+않는다.
 
 ## 배포 경계와 third-party source
 
@@ -189,8 +213,8 @@ vendor 방식, package manager와 공통 SBOM/checksum/signature/scanner 정책�
 
 ## 현재 미결정과 Open Questions
 
-Phase 0A에서는 dependency를 도입하지 않았다. Phase 1A/1B는 위 exact VST3 SDK와 Windows 기술
-spike 범위만 해결했으며 다음 질문을 일반화해 결정하지 않았다.
+Phase 1A/1B와 ADR 0005는 위 exact VST3 SDK 및 Windows x64 VST3 v0.x 경계만 해결했으며 다음 질문을
+일반화해 결정하지 않았다.
 
 - 후속 native dependency의 공통 acquisition과 update 정책은 무엇인가?
 - Source/binary integrity와 generated package dependency budget은 얼마인가?

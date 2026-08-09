@@ -7,6 +7,21 @@ garak_apply_clang_tidy(garak_version_tests)
 
 add_test(NAME garak_version_tests COMMAND garak_version_tests)
 
+if(GARAK_BUILD_PRODUCT_RUNTIME_V1)
+  add_executable(
+    garak_product_v1_contract_tests
+    product_v1_contract_tests.cpp
+    product_v1_test_fixtures.hpp
+  )
+  target_link_libraries(
+    garak_product_v1_contract_tests
+    PRIVATE garak::product_contract_v1
+  )
+  garak_apply_warnings(garak_product_v1_contract_tests)
+  garak_apply_clang_tidy(garak_product_v1_contract_tests)
+  add_test(NAME garak_product_v1_contract_tests COMMAND garak_product_v1_contract_tests)
+endif()
+
 if(GARAK_BUILD_VST3_GAIN_SPIKE)
   add_executable(garak_gain_spike_tests gain_spike_tests.cpp)
   target_link_libraries(garak_gain_spike_tests PRIVATE garak_gain_spike_support)
@@ -130,5 +145,60 @@ if(GARAK_BUILD_RUNTIME_STRATEGY_SPIKE)
       "$<TARGET_GENEX_EVAL:garak_thin_beta_vst3,$<TARGET_PROPERTY:garak_thin_beta_vst3,SMTG_PLUGIN_PACKAGE_PATH>>"
       "$<TARGET_GENEX_EVAL:garak_data_runtime_template_vst3,$<TARGET_PROPERTY:garak_data_runtime_template_vst3,SMTG_PLUGIN_PACKAGE_PATH>>"
       "${CMAKE_BINARY_DIR}/runtime-failure-fixtures"
+  )
+endif()
+
+if(GARAK_BUILD_PRODUCT_RUNTIME_V1 AND GARAK_BUILD_RUNTIME_STRATEGY_SPIKE)
+  add_executable(
+    garak_product_runtime_v1_contract_tests
+    product_runtime_v1_contract_tests.cpp
+    product_v1_test_fixtures.hpp
+  )
+  target_link_libraries(
+    garak_product_runtime_v1_contract_tests
+    PRIVATE
+      garak::product_contract_v1
+      garak_gain_spike_support
+      vst3_sdk_product_runtime_host_support
+      sdk_hosting
+  )
+  target_include_directories(
+    garak_product_runtime_v1_contract_tests
+    PRIVATE "${CMAKE_SOURCE_DIR}/native/spikes/gain"
+  )
+  target_include_directories(
+    garak_product_runtime_v1_contract_tests
+    SYSTEM PRIVATE "${GARAK_VST3_SDK_DIR}"
+  )
+  add_dependencies(
+    garak_product_runtime_v1_contract_tests
+    garak_product_runtime_v1_vst3
+    garak_product_inspector
+    garak_gain_spike_vst3
+    garak_data_runtime_products
+    garak_thin_alpha_vst3
+    garak_thin_beta_vst3
+  )
+  garak_apply_warnings(garak_product_runtime_v1_contract_tests)
+  garak_apply_clang_tidy(garak_product_runtime_v1_contract_tests)
+  string(TOLOWER "${CMAKE_BUILD_TYPE}" garak_product_runtime_configuration_slug)
+  set(
+    garak_product_export_root
+    "${CMAKE_SOURCE_DIR}/out/exports/phase-1c1/${garak_product_runtime_configuration_slug}"
+  )
+  add_test(
+    NAME garak_product_runtime_v1_contract_tests
+    COMMAND
+      garak_product_runtime_v1_contract_tests
+      "$<TARGET_GENEX_EVAL:garak_gain_spike_vst3,$<TARGET_PROPERTY:garak_gain_spike_vst3,SMTG_PLUGIN_PACKAGE_PATH>>"
+      "$<TARGET_PROPERTY:garak_data_runtime_products,GARAK_DATA_ALPHA_BUNDLE>"
+      "$<TARGET_PROPERTY:garak_data_runtime_products,GARAK_DATA_BETA_BUNDLE>"
+      "$<TARGET_GENEX_EVAL:garak_thin_alpha_vst3,$<TARGET_PROPERTY:garak_thin_alpha_vst3,SMTG_PLUGIN_PACKAGE_PATH>>"
+      "$<TARGET_GENEX_EVAL:garak_thin_beta_vst3,$<TARGET_PROPERTY:garak_thin_beta_vst3,SMTG_PLUGIN_PACKAGE_PATH>>"
+      "${garak_product_export_root}/Artist Gain Warm.vst3"
+      "${garak_product_export_root}/Artist Gain Bright.vst3"
+      "$<TARGET_GENEX_EVAL:garak_product_runtime_v1_vst3,$<TARGET_PROPERTY:garak_product_runtime_v1_vst3,SMTG_PLUGIN_PACKAGE_PATH>>"
+      "$<TARGET_FILE:garak_product_inspector>"
+      "${CMAKE_BINARY_DIR}/inspector-utf8-fixture"
   )
 endif()

@@ -1,12 +1,14 @@
 # Garak VST3 Adapter
 
-- 기준일: 2026-08-09
-- 상태: Phase 1A Windows x64 **PASS / Complete**; Phase 1B A/B spike evidence 반영
+- 기준일: 2026-08-10
+- 상태: Phase 1A/1B와 Phase 1C.1 Windows x64 **PASS / Complete**
 - Identity: [Phase 1A VST3 Identity](../status/phase-1a-vst3-identity.md)
 - SDK pin: [Phase 1A VST3 Dependency](../status/phase-1a-vst3-dependency.md)
 - 검증: [Phase 1A VST3 Validation](../status/phase-1a-vst3-validation.md)
 - Phase 1B identity: [Phase 1B VST3 Product Identities](../status/phase-1b-vst3-identities.md)
 - Phase 1B artifact: [Phase 1B Runtime Strategy Artifacts](../status/phase-1b-runtime-strategy-artifacts.md)
+- Phase 1C.1 fixture: [Phase 1C.1 Product Fixtures](../status/phase-1c1-product-fixtures.md)
+- Phase 1C.1 검증: [Phase 1C.1 Headless Export Validation](../status/phase-1c1-headless-export-validation.md)
 - 관련 계획: [ExecPlan 0003](../../plans/0003-phase-1a-windows-minimal-vst3-gain-shell.md)
 - 상위 경계: [Module Boundaries](module-boundaries.md), [Realtime and Quality](realtime-and-quality.md)
 
@@ -20,6 +22,13 @@ state byte contract는 `native/spikes/gain`에 두며 Steinberg type에 의존�
 Phase 1A `Garak Gain Spike`는 이 경계를 end-to-end로 검증하는 고정된 editorless native
 module이다. Phase 1B의 runtime strategy code도 같은 adapter 아래에 격리한 비교 spike이며 범용
 plugin runtime public API, product compiler 또는 production export 구현은 아니다.
+
+Phase 1C.1의 `product_runtime_v1`은 Phase 1A/1B spike를 수정하거나 fallback으로 재사용하지 않는
+Windows x64 v0.x 제품 경로다. First-party `GARAKCPD`/`GARAKPST` contract는
+`native/runtime/product_v1`에 두고, VST3 factory, module-relative resource lookup, processor/controller,
+stream과 factory/moduleinfo inspector만 adapter 아래에 둔다. Windows v0.x prebuilt Runtime 결합은
+[ADR 0005](../adr/0005-windows-v0x-prebuilt-product-runtime.md)에 한정해 Accepted이며 cross-platform
+결정인 [ADR 0003](../adr/0003-generated-plugin-runtime-strategy.md)은 계속 Proposed다.
 
 ## 공식 SDK pin과 build 경계
 
@@ -208,6 +217,69 @@ Studio frozen install/lint/format/typecheck/build도 최종 rerun PASS이며 Stu
 Phase 1 전체는 미완료다. Windows 결과를 macOS/AU, 실제 DAW host, commercial distribution 또는
 transitive legal audit의 통과로 일반화하지 않는다.
 
+## Phase 1C.1 Product Runtime v1 경계
+
+`Garak Product Runtime v1`은 configuration별로 한 번 build한 editorless Windows x64 VST3 template다.
+Headless Product Compiler는 template inner binary를 제품 bundle에 copy/rename하고
+`Contents/Resources/product.garakbin`과 product-specific `moduleinfo.json`을 배치한다. Product마다 C++
+source를 생성, compile 또는 link하지 않는다. Final bundle은 repository-local output에만 생성하며
+global/system/user VST3 directory, registry와 installer를 사용하지 않는다.
+
+Windows adapter는 loaded module image의 actual path에서 exact resource를 찾는다. CWD, environment,
+registry, Studio state와 network를 identity나 resource lookup에 사용하지 않는다. Factory 공개 전
+bounded file read와 first-party strict parser를 완료하고 다음 값이 모두 일치할 때만 processor/controller
+두 class를 등록한다.
+
+- `GARAKCPD` v1의 Product ID와 deterministic processor/controller FUID
+- Product version, white-label vendor/name, category `Fx`와 template `garak.gain-v1`
+- Gain ID `1001`, Bypass ID `1002`, normalized default와 exact flags/type
+- Bundle leaf/inner module basename, actual factory와 product-specific moduleinfo metadata
+
+Missing, oversized, malformed, unsupported, reserved/trailing data 또는 identity mismatch에서는 stale
+template identity나 Phase 1B descriptor로 fallback하지 않고 null factory로 fail closed한다. Parsed
+definition은 module-owned immutable value이고 instance가 필요한 값을 복사한다. Factory construction
+이후와 audio callback에서는 filesystem access, compiled-data parsing과 migration을 하지 않는다.
+
+Processor/controller state는 exact 96-byte `GARAKPST` v1을 사용하고 loaded Product ID에 bind한다.
+Whole snapshot을 임시 값에서 검증한 뒤 commit하며 cross-product, malformed, duplicate/unknown/missing
+parameter, nonfinite/range와 reserved/trailing input은 prior live state를 보존한 채 거부한다. Phase 1A/1B
+20-byte `GGS1` state는 기존 spike에만 남고 Product Runtime의 compatibility input이 아니다.
+
+Warm/Bright는 mono/stereo, Float32/Float64, in/out-of-place, Gain automation, exact-offset Bypass,
+zero-sample/parameter-only, state/instance isolation과 reverse unload/reload를 통과했다. 기존 Gain/Data
+Alpha/Data Beta/Thin Alpha/Thin Beta까지 일곱 module을 한 process에서 함께 load해 identity와 state
+leakage가 없음을 검증했다.
+
+### Windows Unicode process boundary
+
+UTF-8 product contract는 system active code page(ACP), narrow `main` argument와 filesystem locale에
+의존하지 않는다.
+
+- Inspector는 `wmain`에서 UTF-16 argument를 strict UTF-8로 변환하고 loaded bundle/resource에는 wide
+  Windows path를 사용한다. Unpaired surrogate는 process boundary에서 fail closed한다.
+- `LC_CTYPE`를 exact `.UTF8`로 설정하고 실패하면 startup에서 종료하는 first-party object를 inspector,
+  pinned moduleinfotool과 validator에 link한다.
+- Pinned SDK 3.8의 bounded host-side conversion은 UTF-16 code unit을 따로 처리해 supplementary-plane
+  character를 보존하지 못한다. Third-party source는 수정하지 않고 complete public seven-overload
+  first-party `Steinberg::Vst::StringConvert` object를 Product Runtime과 inspector/moduleinfotool/validator
+  세 host에 link한다.
+- Factory와 inspector metadata는 narrow `PClassInfo2`가 아니라 `PClassInfoW`를 사용한다.
+- Export child에게는 inner module path가 아니라 forward-slash absolute **bundle path**를 전달한다.
+
+최초 inner-path-only test는 project/output/bundle/metadata와 process boundary를 충분히 덮지 못했고,
+`PClassInfo2`에서는 emoji metadata가 mojibake였다. 첫 exact Unicode export는 invalid moduleinfo UTF-8을
+`GARAK_EXPORT_MODULEINFO_UTF8`로 거부했다. 위 boundary 뒤 CTest의
+`가락 경로 📁/가락 🎛 Gain.vst3`와 invalid surrogate, exact CLI의 `가락 연구소 🧪` /
+`가락 🎛 Gain`이 통과했다. CLI child는 moduleinfo create/validate, inspector와 validator
+standard/extensive exact 5/5 exit 0이고 bundle inventory는 3 files다.
+
+Final source snapshot의 Debug/Release fresh configure와 clean aggregate build는 각각 177/177,
+no-native-build runner 뒤 CTest는 각각 7/7, Werror/clang-tidy quality target은 각각 110/110 통과했다.
+First-party clang-format은 58 files가 통과했다. Warm/Bright 네 bundle의 official Validator 8회는 standard 47/47,
+extensive 537/537, warning/failure/crash 0, exit 0이다. 일반 PowerShell 반복 export는 build-tree file
+inventory/size/hash/timestamp 불변, forbidden native-build invocation 0과 exact 20 child process exit 0을
+configuration별로 기록했다. Exact artifact와 report는 위 Phase 1C.1 status 문서가 소유한다.
+
 ## Phase 1B runtime strategy spike 경계
 
 Phase 1B는 Phase 1A의 Gain/audio/state 구현을 보존하고
@@ -269,9 +341,9 @@ format-neutral runtime public API에 Steinberg type, Windows handle 또는 descr
 
 ## 명시적 비범위
 
-- `.garak` project, compiled runtime blob, product compiler와 export pipeline
-- 범용 first-party plugin runtime API, DSP graph, macro, preset과 custom product UI
-- ADR 0003 Alternative A/B의 production 선택, 기본값과 export pipeline
+- Production single-file `.garak`, general compiled container와 released schema migration
+- 범용 DSP graph/compiler, arbitrary node, macro, preset/asset와 custom product UI
+- ADR 0003의 cross-platform 최종 선택/기본값과 macOS/AU export pipeline
 - VSTGUI/editor/resource, meter, program list와 asset pipeline
 - MIDI/event, sidechain, instrument/synth와 process-context 기능
 - Studio/native IPC, Node.js native addon와 Electron 통합
@@ -285,6 +357,8 @@ format-neutral runtime public API에 Steinberg type, Windows handle 또는 descr
 [ADR 0003](../adr/0003-generated-plugin-runtime-strategy.md)은 계속 **Proposed**다. Phase 1B는
 Alternative A(prebuilt runtime + product data)와 Alternative B(product-specific thin wrapper +
 static common implementation)를 같은 Windows contract로 구현·측정했지만 어느 것도 선택, 승인,
-선호 또는 기본값으로 두지 않는다. Phase 1A 증거는 official VST3 SDK adapter baseline에,
-Phase 1B 증거는 Windows x64 spike의 identity, package와 coexistence 관찰에 한정된다. macOS
-Universal/signing과 production export evidence 전에는 runtime 전략을 확정하지 않는다.
+선호 또는 cross-platform 기본값으로 두지 않는다. Phase 1C.1은 별도 ADR 0005로 **Windows x64 v0.x**
+canonical exporter에 prebuilt Product Runtime plus product data를 선택했으며, 이 local 결정은 ADR 0003의
+상태를 바꾸지 않는다. Phase 1A 증거는 official VST3 SDK adapter baseline에, Phase 1B 증거는 Windows
+x64 A/B spike에, Phase 1C.1 증거는 minimal headless Windows product path에 각각 한정된다. macOS
+Universal/AU/signing과 cross-platform export evidence 전에는 장기 runtime 전략을 확정하지 않는다.

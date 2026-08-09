@@ -113,6 +113,42 @@
       "cacheVariables": {
         "GARAK_ENABLE_CLANG_TIDY": true
       }
+    },
+    {
+      "name": "product-runtime-debug",
+      "displayName": "Product Runtime v1 Debug",
+      "inherits": "debug",
+      "cacheVariables": {
+        "GARAK_BUILD_VST3_GAIN_SPIKE": true,
+        "GARAK_BUILD_RUNTIME_STRATEGY_SPIKE": true,
+        "GARAK_BUILD_PRODUCT_RUNTIME_V1": true
+      }
+    },
+    {
+      "name": "product-runtime-release",
+      "displayName": "Product Runtime v1 Release",
+      "inherits": "release",
+      "cacheVariables": {
+        "GARAK_BUILD_VST3_GAIN_SPIKE": true,
+        "GARAK_BUILD_RUNTIME_STRATEGY_SPIKE": true,
+        "GARAK_BUILD_PRODUCT_RUNTIME_V1": true
+      }
+    },
+    {
+      "name": "product-runtime-werror",
+      "displayName": "Product Runtime v1 Debug with warnings as errors",
+      "inherits": "product-runtime-debug",
+      "cacheVariables": {
+        "GARAK_WARNINGS_AS_ERRORS": true
+      }
+    },
+    {
+      "name": "product-runtime-clang-tidy",
+      "displayName": "Product Runtime v1 Debug with clang-tidy",
+      "inherits": "product-runtime-debug",
+      "cacheVariables": {
+        "GARAK_ENABLE_CLANG_TIDY": true
+      }
     }
   ],
   "buildPresets": [
@@ -171,6 +207,26 @@
       "name": "runtime-strategy-clang-tidy-build",
       "configurePreset": "runtime-strategy-clang-tidy",
       "targets": ["garak_runtime_strategy_spike_all"]
+    },
+    {
+      "name": "product-runtime-debug-build",
+      "configurePreset": "product-runtime-debug",
+      "targets": ["garak_product_runtime_v1_all"]
+    },
+    {
+      "name": "product-runtime-release-build",
+      "configurePreset": "product-runtime-release",
+      "targets": ["garak_product_runtime_v1_all"]
+    },
+    {
+      "name": "product-runtime-werror-build",
+      "configurePreset": "product-runtime-werror",
+      "targets": ["garak_product_runtime_v1_quality"]
+    },
+    {
+      "name": "product-runtime-clang-tidy-build",
+      "configurePreset": "product-runtime-clang-tidy",
+      "targets": ["garak_product_runtime_v1_quality"]
     }
   ],
   "testPresets": [
@@ -227,6 +283,26 @@
     {
       "name": "runtime-strategy-release-test",
       "configurePreset": "runtime-strategy-release",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "error"
+      }
+    },
+    {
+      "name": "product-runtime-debug-test",
+      "configurePreset": "product-runtime-debug",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "error"
+      }
+    },
+    {
+      "name": "product-runtime-release-test",
+      "configurePreset": "product-runtime-release",
       "output": {
         "outputOnFailure": true
       },

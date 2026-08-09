@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "productId": "c8a56d90-7e4b-4af1-91d3-2b6c8e0f1357",
+  "vendor": "Garak Test Artist",
+  "name": "Artist Gain Bright",
+  "version": "0.1.0",
+  "category": "Fx",
+  "template": "garak.gain-v1",
+  "defaults": {
+    "gainDb": 3.0
+  }
+}

@@ -1,12 +1,12 @@
 # Parameter and State Contract
 
-- 상태: Phase 0A architecture 기준선
+- 상태: Phase 1C product/state 계약 반영
 - 권위: parameter identity, automation, macro mapping, smoothing, preset/DAW state와 migration
-- 관련 문서: [v0.1 PRD](../product/v0.1-prd.md), [Realtime and Quality](realtime-and-quality.md), [Interface Designer](interface-designer.md)
+- 관련 문서: [v0.1 PRD](../product/v0.1-prd.md), [Realtime and Quality](realtime-and-quality.md), [Interface Designer](interface-designer.md), [Product Identity Derivation](product-identity-derivation.md), [Compiled Product Data v1](compiled-product-data-v1.md), [Product State v1](product-state-v1.md)
 
 ## 목적
 
-이 문서는 아티스트의 control language가 host automation, DSP, preset과 DAW session에서 같은 의미를 유지하도록 장기 계약을 정의한다. Serialization format, language type와 host SDK type은 미정이며 first-party model 밖에 둔다.
+이 문서는 아티스트의 control language가 host automation, DSP, preset과 DAW session에서 같은 의미를 유지하도록 장기 계약을 정의한다. General product의 serialization technology, language type와 host SDK type은 first-party model 밖에 둔다. Phase 1C.1 `garak.gain-v1` subset의 exact Parameter ID와 DAW/plugin state bytes는 [Product State v1](product-state-v1.md)이 별도로 확정한다.
 
 ## 개념
 
@@ -31,6 +31,11 @@
 - Range, unit, default 또는 mapping 변경이 기존 automation 결과를 바꾸면 cosmetic edit가 아니라 호환성 변경으로 검토한다.
 
 미출시 draft ID는 정리할 수 있지만 release 경계와 beta/test 배포 정책을 먼저 명시한다. Release 직전 ID uniqueness, tombstone와 host metadata를 별도 검토한다.
+
+Phase 1C.1 `garak.gain-v1`은 모든 제품에서 Gain `1001`, Bypass `1002`를 사용한다. 이 numeric ID는
+Product ID, product name 또는 VST3 class FUID에서 derive하지 않으며 project JSON에 중복 저장하지
+않는다. Product ID에서 processor/controller class FUID를 derive하는 별도 계약은
+[Product Identity Derivation](product-identity-derivation.md)이 소유한다.
 
 ## Public parameter metadata
 
@@ -75,17 +80,30 @@ Host event, UI gesture, macro mapping, clamp와 smoothing의 정확한 적용 �
 
 | 계층 | 목적 | 경계 |
 | --- | --- | --- |
-| `.garak` project | graph, parameter/macro, scene, preset, metadata의 editable source | physical format은 `project-model.md`에서 미결정 |
-| Compiled runtime data | 검증된 project의 bounded 실행 표현 | editor history/session state 제외, 자체 version 필요 |
+| `.garak` project | graph, parameter/macro, scene, preset, metadata의 editable source | Phase 1C.1 subset은 unpacked directory와 exact `product.json`; general physical format은 미결정 |
+| Compiled runtime data | 검증된 project의 bounded 실행 표현 | Phase 1C.1 subset은 immutable `GARAKCPD` v1; editor history/session state 제외 |
 | Product preset | 공개 control과 필요한 DSP state의 재사용 snapshot | catalog, factory/user, 교환 format 미결정 |
-| DAW/plugin state | host session의 instance 복원 | product identity, schema version, parameter와 필요한 DSP state |
+| DAW/plugin state | host session의 instance 복원 | Phase 1C.1 subset은 Product ID-bound exact `GARAKPST` v1 snapshot |
 | Transient UI/runtime state | meter, hover, animation 등 일시 정보 | 영속 state와 분리 |
 
 Preset을 다른 product ID나 호환되지 않는 node version에 조용히 적용하지 않는다.
 
+### Phase 1C.1 Product State v1
+
+`GARAKPST` v1은 exact 96-byte, little-endian, sectionless state다. Product ID와 sorted Gain/Bypass
+entries를 저장하고 whole input을 temporary snapshot으로 검증한 뒤 한 번에 commit한다. Wrong Product
+ID, unknown version/type/ID/flag, noncanonical value, reserved bit, truncated 또는 trailing input은 prior
+state를 바꾸지 않고 거부한다. Processor `setState`와 controller `setComponentState`는 같은 codec과
+expected Product ID를 사용한다.
+
+Phase 1A/1B의 exact 20-byte `GGS1` state는 해당 technical-spike module의 regression contract다. 새
+Product Runtime은 `GGS1`을 읽거나 migrate/fallback하지 않고, 기존 spike Runtime은 `GARAKPST`를
+해석하지 않는다. 이 분리가 obsolete internal path를 production compatibility layer로 보존하는 것을
+막는다.
+
 ## Versioning과 migration
 
-출시 후 보존 대상은 product/plugin ID, public parameter ID/tombstone, project/preset/DAW state schema와 sound-changing node implementation version이다. Compiled runtime data는 자체 contract version으로 compatibility를 감지하지만 source project에서 재생성 가능한 derived artifact이다. 이전 blob을 migrate, compatible compiler로 rebuild 또는 reject할지는 [Runtime과 export](runtime-and-export.md)의 별도 정책으로 정한다.
+출시 후 보존 대상은 product/plugin ID, public parameter ID/tombstone, project/preset/DAW state schema와 sound-changing node implementation version이다. Compiled runtime data는 자체 contract version으로 compatibility를 감지하지만 source project에서 재생성 가능한 derived artifact이다. `GARAKCPD` v1 Runtime은 unknown major/minor와 확장된 body를 추측하거나 건너뛰지 않고 reject한다. 이후 format에서 이전 blob을 migrate, compatible compiler로 rebuild 또는 reject할지는 [Runtime과 export](runtime-and-export.md)의 별도 정책으로 정한다.
 
 Migration은 다음 경계를 따른다.
 
@@ -121,12 +139,15 @@ Sound를 바꾸는 node implementation은 같은 version을 덮어쓰지 않고 
 - Project, preset, DAW state round trip과 지원 source version별 migration fixture
 - Missing/unknown/corrupt/truncated data와 removed parameter state
 - Node version별 reference audio, plugin reload와 DAW reopen
+- `GARAKPST` exact bytes/hash, cross-product rejection, processor/controller parity와 failed-restore
+  prior-state preservation
+- Phase 1A/1B `GGS1`과 Phase 1C.1 `GARAKPST`의 양방향 format 격리
 
 Test하지 않은 source version이나 host state를 “호환”이라고 보고하지 않는다.
 
 ## 미결정 사항과 Open Questions
 
-- Numeric ID bit width, allocation authority, reserved range와 host encoding
+- `garak.gain-v1`의 `uint32` ID 이후 general allocation authority, reserved range와 host encoding
 - Macro/public parameter의 host exposure 규칙
 - Normalized precision, text formatting, automation/mapping/smoothing 순서
 - Smoothing primitive와 versioning 단위
@@ -135,4 +156,5 @@ Test하지 않은 source version이나 host state를 “호환”이라고 보�
 - BLOOM의 다섯 control은 모두 host parameter인가?
 - Range/default/unit 변경 시 새 ID와 product version을 나누는 기준은 무엇인가?
 
-Phase 0A에서는 parameter/serialization/migration code, ID algorithm, curve editor 또는 smoothing DSP를 구현하지 않는다.
+Phase 1C.1의 Gain/Bypass identity와 state 계약은 general macro, preset, curve editor, smoothing DSP 또는
+출시 후 migration 정책을 확정하지 않는다.
