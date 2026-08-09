@@ -1,9 +1,9 @@
 # Garak Roadmap
 
-- 문서 상태: Phase 0B 검증 기준선
+- 문서 상태: Phase 1A 검증 기준선
 - 최종 갱신: 2026-08-09
-- 현재 단계: Phase 0B PASS. Phase 1 미착수.
-- 관련 문서: [v0.1 제품 요구사항](docs/product/v0.1-prd.md), [시스템 개요](docs/architecture/system-overview.md), [모듈 경계](docs/architecture/module-boundaries.md), [프로젝트 모델](docs/architecture/project-model.md), [Runtime과 export](docs/architecture/runtime-and-export.md), [Realtime과 quality](docs/architecture/realtime-and-quality.md), [Parameter와 state](docs/architecture/parameter-and-state.md), [Interface Designer](docs/architecture/interface-designer.md), [의존성 정책](docs/architecture/dependency-policy.md), [Phase 0A ExecPlan](plans/0001-phase-0a-repository-foundation.md), [Phase 0B ExecPlan](plans/0002-phase-0b-buildable-native-and-studio-scaffolds.md), [Phase 0B dependency 상태](docs/status/phase-0b-dependencies.md)
+- 현재 단계: Phase 0B PASS 보존. Phase 1A Windows x64 PASS. Phase 1 전체 미완료.
+- 관련 문서: [v0.1 제품 요구사항](docs/product/v0.1-prd.md), [시스템 개요](docs/architecture/system-overview.md), [모듈 경계](docs/architecture/module-boundaries.md), [프로젝트 모델](docs/architecture/project-model.md), [Runtime과 export](docs/architecture/runtime-and-export.md), [Realtime과 quality](docs/architecture/realtime-and-quality.md), [Parameter와 state](docs/architecture/parameter-and-state.md), [Interface Designer](docs/architecture/interface-designer.md), [의존성 정책](docs/architecture/dependency-policy.md), [VST3 Adapter](docs/architecture/vst3-adapter.md), [Phase 0A ExecPlan](plans/0001-phase-0a-repository-foundation.md), [Phase 0B ExecPlan](plans/0002-phase-0b-buildable-native-and-studio-scaffolds.md), [Phase 1A ExecPlan](plans/0003-phase-1a-windows-minimal-vst3-gain-shell.md), [Phase 1A validation](docs/status/phase-1a-vst3-validation.md)
 
 ## 진행 원칙
 
@@ -49,7 +49,7 @@
 
 ## Phase 0B — Buildable Native and Studio Scaffolds
 
-[Phase 0B ExecPlan](plans/0002-phase-0b-buildable-native-and-studio-scaffolds.md)에 따라 2026-08-09 **PASS**로 완료했다. Windows x64에서 MSVC/Ninja Debug·Release build, CTest, smoke, warnings-as-errors와 clang 도구를 검증했고, Electron/React/strict TypeScript Studio의 frozen install, lint, format, typecheck, production build와 production/dev GUI launch를 확인했다. macOS, Apple Clang과 macOS Electron launch는 미검증이며 Phase 1은 시작하지 않았다.
+[Phase 0B ExecPlan](plans/0002-phase-0b-buildable-native-and-studio-scaffolds.md)에 따라 2026-08-09 **PASS**로 완료했다. Windows x64에서 MSVC/Ninja Debug·Release build, CTest, smoke, warnings-as-errors와 clang 도구를 검증했고, Electron/React/strict TypeScript Studio의 frozen install, lint, format, typecheck, production build와 production/dev GUI launch를 확인했다. macOS, Apple Clang과 macOS Electron launch는 미검증이다. Phase 1A 작업 뒤에도 이 기준선의 회귀 검증은 통과했다.
 
 ### 진입 조건
 
@@ -79,6 +79,12 @@
 - Phase 0B에 필요하지 않은 framework, compatibility layer와 CI 확장
 
 ## Phase 1 — Minimal Native VST3 Shell
+
+### Phase 1A 완료 증거
+
+[Phase 1A ExecPlan](plans/0003-phase-1a-windows-minimal-vst3-gain-shell.md)에 따라 Windows x64의 고정 `Garak Gain Spike` adapter를 **PASS**로 완료했다. Exact-pinned official Steinberg SDK, editorless processor/controller, mono/stereo, float32/float64, Gain/Bypass automation, schema 1 state와 repository-local official validator 경로를 검증했다. Debug/Release의 CTest와 validator standard/extensive 결과는 [validation 상태](docs/status/phase-1a-vst3-validation.md)에 기록한다.
+
+이 결과는 Phase 1 전체 완료가 아니다. macOS VST3, representative DAW host, generated runtime 대안 A/B 비교가 남아 있고 [ADR 0003](docs/adr/0003-generated-plugin-runtime-strategy.md)은 Proposed다. `Garak Gain Spike`는 fixed module 하나이며 Alternative A/B 어느 쪽도 구현·선호·기본값으로 두지 않는다.
 
 ### 진입 조건
 

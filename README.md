@@ -4,9 +4,9 @@ Garak(가락)은 음악가, 프로듀서와 사운드 디자이너가 자신의 
 
 ## 현재 상태
 
-저장소는 Phase 0A 문서 기준선을 보존한 채 **Phase 0B — Buildable Native and Studio Scaffolds**를 PASS로 완료했다. Windows x64에서 C++20 Native의 configure/build/test/smoke loop와 Electron/React/TypeScript strict mode Studio의 install/lint/format/typecheck/build 및 bounded GUI launch를 검증했다.
+저장소는 Phase 0A 문서 기준선과 Phase 0B buildable scaffold를 보존한 채 **Phase 1A — Windows Minimal VST3 Gain Shell**을 PASS로 완료했다. Windows x64에서 exact-pinned 공식 Steinberg SDK로 fixed-metadata editorless VST3를 Debug/Release build하고 CTest와 official validator standard/extensive run을 검증했다.
 
-현재 구현은 `0.0.0` version API만 가진 `garak_core`, Native smoke/test와 Sound / Control / Interface / Product placeholder 사이를 이동하는 Studio shell뿐이다. VST3/AU, DSP, `.garak` parser, native IPC, 실제 editor, export와 packaging은 아직 없다. macOS, Apple Clang과 macOS Electron launch도 검증하지 않았다.
+현재 구현은 `0.0.0` version API, Native smoke/test, Sound / Control / Interface / Product placeholder Studio shell, 그리고 Gain/Bypass와 20-byte state를 가진 고정 `Garak Gain Spike` VST3 기술 spike다. 범용 DSP graph, `.garak`, generated runtime, native IPC, 실제 plugin editor, product compiler, export와 packaging은 아직 없다. 실제 DAW host, macOS VST3, AU, Apple Clang과 macOS Electron launch도 검증하지 않았다.
 
 생성 플러그인의 목표는 Garak Studio가 없는 컴퓨터에서 독립적으로 오프라인 동작하는 white-label native 제품이다. 생성물에는 Electron, Chromium, Node.js 또는 임의의 JavaScript runtime을 넣지 않는다.
 
@@ -49,6 +49,31 @@ pnpm studio:dev
 
 `pnpm studio:dev`는 `127.0.0.1:5173`의 local development server와 Studio 창을 계속 실행한다. 종료할 때 `Ctrl+C`를 사용한다. Production build output은 `studio/dist/`와 `studio/dist-electron/`에 생성되며 Git 대상에서 제외된다.
 
+### Phase 1A Windows x64 VST3
+
+SDK와 nested repository를 exact gitlink로 재현한 뒤 repository-local bundle만 build/validate한다.
+
+```text
+git submodule update --init --recursive third_party/vst3sdk
+
+cmake --preset vst3-debug
+cmake --build --preset vst3-debug-build --clean-first
+ctest --preset vst3-debug-test --no-tests=error
+tools\vst3\validate.ps1 -Configuration Debug
+
+cmake --preset vst3-release
+cmake --build --preset vst3-release-build --clean-first
+ctest --preset vst3-release-test --no-tests=error
+tools\vst3\validate.ps1 -Configuration Release
+
+cmake --preset vst3-werror
+cmake --build --preset vst3-werror-build --clean-first
+cmake --preset vst3-clang-tidy
+cmake --build --preset vst3-clang-tidy-build --clean-first
+```
+
+실제 artifact, validator 수치와 미검증 범위는 [Phase 1A validation 상태](docs/status/phase-1a-vst3-validation.md)에 기록한다. System/user VST3 directory에 설치하거나 link하지 않는다.
+
 ## 확정된 기술 방향
 
 - Garak Studio: Electron, React, TypeScript strict mode, Windows/macOS
@@ -59,7 +84,7 @@ pnpm studio:dev
 - 기술 검증 순서: Windows x64 VST3 → macOS arm64/x86_64 VST3 → macOS AU
 - 첫 상용 format 목표: Windows VST3, macOS Universal VST3, macOS AU
 
-Steinberg VST3 SDK, Skia, CanvasKit, Yoga, XYFlow, miniaudio, KissFFT와 FlatBuffers 같은 audio/plugin/graphics 기술은 모두 미설치·미검증·미승인 후보이다. Phase 0B에서 검토·고정한 Studio direct dependency는 [별도 상태 문서](docs/status/phase-0b-dependencies.md)에 기록한다.
+Steinberg VST3 SDK `v3.8.0_build_66`은 Phase 1A Windows x64 adapter spike에 한정해 exact pin과 build/validator를 검증했다. 이는 generated runtime, macOS, commercial redistribution 또는 전체 legal audit의 승인이 아니다. VSTGUI는 recursive checkout에만 존재하고 build/link하지 않는다. Skia, CanvasKit, Yoga, XYFlow, miniaudio, KissFFT와 FlatBuffers는 계속 미설치·미검증·미승인 후보다. 상세 경계는 [Phase 1A dependency 상태](docs/status/phase-1a-vst3-dependency.md)에 기록한다.
 
 Generated plugin runtime 결합 방식은 [ADR 0003](docs/adr/0003-generated-plugin-runtime-strategy.md)이 `Proposed`인 동안 미결정이다. 다음 두 대안 중 어느 것도 현재 기본값이나 채택안이 아니다.
 
@@ -86,6 +111,7 @@ Generated plugin runtime 결합 방식은 [ADR 0003](docs/adr/0003-generated-plu
 - [Parameter와 state](docs/architecture/parameter-and-state.md)
 - [Interface Designer](docs/architecture/interface-designer.md)
 - [Dependency와 license policy](docs/architecture/dependency-policy.md)
+- [VST3 Adapter](docs/architecture/vst3-adapter.md)
 
 ### 결정 기록
 
@@ -102,14 +128,18 @@ Generated plugin runtime 결합 방식은 [ADR 0003](docs/adr/0003-generated-plu
 - [Phase 0A ExecPlan](plans/0001-phase-0a-repository-foundation.md)
 - [Phase 0B ExecPlan](plans/0002-phase-0b-buildable-native-and-studio-scaffolds.md)
 - [Phase 0B dependency 상태](docs/status/phase-0b-dependencies.md)
+- [Phase 1A ExecPlan](plans/0003-phase-1a-windows-minimal-vst3-gain-shell.md)
+- [Phase 1A VST3 identity](docs/status/phase-1a-vst3-identity.md)
+- [Phase 1A VST3 dependency](docs/status/phase-1a-vst3-dependency.md)
+- [Phase 1A VST3 validation](docs/status/phase-1a-vst3-validation.md)
 
 저장소 작업 규칙과 문서 우선순위는 [AGENTS.md](AGENTS.md)를 따른다.
 
 ## 정확한 다음 milestone
 
-다음 권장 작업은 별도 ExecPlan과 dependency/license 검토를 먼저 작성하는 **Phase 1 — Minimal Native VST3 Shell** 기술 spike다. 범위는 editor 없는 최소 Windows x64 VST3 shell, stereo `Input → Gain → Output`, automated parameter 하나, bypass와 state save/load, official validator 경로, 그리고 Proposed ADR 0003의 runtime 대안 A/B 비교 증거로 제한한다.
+다음 권장 작업은 별도 ExecPlan을 먼저 작성하는 **Phase 1B — Generated Runtime A/B Comparison** 기술 spike다. Phase 1A의 동일한 Windows x64 VST3 수용 기준으로 prebuilt runtime + product data와 product-specific thin wrapper + common runtime을 비교할 최소 evidence만 만든다.
 
-Phase 1은 아직 시작하지 않았다. Steinberg SDK 도입과 재배포 조건이 승인되기 전에는 VST3 adapter, DSP graph, project compiler 또는 product 기능을 추가하지 않는다.
+Phase 1A만 완료했으며 Phase 1 전체는 아직 미완료다. ADR 0003은 계속 Proposed이고 어느 대안도 채택·선호·기본값이 아니다. Phase 1B에서는 DSP graph, `.garak`, Studio IPC, editor, export 또는 상용 제품 기능을 함께 구현하지 않는다.
 
 ## License
 

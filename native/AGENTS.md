@@ -5,8 +5,9 @@ the native build and source tree.
 
 - Use C++20 with CMake and Ninja, without compiler extensions. Keep ownership explicit and prefer
   RAII and value semantics; never introduce a raw owning pointer or call `new` or `delete`
-  directly. Prefer `std::unique_ptr`, `std::span`, and `std::string_view` when those types match the
-  ownership and lifetime contract.
+  directly. The only current exception is the narrow Steinberg reference-count ownership transfer
+  documented in `adapters/vst3/AGENTS.md`; do not generalize it. Prefer `std::unique_ptr`,
+  `std::span`, and `std::string_view` when those types match the ownership and lifetime contract.
 - Put first-party code in the `garak` namespace and do not add mutable global state.
 - Keep each module's public first-party headers under its `include/garak/` tree and implementation
   details under `src/`. Do not expose platform, plugin SDK, or other third-party types through
@@ -16,10 +17,10 @@ the native build and source tree.
 - Keep tests deterministic and standalone. Report failed comparisons to stderr and return a
   non-zero exit code; do not use `assert` as the test contract. Do not add public behavior without
   a corresponding test.
-- If realtime code is added in a later phase, follow the root realtime rules and
-  `docs/architecture/realtime-and-quality.md`; Phase 0B does not add realtime code.
-- Phase 0B native code is limited to the version scaffold, smoke executable, and version test. Do
-  not add audio, plugin, graph, serialization, runtime packaging, or speculative domain APIs.
+- Realtime code follows the root realtime rules and `docs/architecture/realtime-and-quality.md`.
+  The current Phase 1A boundary is the private `spikes/gain` kernel and the fixed editorless VST3
+  adapter; do not expand it into a generic runtime, graph, project, export, UI, MIDI, sidechain or
+  packaging API without a later approved ExecPlan.
 - Do not add a third-party native dependency without the repository-level dependency and license
   review.
 
@@ -43,5 +44,25 @@ cmake --build --preset clang-tidy-build --clean-first
 ```
 
 Check formatting without modifying files with `clang-format --dry-run --Werror` over every
-first-party `.cpp` and `.hpp` file under `native/`. Do not hide first-party warnings or analysis
-findings to make a build pass.
+first-party `.cpp` and `.hpp` file under `native/`; never format `third_party/vst3sdk`. Do not hide
+first-party warnings or analysis findings to make a build pass.
+
+Run the Phase 1A VST3 path with the recursive SDK checkout and separate build trees:
+
+```text
+git submodule update --init --recursive third_party/vst3sdk
+cmake --preset vst3-debug
+cmake --build --preset vst3-debug-build --clean-first
+ctest --preset vst3-debug-test --no-tests=error
+tools\vst3\validate.ps1 -Configuration Debug
+
+cmake --preset vst3-release
+cmake --build --preset vst3-release-build --clean-first
+ctest --preset vst3-release-test --no-tests=error
+tools\vst3\validate.ps1 -Configuration Release
+
+cmake --preset vst3-werror
+cmake --build --preset vst3-werror-build --clean-first
+cmake --preset vst3-clang-tidy
+cmake --build --preset vst3-clang-tidy-build --clean-first
+```

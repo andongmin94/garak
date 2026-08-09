@@ -2,17 +2,37 @@
 
 - Status: Proposed
 - Date: 2026-08-09
-- 관련 문서: [Runtime과 export](../architecture/runtime-and-export.md), [프로젝트 모델](../architecture/project-model.md), [시스템 개요](../architecture/system-overview.md), [v0.1 제품 요구사항](../product/v0.1-prd.md), [ADR 0004](0004-windows-macos-and-plugin-formats.md)
+- 관련 문서: [Runtime과 export](../architecture/runtime-and-export.md), [프로젝트 모델](../architecture/project-model.md), [시스템 개요](../architecture/system-overview.md), [v0.1 제품 요구사항](../product/v0.1-prd.md), [VST3 Adapter](../architecture/vst3-adapter.md), [Phase 1A VST3 Identity](../status/phase-1a-vst3-identity.md), [ADR 0004](0004-windows-macos-and-plugin-formats.md)
 
 ## Context
 
 Garak이 생성한 plugin은 Studio가 없는 컴퓨터에서 독립적으로 오프라인 동작해야 한다. Product별 영구 identity, compiled DSP/control/interface definition, preset, asset와 metadata를 포함하되 Electron, Chromium, Node.js 또는 임의의 JavaScript runtime을 포함하지 않아야 한다.
 
-Editable `.garak` project는 source of truth이고 compiled runtime data는 versioned derived artifact이다. Export는 이 data와 native Garak Runtime을 target plugin package로 결합해야 한다. 그러나 VST3 class registration, bundle metadata, resource 위치, validator, side-by-side installation, code signing과 향후 notarization 제약을 실제로 확인하기 전에는 결합 전략을 장기 결정할 근거가 없다. Format-neutral runtime contract와 export 단계는 [Runtime과 export](../architecture/runtime-and-export.md)가 정의한다.
+Editable `.garak` project는 source of truth이고 compiled runtime data는 versioned derived artifact이다. Export는 이 data와 native Garak Runtime을 target plugin package로 결합해야 한다. Phase 1A는 fixed editorless module에서 VST3 class registration, Windows bundle과 official validator의 최소 format 경계를 확인했다. Product별 compiled data 결합, side-by-side product, export reproducibility, code signing과 향후 notarization은 확인하지 않았으므로 runtime 결합 전략을 장기 결정할 근거는 여전히 부족하다. Format-neutral runtime contract와 export 단계는 [Runtime과 export](../architecture/runtime-and-export.md)가 정의한다.
 
 ## Proposal
 
-Windows x64 VST3 기술 spike에서 아래 두 대안을 같은 최소 reference plugin과 수용 기준으로 구현·비교한 뒤 전략을 결정한다. 현재는 어느 대안도 채택안, 선호안 또는 임시 기본값이 아니다.
+Phase 1A의 공통 Windows x64 VST3 format baseline 위에서 아래 두 대안을 별도 spike의 같은 최소
+reference plugin과 수용 기준으로 구현·비교한 뒤 전략을 결정한다. 현재는 어느 대안도 채택안,
+선호안 또는 임시 기본값이 아니다.
+
+### Phase 1A 관찰
+
+Phase 1A는 official Steinberg VST3 SDK tag `v3.8.0_build_66`, full commit
+`9fad9770f2ae8542ab1a548a68c1ad1ac690abe0`에 고정한 `Garak Gain Spike`를 Windows x64 Debug와
+Release로 build했다. Pinned SDK의 official validator 결과는 두 configuration 모두 standard
+47 tests passed, 0 failed와 extensive 537 tests passed, 0 failed였다. Processor와 controller
+class가 발견됐고 fixed module은 editor view 없이 load와 audio/parameter/state contract를
+제공한다. VSTGUI는 build/link하지 않았다.
+
+이 module은 fixed metadata의 editorless VST3 adapter spike다. Product compiler, `.garak` 또는
+compiled product data를 사용하지 않았고 prebuilt runtime에 product data를 삽입하지도,
+product-specific wrapper를 생성해 common runtime과 link하지도 않았다. 따라서 Alternative A와
+Alternative B 어느 쪽도 구현한 것이 아니며 어느 대안도 선호안이나 기본값이 아니다.
+
+관찰 범위는 Windows x64 fixed module에 한정된다. macOS/Universal VST3, generated runtime,
+side-by-side product export, commercial distribution와 전체 dependency legal audit는 검증하거나
+승인하지 않았다.
 
 ### Alternative A — Prebuilt Garak Runtime plus Product Data
 
@@ -95,7 +115,9 @@ Compiled runtime data 모델보다 훨씬 큰 code-generation surface를 도입�
 
 ## Follow-up and Validation
 
-Phase 0A 이후 실제 Windows x64 VST3 기술 spike에서 두 대안을 비교한다. 최소 reference plugin은 stereo `Input → Gain → Output`, automated parameter 하나, bypass와 state save/load를 제공하며 editor 없이도 처리할 수 있어야 한다.
+Phase 1A가 확립한 Windows x64 VST3 format baseline 뒤의 별도 기술 spike에서 두 대안을
+비교한다. 최소 reference plugin은 stereo `Input → Gain → Output`, automated parameter 하나,
+bypass와 state save/load를 제공하며 editor 없이도 처리할 수 있어야 한다.
 
 두 대안에 동일하게 요구할 증거:
 
@@ -112,4 +134,6 @@ Phase 0A 이후 실제 Windows x64 VST3 기술 spike에서 두 대안을 비교�
 
 Spike는 tool/SDK version, 재현 명령, package 구조, validator output과 실패를 기록해야 한다. 한 대안이 먼저 동작했다는 이유만으로 선택하지 않는다. 결과에 따라 이 ADR을 `Accepted`로 갱신하거나 선택을 기록한 후속 ADR로 `Superseded`한다. 둘 다 수용 기준을 만족하지 못하면 실패를 숨기지 않고 새 대안을 `Proposed`로 기록한다.
 
-Phase 0A에서는 VST3 SDK, compiler나 validator를 설치·실행하지 않았고 A/B prototype도 만들지 않았다. 따라서 이 ADR은 제안 상태이며 runtime packaging 전략은 미결정이다.
+Phase 1A는 fixed editorless VST3 module의 Windows x64 build와 official validator baseline을
+확보했지만 A/B prototype 또는 product packaging 비교를 만들지 않았다. 따라서 이 ADR은 계속
+`Proposed`이며 runtime packaging 전략은 미결정이다.

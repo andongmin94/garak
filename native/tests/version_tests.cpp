@@ -4,7 +4,9 @@
 #include <sstream>
 #include <string_view>
 
-int main() {
+namespace {
+
+int run_tests() {
   const auto numeric_version = garak::core::version();
   if (numeric_version.major != 0U || numeric_version.minor != 0U || numeric_version.patch != 0U) {
     std::cerr << "Expected numeric version 0.0.0, received " << numeric_version.major << '.'
@@ -29,4 +31,14 @@ int main() {
   }
 
   return 0;
+}
+
+} // namespace
+
+int main() {
+  try {
+    return run_tests();
+  } catch (...) {
+    return 1;
+  }
 }

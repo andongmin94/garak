@@ -47,6 +47,38 @@
       "cacheVariables": {
         "GARAK_ENABLE_CLANG_TIDY": true
       }
+    },
+    {
+      "name": "vst3-debug",
+      "displayName": "VST3 Gain Spike Debug",
+      "inherits": "debug",
+      "cacheVariables": {
+        "GARAK_BUILD_VST3_GAIN_SPIKE": true
+      }
+    },
+    {
+      "name": "vst3-release",
+      "displayName": "VST3 Gain Spike Release",
+      "inherits": "release",
+      "cacheVariables": {
+        "GARAK_BUILD_VST3_GAIN_SPIKE": true
+      }
+    },
+    {
+      "name": "vst3-werror",
+      "displayName": "VST3 Gain Spike Debug with warnings as errors",
+      "inherits": "vst3-debug",
+      "cacheVariables": {
+        "GARAK_WARNINGS_AS_ERRORS": true
+      }
+    },
+    {
+      "name": "vst3-clang-tidy",
+      "displayName": "VST3 Gain Spike Debug with clang-tidy",
+      "inherits": "vst3-debug",
+      "cacheVariables": {
+        "GARAK_ENABLE_CLANG_TIDY": true
+      }
     }
   ],
   "buildPresets": [
@@ -65,6 +97,26 @@
     {
       "name": "clang-tidy-build",
       "configurePreset": "debug-clang-tidy"
+    },
+    {
+      "name": "vst3-debug-build",
+      "configurePreset": "vst3-debug",
+      "targets": ["garak_vst3_gain_spike_all"]
+    },
+    {
+      "name": "vst3-release-build",
+      "configurePreset": "vst3-release",
+      "targets": ["garak_vst3_gain_spike_all"]
+    },
+    {
+      "name": "vst3-werror-build",
+      "configurePreset": "vst3-werror",
+      "targets": ["garak_vst3_gain_spike_all"]
+    },
+    {
+      "name": "vst3-clang-tidy-build",
+      "configurePreset": "vst3-clang-tidy",
+      "targets": ["garak_vst3_gain_spike_all"]
     }
   ],
   "testPresets": [
@@ -81,6 +133,26 @@
     {
       "name": "release-test",
       "configurePreset": "release",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "error"
+      }
+    },
+    {
+      "name": "vst3-debug-test",
+      "configurePreset": "vst3-debug",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "error"
+      }
+    },
+    {
+      "name": "vst3-release-test",
+      "configurePreset": "vst3-release",
       "output": {
         "outputOnFailure": true
       },

@@ -61,6 +61,8 @@ Third-party 원본은 가능한 한 수정하지 않는다. 필요한 변경만 
 
 Generated runtime을 제품과 결합하는 방식은 아직 결정되지 않았다. [ADR 0003](docs/adr/0003-generated-plugin-runtime-strategy.md)이 Proposed인 동안 prebuilt runtime 방식이나 thin wrapper 방식을 기본값으로 가정하지 않는다.
 
+Phase 1A의 `Garak Gain Spike`는 fixed-metadata editorless VST3 adapter spike일 뿐이다. Compiled product data를 prebuilt runtime에 삽입하거나 product별 wrapper를 생성하지 않으므로 ADR 0003의 어느 대안도 구현·선호·채택한 증거로 사용하지 않는다.
+
 ## Realtime audio 규칙
 
 Audio process callback과 그 하위 경로에서는 다음을 금지한다.
@@ -110,7 +112,9 @@ Obsolete 내부 API, pre-release draft, unused adapter와 낡은 실행 경로�
 - 허용 목록은 자동 승인이 아니다. 실제 license text, notice, transitive dependency와 배포 방식을 검토한다.
 - 저장소 자체의 license는 미정이다. 지시와 법률 검토 없이 `LICENSE`를 만들거나 license를 선택하지 않는다.
 
-Audio/plugin/graphics 외부 기술 후보는 계속 미설치·미검증·미승인 상태다. Phase 0B Studio scaffold의 exact direct dependency만 검토·고정했으며 [Phase 0B dependency 상태](docs/status/phase-0b-dependencies.md)에 기록한다. 이 Studio dependency는 generated plugin에 전이되지 않는다. 모든 추가 도입은 [Dependency and License Policy](docs/architecture/dependency-policy.md)를 따른다.
+Steinberg VST3 SDK만 Phase 1A Windows x64 adapter spike를 위해 exact Git pin으로 도입·검증했으며 [Phase 1A dependency 상태](docs/status/phase-1a-vst3-dependency.md)에 기록한다. 이 검증은 generated runtime 일반 사용, macOS, 상용 재배포 또는 전체 legal audit의 승인이 아니다. Recursive checkout에 포함된 VSTGUI도 build/link하지 않는다. 그 밖의 audio/plugin/graphics 후보는 계속 미설치·미검증·미승인 상태다.
+
+Phase 0B Studio scaffold의 exact direct dependency는 [Phase 0B dependency 상태](docs/status/phase-0b-dependencies.md)에 기록한다. Studio dependency는 generated plugin에 전이되지 않는다. 모든 추가 도입은 [Dependency and License Policy](docs/architecture/dependency-policy.md)를 따른다.
 
 ## 대표 검증 명령
 
@@ -134,6 +138,21 @@ pnpm studio:build
 ```
 
 Windows 검증 결과를 macOS, Apple Clang 또는 macOS Electron 통과로 일반화하지 않는다.
+
+Phase 1A VST3 검증은 recursive SDK checkout 뒤 다음 Debug/Release 흐름을 사용한다. 세부 artifact와 validator 계약은 [VST3 Adapter](docs/architecture/vst3-adapter.md)를 따른다.
+
+```text
+git submodule update --init --recursive third_party/vst3sdk
+cmake --preset vst3-debug
+cmake --build --preset vst3-debug-build --clean-first
+ctest --preset vst3-debug-test --no-tests=error
+tools\vst3\validate.ps1 -Configuration Debug
+
+cmake --preset vst3-release
+cmake --build --preset vst3-release-build --clean-first
+ctest --preset vst3-release-test --no-tests=error
+tools\vst3\validate.ps1 -Configuration Release
+```
 
 ## 작업 방식과 저장소 안전
 

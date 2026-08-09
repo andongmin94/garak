@@ -26,10 +26,19 @@ function(garak_apply_clang_tidy target_name)
   endif()
 
   if(GARAK_ENABLE_CLANG_TIDY)
+    set(
+      garak_clang_tidy_command
+      "${GARAK_CLANG_TIDY_EXECUTABLE}"
+      "--config-file=${CMAKE_SOURCE_DIR}/.clang-tidy"
+    )
+    if(MSVC)
+      # clang-tidy does not infer /EHsc when CMake invokes it as a compiler
+      # launcher. Match the real target semantics without changing compile flags.
+      list(APPEND garak_clang_tidy_command "--extra-arg=/EHsc")
+    endif()
     set_property(
       TARGET "${target_name}"
-      PROPERTY CXX_CLANG_TIDY
-               "${GARAK_CLANG_TIDY_EXECUTABLE};--config-file=${PROJECT_SOURCE_DIR}/.clang-tidy"
+      PROPERTY CXX_CLANG_TIDY "${garak_clang_tidy_command}"
     )
   endif()
 endfunction()

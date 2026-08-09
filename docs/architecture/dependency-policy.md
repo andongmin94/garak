@@ -1,12 +1,14 @@
 # Dependency and License Policy
 
-- 상태: Phase 0A architecture 기준선
+- 상태: Phase 1A Windows VST3 dependency admission 반영
 - 권위: dependency 도입, 후보 상태, adapter, third-party source와 license 검토
-- 관련 문서: [v0.1 PRD](../product/v0.1-prd.md), [Realtime and Quality](realtime-and-quality.md), [Interface Designer](interface-designer.md)
+- 관련 문서: [v0.1 PRD](../product/v0.1-prd.md), [Realtime and Quality](realtime-and-quality.md), [Interface Designer](interface-designer.md), [VST3 Adapter](vst3-adapter.md), [Phase 1A VST3 Dependency](../status/phase-1a-vst3-dependency.md)
 
 ## 목적과 현재 상태
 
-잘 유지되는 library가 전체 복잡성과 위험을 줄이면 활용하되 `.garak`, graph/runtime, parameter/state, scene와 export contract는 Garak이 소유한다. Phase 0A에서는 외부 SDK/library를 다운로드, 설치 또는 통합하지 않았고 API, 성능, 보안과 정확한 license 조건을 검증하지 않았다.
+잘 유지되는 library가 전체 복잡성과 위험을 줄이면 활용하되 `.garak`, graph/runtime, parameter/state, scene와 export contract는 Garak이 소유한다. Phase 0A에서는 외부 SDK/library를 다운로드, 설치 또는 통합하지 않았다. Phase 1A에서는 공식 Steinberg VST3 SDK의 exact tag `v3.8.0_build_66`, superproject commit `9fad9770f2ae8542ab1a548a68c1ad1ac690abe0`을 recursive Git submodule로 고정하고 Windows x64의 고정 editorless VST3 adapter 범위에서 checkout, Debug/Release build와 official validator를 검증했다.
+
+이 admission은 Phase 1A 기술 spike에만 한정된다. VSTGUI는 recursive checkout에는 존재하지만 build/link하지 않는다. macOS, generated runtime 포함, commercial distribution, trademark/notice와 전체 transitive legal audit는 승인하거나 완료하지 않았다.
 
 상태 용어:
 
@@ -19,21 +21,22 @@
 
 ## 확정 기술 방향
 
-| 영역 | 방향 | Phase 0A 상태 |
+| 영역 | 방향 | 현재 검증 상태 |
 | --- | --- | --- |
-| Studio | Electron, React, TypeScript strict | scaffold/package 없음 |
-| Native Engine | C++20 | source/target 없음 |
-| Build | CMake, Ninja | configuration 없음 |
-| Compiler | Windows MSVC, macOS Apple Clang | build 미검증 |
+| Studio | Electron, React, TypeScript strict | Phase 0B Windows scaffold 검증; macOS 미검증 |
+| Native Engine | C++20 | Phase 0B scaffold와 Phase 1A Gain spike 검증 |
+| Build | CMake, Ninja | Windows configure/build 검증 |
+| Compiler | Windows MSVC, macOS Apple Clang | Windows MSVC 검증; Apple Clang 미검증 |
 | Framework | JUCE 사용 금지 | 제약 확정 |
 
-Version, package manager와 toolchain minimum은 Phase 0B에서 정한다.
+Studio exact dependency와 Windows toolchain은 Phase 0B 상태 문서에, VST3 SDK exact source와
+scope는 Phase 1A dependency 상태 문서에 기록한다.
 
-## 외부 후보: 모두 미설치·미검증·미승인
+## 외부 dependency 상태
 
 | 후보 | 검토 capability | 현재 상태 |
 | --- | --- | --- |
-| Steinberg VST3 SDK | VST3 format adapter | 미설치·미검증·미승인 |
+| Steinberg VST3 SDK | VST3 format adapter | Phase 1A 한정 admission; exact pin Windows x64 build/validator 검증 |
 | Skia | generated native UI rendering | 미설치·미검증·미승인 |
 | CanvasKit | Studio interface preview rendering | 미설치·미검증·미승인 |
 | Yoga | layout calculation adapter | 미설치·미검증·미승인 |
@@ -42,7 +45,24 @@ Version, package manager와 toolchain minimum은 Phase 0B에서 정한다.
 | KissFFT | FFT와 audio analysis | 미설치·미검증·미승인 |
 | FlatBuffers | compiled runtime data serialization | 미설치·미검증·미승인 |
 
-후속 문서는 후보를 “기반”, “채택” 또는 “사용 중”이라고 표현하지 않는다. 부적합한 후보는 compatibility wrapper나 fallback 없이 제거한다.
+Steinberg VST3 SDK 이외 후보는 계속 미설치·미검증·미승인이다. 후속 문서는 이 후보를
+“기반”, “채택” 또는 “사용 중”이라고 표현하지 않는다. 부적합한 후보는 compatibility
+wrapper나 fallback 없이 제거한다.
+
+### Phase 1A VST3 SDK admission 경계
+
+- Official source는 `steinbergmedia/vst3sdk`의 tag `v3.8.0_build_66`, full commit
+  `9fad9770f2ae8542ab1a548a68c1ad1ac690abe0`에 고정한다.
+- Windows x64 Debug와 Release의 `Garak Gain Spike` bundle을 build하고 pinned source의 official
+  validator로 각각 standard 47 tests와 extensive 537 tests를 실행했다. 네 run 모두 failed test
+  0으로 통과했다.
+- SDK type과 lifecycle은 [VST3 Adapter](vst3-adapter.md) 안에 격리하고 first-party public model에
+  노출하지 않는다.
+- VSTGUI, SDK plugin example, documentation과 tutorials는 plugin에 build/link하지 않는다.
+- 이 결과는 fixed editorless module의 format-adapter admission 증거일 뿐 generated plugin runtime
+  dependency 승인이나 상용 배포 준비 완료가 아니다.
+- macOS/Apple Clang, Universal VST3, AU, signing/notarization, commercial redistribution와 전체
+  transitive legal audit는 미검증·미승인이다.
 
 ## First-party 경계와 Adapter 규칙
 
@@ -123,7 +143,8 @@ Dependency graph는 Studio-only, build/export tool, native core, generated runti
 - Source/version/integrity와 direct/transitive notice를 target별로 추적한다.
 - Obsolete candidate/patch path는 shim 없이 제거한다.
 
-Vendor 방식, package manager, SBOM, checksum/signature와 scanner는 미정이다.
+Phase 1A VST3 SDK acquisition에는 recursive Git submodule을 사용한다. 다른 native dependency의
+vendor 방식, package manager와 공통 SBOM/checksum/signature/scanner 정책은 계속 미정이다.
 
 ## 승인 증거
 
@@ -136,11 +157,12 @@ Vendor 방식, package manager, SBOM, checksum/signature와 scanner는 미정이
 
 실행하지 않은 build, benchmark, license/legal review를 통과했다고 기록하지 않는다.
 
-## Phase 0A 비범위와 Open Questions
+## 현재 미결정과 Open Questions
 
-Phase 0A에서는 dependency 다운로드·설치·pinning·integration, license 확정 또는 후보 기반 scaffold를 만들지 않는다.
+Phase 0A에서는 dependency를 도입하지 않았다. Phase 1A는 위 exact VST3 SDK와 Windows 기술
+spike 범위만 해결했으며 다음 질문을 일반화해 결정하지 않았다.
 
-- Phase 0B package manager와 C++ acquisition 정책은 무엇인가?
+- 후속 native dependency의 공통 acquisition과 update 정책은 무엇인가?
 - Source/binary integrity와 generated package dependency budget은 얼마인가?
 - Studio-only/runtime target 분리를 build에서 어떻게 검증할 것인가?
 - MPL-2.0/LGPL을 허용할 packaging/legal 조건은 무엇인가?
