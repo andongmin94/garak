@@ -1,0 +1,13 @@
+{
+  "name": "garak",
+  "private": true,
+  "packageManager": "pnpm@11.16.0",
+  "scripts": {
+    "studio:dev": "pnpm --dir studio dev",
+    "studio:lint": "pnpm --dir studio lint",
+    "studio:format": "pnpm --dir studio format",
+    "studio:format:check": "pnpm --dir studio format:check",
+    "studio:typecheck": "pnpm --dir studio typecheck",
+    "studio:build": "pnpm --dir studio build"
+  }
+}

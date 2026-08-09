@@ -1,0 +1,8 @@
+add_executable(garak_version_tests version_tests.cpp)
+
+target_link_libraries(garak_version_tests PRIVATE garak::core)
+
+garak_apply_warnings(garak_version_tests)
+garak_apply_clang_tidy(garak_version_tests)
+
+add_test(NAME garak_version_tests COMMAND garak_version_tests)

@@ -1,0 +1,23 @@
+# Operating systems
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Editors
+.idea/
+.vscode/
+*.suo
+*.user
+
+# Dependencies and generated output
+node_modules/
+build/
+dist/
+dist-electron/
+out/
+
+# Logs and local environment
+*.log
+.env
+.env.*
+!.env.example

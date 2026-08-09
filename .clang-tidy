@@ -1,0 +1,12 @@
+---
+Checks: >-
+  -*,
+  bugprone-*,
+  clang-analyzer-*,
+  performance-*,
+  portability-*
+WarningsAsErrors: '*'
+HeaderFilterRegex: '.*native.*'
+FormatStyle: file
+SystemHeaders: false
+...

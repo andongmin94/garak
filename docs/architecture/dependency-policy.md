@@ -1,0 +1,148 @@
+# Dependency and License Policy
+
+- 상태: Phase 0A architecture 기준선
+- 권위: dependency 도입, 후보 상태, adapter, third-party source와 license 검토
+- 관련 문서: [v0.1 PRD](../product/v0.1-prd.md), [Realtime and Quality](realtime-and-quality.md), [Interface Designer](interface-designer.md)
+
+## 목적과 현재 상태
+
+잘 유지되는 library가 전체 복잡성과 위험을 줄이면 활용하되 `.garak`, graph/runtime, parameter/state, scene와 export contract는 Garak이 소유한다. Phase 0A에서는 외부 SDK/library를 다운로드, 설치 또는 통합하지 않았고 API, 성능, 보안과 정확한 license 조건을 검증하지 않았다.
+
+상태 용어:
+
+- **확정 방향**: architecture 선택이며 설치·build 완료를 뜻하지 않는다.
+- **후보**: capability spike 대상으로 이름만 오른 상태이다.
+- **미설치/미검증/미승인**: project 추가, 적합성 검증, 채택 결정이 각각 이루어지지 않았다.
+- **승인**: exact scope/version에 대해 admission, test와 필요한 ADR을 마친 상태이다.
+
+후보 또는 permissive license라는 이유만으로 승인되지 않는다.
+
+## 확정 기술 방향
+
+| 영역 | 방향 | Phase 0A 상태 |
+| --- | --- | --- |
+| Studio | Electron, React, TypeScript strict | scaffold/package 없음 |
+| Native Engine | C++20 | source/target 없음 |
+| Build | CMake, Ninja | configuration 없음 |
+| Compiler | Windows MSVC, macOS Apple Clang | build 미검증 |
+| Framework | JUCE 사용 금지 | 제약 확정 |
+
+Version, package manager와 toolchain minimum은 Phase 0B에서 정한다.
+
+## 외부 후보: 모두 미설치·미검증·미승인
+
+| 후보 | 검토 capability | 현재 상태 |
+| --- | --- | --- |
+| Steinberg VST3 SDK | VST3 format adapter | 미설치·미검증·미승인 |
+| Skia | generated native UI rendering | 미설치·미검증·미승인 |
+| CanvasKit | Studio interface preview rendering | 미설치·미검증·미승인 |
+| Yoga | layout calculation adapter | 미설치·미검증·미승인 |
+| XYFlow | Studio graph editor interaction | 미설치·미검증·미승인 |
+| miniaudio | Player/Studio audio-device I/O | 미설치·미검증·미승인 |
+| KissFFT | FFT와 audio analysis | 미설치·미검증·미승인 |
+| FlatBuffers | compiled runtime data serialization | 미설치·미검증·미승인 |
+
+후속 문서는 후보를 “기반”, “채택” 또는 “사용 중”이라고 표현하지 않는다. 부적합한 후보는 compatibility wrapper나 fallback 없이 제거한다.
+
+## First-party 경계와 Adapter 규칙
+
+Garak 소유 영역:
+
+- `.garak` project와 DSP node/graph contract
+- graph compiler, schedule, buffer/latency planning
+- parameter/macro와 state/preset migration
+- interface scene/binding과 product compiler
+- generated runtime, validation과 export contract
+
+외부 SDK/library/platform API는 adapter 뒤에 격리한다. Garak public API는 `garak::AudioBlock`, `Parameter`, `Graph`, `ui::Scene` 같은 first-party type만 사용하며 이름은 아직 예시이다. `Steinberg::Vst::ProcessData`, `SkCanvas`, `YGNode`, DOM/React 또는 third-party container/error type은 노출하지 않는다.
+
+Adapter는 type 변환, lifecycle/ownership/error/thread 차이, format ID encoding과 diagnostic 변환을 맡는다. Adapter 존재만으로 승인되지 않으며 callback에 들어오면 [Realtime and Quality](realtime-and-quality.md)를 별도 증명한다.
+
+## Dependency admission
+
+1. 필요한 user/product capability와 first-party contract를 먼저 명시한다.
+2. 기존 project dependency의 official documentation/type이 이미 지원하는지 확인한다.
+3. 직접 구현 대비 전체 복잡성, 유지보수성과 교체 비용을 비교한다.
+4. Upstream maintenance, security, platform/compiler support를 조사한다.
+5. Direct/transitive dependency, build tool와 generated code를 목록화한다.
+6. 원문 license, patent/notice/source 제공과 commercial redistribution을 검토한다.
+7. Studio/build tool/core/generated runtime 중 포함 경계를 명시한다.
+8. Binary size, startup, memory, performance와 realtime 최소 spike를 수행한다.
+9. Adapter와 contract test를 설계한다.
+10. Architecture 결정이면 ADR과 승인 scope/version을 기록한 뒤 추가한다.
+
+검증 실패를 임시 direct call, dual implementation 또는 shipping fallback으로 우회하지 않는다.
+
+## 평가와 후보별 spike
+
+공통 기준은 Windows/macOS 지원, MSVC/Apple Clang 및 CMake/Ninja 통합, 유지보수/보안, transitive cost, adapter 격리, package size/performance와 redistribution 적합성이다. Realtime 경로는 allocation/lock/I/O/예외/unbounded work 부재와 prepare 가능성을 instrumented test로 입증한다.
+
+| 후보 | 결정 전 핵심 질문 |
+| --- | --- |
+| VST3 SDK | no-JUCE adapter, stable class ID, package/validator와 redistribution 조건 |
+| Skia/CanvasKit | scene parity, text/SVG/DPI, binary/startup, Studio-only 분리 |
+| Yoga | basic auto-layout 적합성, `YGNode` 격리, cross-platform tolerance |
+| XYFlow | interaction-only 경계, strict TypeScript와 graph 규모 |
+| miniaudio | device lifecycle/callback 안전, generated runtime 제외 |
+| KissFFT | 실제 v0.1 요구, prepare/process 분리, precision/license |
+| FlatBuffers | 단순 format 대비 이점, evolution/validation, generated-code 비용 |
+
+최신 official documentation, source와 license 원문을 확인하기 전 답을 추정하지 않는다.
+
+## License 정책
+
+### 기본 허용 검토 후보
+
+- MIT, MIT-0, BSD, ISC, zlib, Apache-2.0
+
+목록은 자동 승인이 아니다. Exact version의 license, copyright, patent, transitive dependency와 generated runtime 의무를 확인한다.
+
+### 격리 및 별도 검토
+
+- MPL-2.0, LGPL
+
+File-level copyleft, 수정 source, relinking, static/dynamic linking과 배포 의무를 별도 법률 검토한다. Adapter가 license 의무를 없애지 않는다.
+
+### Generated runtime에서 원칙적으로 제외
+
+- GPL, AGPL
+- 출처 또는 license가 불명확한 code
+- 상업적 재배포를 제한하는 source-available code
+
+예외를 암묵적으로 만들지 않고 필요하면 사업·법률 영향과 대안을 먼저 결정한다.
+
+저장소 license, Studio license와 generated Runtime redistribution permission은 미결정이다. Phase 0A에서 `LICENSE`를 만들지 않으며 제품 정책 가설을 법적 허가로 표현하지 않는다.
+
+## 배포 경계와 third-party source
+
+Dependency graph는 Studio-only, build/export tool, native core, generated runtime과 development/test 의존성을 분리한다. Studio-only code가 transitive link, asset 또는 generated code로 plugin에 유출되지 않는지 검사한다. Electron, Chromium, Node.js, CanvasKit와 임의 JavaScript runtime은 generated plugin에 포함하지 않는다.
+
+- Upstream 원본은 가능한 한 수정하지 않는다.
+- 이름 변경이나 전체 reformat을 하지 않는다.
+- 변경은 upstream version과 이유가 있는 작은 patch set으로 관리한다.
+- Source/version/integrity와 direct/transitive notice를 target별로 추적한다.
+- Obsolete candidate/patch path는 shim 없이 제거한다.
+
+Vendor 방식, package manager, SBOM, checksum/signature와 scanner는 미정이다.
+
+## 승인 증거
+
+- 해결 요구와 exact version/source/scope
+- Official documentation와 license 원문 검토
+- Direct/transitive 목록과 adapter/public API leak 검사
+- Target platform build/test와 관련 benchmark
+- Generated runtime 포함 여부 및 redistribution/notice 판단
+- risk, update/removal 조건과 필요한 ADR 갱신
+
+실행하지 않은 build, benchmark, license/legal review를 통과했다고 기록하지 않는다.
+
+## Phase 0A 비범위와 Open Questions
+
+Phase 0A에서는 dependency 다운로드·설치·pinning·integration, license 확정 또는 후보 기반 scaffold를 만들지 않는다.
+
+- Phase 0B package manager와 C++ acquisition 정책은 무엇인가?
+- Source/binary integrity와 generated package dependency budget은 얼마인가?
+- Studio-only/runtime target 분리를 build에서 어떻게 검증할 것인가?
+- MPL-2.0/LGPL을 허용할 packaging/legal 조건은 무엇인가?
+- White-label generated product의 third-party notice를 어떻게 제공할 것인가?
+- 재평가 주기, security response와 upstream abandonment 기준은 무엇인가?
