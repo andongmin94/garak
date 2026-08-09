@@ -1,0 +1,76 @@
+name: Phase 2B.1 gates
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  typescript:
+    runs-on: windows-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.19.0
+          cache: pnpm
+
+      - name: Activate pnpm
+        shell: pwsh
+        run: |
+          corepack enable
+          corepack prepare pnpm@11.16.0 --activate
+
+      - name: Install exact workspace dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify Product Compiler formatting
+        shell: pwsh
+        run: |
+          pnpm product:format
+          git diff --exit-code -- tools/product-compiler/src tools/product-compiler/tests
+
+      - name: Product Compiler gates
+        shell: pwsh
+        run: |
+          pnpm product:lint
+          pnpm product:typecheck
+          pnpm product:test
+
+      - name: Studio gates
+        shell: pwsh
+        run: |
+          pnpm studio:format:check
+          pnpm studio:lint
+          pnpm studio:typecheck
+          pnpm studio:test
+          pnpm studio:build
+
+  native-smoke:
+    runs-on: windows-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Configure MSVC environment
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Configure, build, and test Debug scaffold
+        shell: pwsh
+        run: |
+          cmake --preset debug
+          cmake --build --preset debug-build
+          ctest --preset debug-test --no-tests=error

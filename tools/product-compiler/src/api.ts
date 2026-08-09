@@ -51,11 +51,8 @@ export type {
   OwnedCleanupResult,
 } from "./owned_cleanup.ts";
 export {
-  createProductProject,
   documentForProject,
   inspectProductProjectDraft,
-  openProductProject,
-  saveProductProject,
   serializeProductProjectDocument,
   validateProductProjectDocument,
   validateProductProjectDraft,
@@ -68,6 +65,24 @@ export type {
   ProjectMutationResult,
   SaveProductProjectOptions,
 } from "./project_document.ts";
+export {
+  createDurableProductProject as createProductProject,
+  fingerprintProjectTree,
+  migrateProductProjectInPlace,
+  openDurableProductProject as openProductProject,
+  recoverProductPersistence,
+  saveDurableProductProject as saveProductProject,
+} from "./project_persistence.ts";
+export type {
+  DurableCreateProductProjectOptions,
+  DurableProjectMutationResult,
+  DurableSaveProductProjectOptions,
+  MigrateProductProjectInPlaceOptions,
+  PersistenceFaultPoint,
+  PersistenceOperation,
+  ProjectBackupSummary,
+  ProjectRecoveryResult,
+} from "./project_persistence.ts";
 export type { ProductInspection } from "./project_model.ts";
 export type { ProjectSchemaDetection } from "./project_model.ts";
 export { detectProjectSchemaVersion } from "./validation.ts";
