@@ -1,9 +1,9 @@
 # Garak Roadmap
 
-- 문서 상태: Phase 1C Windows x64 Product Creation Vertical Slice 검증 기준선
+- 문서 상태: Phase 2A editable project migration PASS 기준선
 - 최종 갱신: 2026-08-12
-- 현재 단계: Phase 0B, Phase 1A, Phase 1B와 Phase 1C.1/1C.2 Windows x64 PASS. 정확한 다음 milestone은 Phase 2.
-- 관련 문서: [v0.1 제품 요구사항](docs/product/v0.1-prd.md), [시스템 개요](docs/architecture/system-overview.md), [모듈 경계](docs/architecture/module-boundaries.md), [프로젝트 모델](docs/architecture/project-model.md), [Minimal Garak Product Project](docs/architecture/minimal-garak-product-project.md), [Product Identity](docs/architecture/product-identity-derivation.md), [Compiled Product Data v1](docs/architecture/compiled-product-data-v1.md), [Product State v1](docs/architecture/product-state-v1.md), [Runtime과 export](docs/architecture/runtime-and-export.md), [Realtime과 quality](docs/architecture/realtime-and-quality.md), [Parameter와 state](docs/architecture/parameter-and-state.md), [Interface Designer](docs/architecture/interface-designer.md), [의존성 정책](docs/architecture/dependency-policy.md), [VST3 Adapter](docs/architecture/vst3-adapter.md), [Phase 0A ExecPlan](plans/0001-phase-0a-repository-foundation.md), [Phase 0B ExecPlan](plans/0002-phase-0b-buildable-native-and-studio-scaffolds.md), [Phase 1A ExecPlan](plans/0003-phase-1a-windows-minimal-vst3-gain-shell.md), [Phase 1A validation](docs/status/phase-1a-vst3-validation.md), [Phase 1B ExecPlan](plans/0004-phase-1b-generated-runtime-ab-spike.md), [Phase 1C.1 ExecPlan](plans/0005-phase-1c1-product-contracts-and-headless-windows-export.md), [Phase 1C.2 ExecPlan](plans/0006-phase-1c2-studio-product-workspace-and-export-ux.md), [Phase 1C.2 validation](docs/status/phase-1c2-studio-product-workspace-validation.md)
+- 현재 단계: Phase 0B, Phase 1A/1B, Phase 1C.1/1C.2와 Phase 2A Windows x64 PASS. Phase 2 전체는 미완료이며 정확한 다음 milestone은 Phase 2B.
+- 관련 문서: [v0.1 제품 요구사항](docs/product/v0.1-prd.md), [시스템 개요](docs/architecture/system-overview.md), [모듈 경계](docs/architecture/module-boundaries.md), [프로젝트 모델](docs/architecture/project-model.md), [Minimal Garak Product Project](docs/architecture/minimal-garak-product-project.md), [Editable Project Schema v2](docs/architecture/editable-project-schema-v2.md), [Project Migration Engine](docs/architecture/project-migration-engine.md), [Product Identity](docs/architecture/product-identity-derivation.md), [Compiled Product Data v1](docs/architecture/compiled-product-data-v1.md), [Product State v1](docs/architecture/product-state-v1.md), [Runtime과 export](docs/architecture/runtime-and-export.md), [Realtime과 quality](docs/architecture/realtime-and-quality.md), [Parameter와 state](docs/architecture/parameter-and-state.md), [Interface Designer](docs/architecture/interface-designer.md), [의존성 정책](docs/architecture/dependency-policy.md), [VST3 Adapter](docs/architecture/vst3-adapter.md), [Phase 2A ExecPlan](plans/0007-phase-2a-editable-project-schema-migration.md), [Phase 2A fixtures](docs/status/phase-2a-project-migration-fixtures.md), [Phase 2A validation](docs/status/phase-2a-project-migration-validation.md)
 
 ## 진행 원칙
 
@@ -159,29 +159,70 @@ macOS VST3/Universal, AU, Apple Clang, representative DAW, Developer ID signing,
 
 ## Phase 2 — Project Evolution and Persistent Migration
 
-**정확한 다음 milestone이며 아직 착수하지 않았다.** 별도 승인과 ExecPlan 뒤 Phase 1C의 canonical project lifecycle을 versioned evolution과 persistent migration으로 확장한다.
+Phase 2는 세 bounded increment로 진행한다. **Phase 2A만 완료됐으며 Phase 2 전체는 미완료다.**
 
-### 진입 조건
+### Phase 2A — Editable Project Schema Evolution and Deterministic Migration Engine
 
-- Phase 1C.1의 minimal project, identity, compiled-data/state와 Windows export가 계속 통과한다.
-- Phase 1C.2에서 같은 headless contract를 사용하는 Studio project lifecycle이 검증된다.
+[Phase 2A ExecPlan](plans/0007-phase-2a-editable-project-schema-migration.md)에 따라 2026-08-12
+**PASS**로 완료했다.
 
-### 핵심 산출물
+핵심 산출물:
 
-- Phase 1C.1 minimal Gain schema를 확장하는 versioned project evolution 규칙
-- Released Product/plugin/parameter identity lifecycle과 tombstone 정책
-- 지원되는 이전 project/state fixture의 explicit migration
+- Current editable schema v2와 exact supported legacy schema v1
+- Structured version-first detection과 separate exact v1/v2 validator
+- Pure deterministic `project-schema-1-to-2` step, canonical v2 writer와 exact source/hash fixtures
+- Source-preserving migration status/dry-run 및 explicit distinct-output atomic CLI
+- Legacy Studio open/current-memory status와 ordinary Save no-rewrite refusal
+- Warm/Bright v1/v2 identity, Parameter ID, `GARAKCPD` v1와 Windows Debug/Release export parity
+
+수용 결과:
+
+- Product Compiler format/lint/typecheck와 76/76 tests, Studio format/lint/typecheck와 12/12 tests 및
+  production build가 PASS했다.
+- Product Runtime Debug/Release fresh clean 177/177, CTest 7/7, Werror/tidy 110/110과 native format 58
+  files가 PASS했다.
+- Configuration마다 v1/v2 Warm/Bright 네 export와 child 20/20 exit 0, source/artifact unchanged,
+  forbidden native-build invocation 0을 확인했다.
+- Warm/Bright exact compiled SHA, Product ID/FUID, Gain/Bypass ID, Runtime, moduleinfo와 inventory parity를
+  확인했다.
+- Dependency delta는 0이다: Studio direct 16, Product Compiler runtime third-party 0.
+
+Phase 2A는 Studio migration publication UI, in-place rewrite, autosave/crash recovery, compiled-data policy와
+preset/DAW/plugin state migration을 구현하지 않았다. Exact fixture와 evidence는
+[fixture status](docs/status/phase-2a-project-migration-fixtures.md)와
+[validation status](docs/status/phase-2a-project-migration-validation.md)에 기록한다.
+
+### Phase 2B — Studio Migration, Backup, Recovery and Durable Persistence UX
+
+**정확한 다음 milestone이며 아직 착수하지 않았다.** 별도 ExecPlan 뒤 Phase 2A의 source-preserving
+headless migration을 Studio의 explicit user workflow로 확장한다.
+
+핵심 산출물:
+
+- Legacy project migration 안내와 명시적 confirmation
+- Verified backup/restore와 safe in-place publication
+- Publication/recovery failure diagnostic과 사용자 remediation
+- Autosave, crash recovery와 durable multi-session project persistence
+- Renderer least-privilege와 main-owned opaque filesystem capability 유지
+
+수용 기준:
+
+- Legacy source를 사용자 확인 없이 덮어쓰지 않는다.
+- Backup이 검증된 뒤에만 in-place commit하고 실패 시 prior source를 복원하거나 exact recovery artifact를
+  설명한다.
+- Restart/crash 뒤 current document와 recovery state를 결정적으로 재구성한다.
+- Phase 2A CLI, canonical bytes, identity/compiled/export parity와 Studio security boundary를 계속 통과한다.
+
+### Phase 2C — Compiled Product and Plug-in State Compatibility Policy
+
+**Pending.** Editable project migration과 별개로 다음을 결정·검증한다.
+
 - Compiled-data version mismatch의 migrate/rebuild/reject 정책과 tooling
-- Obsolete pre-release/internal path를 제거한 current canonical implementation
+- Product Runtime/compiler upgrade compatibility matrix
+- Preset/DAW/plugin state compatibility와 supported migration fixture
+- Released Product/plugin/parameter identity lifecycle 및 tombstone 정책
 
-### 수용 기준
-
-- Phase 1C.1 Gain fixture를 현재 schema로 읽고 저장·재개방해 identity와 metadata를 동일하게 복원한다.
-- 지원되는 이전 project/state fixture를 current model로 migration하고 같은 canonical compiled product를 만든다.
-- Corrupt/newer project, state와 unsupported compiled data는 설명 가능한 오류로 거부하며 prior valid data를 보존한다.
-- Released persistent migration과 obsolete 내부 compatibility path 제거가 별개의 정책으로 유지된다.
-
-### 명시적 비범위
+Phase 2 공통 비범위:
 
 - 범용 static DSP graph execution과 node library
 - Macro curve, one-to-many mapping과 Interface Designer

@@ -6,6 +6,7 @@ import {
   open,
   readFile,
   readdir,
+  realpath,
   rename,
   rm,
   writeFile,
@@ -26,6 +27,7 @@ import { ownedCleanupDiagnostic } from "./owned_cleanup.ts";
 import type { OwnedCleanupDiagnostic } from "./owned_cleanup.ts";
 import {
   BYPASS_PARAMETER_ID,
+  compiledTemplateFor,
   GAIN_PARAMETER_ID,
   normalizedGainDefault,
 } from "./project_model.ts";
@@ -56,6 +58,7 @@ export interface ChildProcessLog {
 
 export interface ExportWindowsOptions {
   readonly project: ProductProject;
+  readonly sourceDirectory?: string;
   readonly configuration: ProductConfiguration;
   readonly outputDirectory: string;
   readonly repositoryRoot: string;
@@ -83,6 +86,7 @@ export interface ExportWindowsResult {
 
 export interface CompileFileOptions {
   readonly project: ProductProject;
+  readonly sourceDirectory?: string;
   readonly outputFile: string;
   readonly force: boolean;
   readonly createTransactionId?: () => string;
@@ -135,6 +139,61 @@ function isContainedBy(candidate: string, boundary: string): boolean {
 
 function pathsOverlap(first: string, second: string): boolean {
   return isContainedBy(first, second) || isContainedBy(second, first);
+}
+
+function isMissingPathError(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    error.code === "ENOENT"
+  );
+}
+
+async function resolveProspectivePhysicalPath(
+  value: string,
+  failureCode: string,
+  diagnosticPath: string,
+): Promise<string> {
+  let existingAncestor = path.resolve(value);
+  const missingLeaves: string[] = [];
+  while (true) {
+    try {
+      const physicalAncestor = await realpath(existingAncestor);
+      return path.join(physicalAncestor, ...missingLeaves);
+    } catch (error) {
+      if (!isMissingPathError(error)) {
+        fail(
+          failureCode,
+          diagnosticPath,
+          `Path cannot be resolved through its nearest existing physical ancestor: ${path.resolve(value)}. ${boundedFailureDetail(error)}`,
+        );
+      }
+      const parent = path.dirname(existingAncestor);
+      if (parent === existingAncestor) {
+        fail(
+          failureCode,
+          diagnosticPath,
+          `Path has no resolvable physical ancestor: ${path.resolve(value)}.`,
+        );
+      }
+      missingLeaves.unshift(path.basename(existingAncestor));
+      existingAncestor = parent;
+    }
+  }
+}
+
+async function physicalPathsOverlap(
+  first: string,
+  second: string,
+  failureCode: string,
+  diagnosticPath: string,
+): Promise<boolean> {
+  const [physicalFirst, physicalSecond] = await Promise.all([
+    resolveProspectivePhysicalPath(first, failureCode, diagnosticPath),
+    resolveProspectivePhysicalPath(second, failureCode, diagnosticPath),
+  ]);
+  return pathsOverlap(physicalFirst, physicalSecond);
 }
 
 function forwardSlash(value: string): string {
@@ -434,7 +493,7 @@ function assertCompiledParity(
     compiled.name !== project.name ||
     compiled.versionText !== project.version ||
     compiled.category !== project.category ||
-    compiled.template !== project.template ||
+    compiled.template !== compiledTemplateFor(project.template) ||
     compiled.identity.processorFuid !== identity.processorFuid ||
     compiled.identity.controllerFuid !== identity.controllerFuid ||
     gain.id !== GAIN_PARAMETER_ID ||
@@ -506,7 +565,15 @@ export async function compileProductFile(
       "Compiled output filename must be exactly 'product.garakbin'.",
     );
   }
-  if (pathsOverlap(outputFile, options.project.sourceDirectory)) {
+  if (
+    options.sourceDirectory !== undefined &&
+    (await physicalPathsOverlap(
+      outputFile,
+      options.sourceDirectory,
+      "GARAK_COMPILE_PATH_RESOLUTION",
+      "compile.output",
+    ))
+  ) {
     fail(
       "GARAK_COMPILE_OUTPUT_OVERLAP",
       "compile.output",
@@ -676,14 +743,29 @@ export async function exportWindowsProduct(
   const outputDirectory = path.resolve(options.outputDirectory);
   const bundleLeaf = `${options.project.name}.vst3`;
   const finalBundle = path.join(outputDirectory, bundleLeaf);
-  if (pathsOverlap(finalBundle, options.project.sourceDirectory)) {
+  if (
+    options.sourceDirectory !== undefined &&
+    (await physicalPathsOverlap(
+      finalBundle,
+      options.sourceDirectory,
+      "GARAK_EXPORT_PATH_RESOLUTION",
+      "export.output",
+    ))
+  ) {
     fail(
       "GARAK_EXPORT_OUTPUT_OVERLAP",
       "export.output",
       "Export bundle must not overlap the source .garak project.",
     );
   }
-  if (pathsOverlap(finalBundle, artifacts.artifactRoot)) {
+  if (
+    await physicalPathsOverlap(
+      finalBundle,
+      artifacts.artifactRoot,
+      "GARAK_EXPORT_PATH_RESOLUTION",
+      "export.output",
+    )
+  ) {
     fail(
       "GARAK_EXPORT_OUTPUT_OVERLAP",
       "export.output",
@@ -842,7 +924,7 @@ export async function exportWindowsProduct(
           "--category",
           options.project.category,
           "--template",
-          options.project.template,
+          compiledTemplateFor(options.project.template),
           "--processor-fuid",
           identity.processorFuid,
           "--controller-fuid",

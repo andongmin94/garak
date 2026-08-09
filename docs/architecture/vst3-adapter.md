@@ -214,8 +214,9 @@ Phase 0 Native Debug/Release fresh/clean CTest 1/1와 exact smoke, Phase 0 Werro
 Studio frozen install/lint/format/typecheck/build도 최종 rerun PASS이며 Studio direct dependency는
 16개로 유지됐다. 이 근거로 Phase 1A Windows x64 adapter spike는 PASS / Complete다.
 
-Phase 1 전체는 미완료다. Windows 결과를 macOS/AU, 실제 DAW host, commercial distribution 또는
-transitive legal audit의 통과로 일반화하지 않는다.
+이 Phase 1A Windows spike의 PASS만으로 당시 Phase 1 전체 완료를 주장하지 않았다. Phase 1은 이후
+Phase 1B/1C gate까지 통과해 완료됐지만, Windows 결과를 macOS/AU, 실제 DAW host,
+commercial distribution 또는 transitive legal audit의 통과로 일반화하지 않는다.
 
 ## Phase 1C.1 Product Runtime v1 경계
 

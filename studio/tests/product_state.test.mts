@@ -13,10 +13,16 @@ const document: ProductDocument = {
   documentId: 'document-1',
   locationLabel: 'Artist Gain.garak',
   saved: true,
-  schemaVersion: 1,
+  schemaVersion: 2,
+  schemaStatus: {
+    sourceSchemaVersion: 2,
+    currentSchemaVersion: 2,
+    migrationRequired: false,
+    steps: [],
+  },
   productId: '6f0e50f1-a2d4-4b37-8c9e-1f2a3b4c5d6e',
   category: 'Fx',
-  template: 'garak.gain-v1',
+  template: { id: 'garak.gain', version: 1 },
   cleanupWarnings: [],
   draft: {
     vendor: 'Garak Test Artist',

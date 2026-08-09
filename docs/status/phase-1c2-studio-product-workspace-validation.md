@@ -146,6 +146,7 @@ child exit 0, Runtime hash parity와 build-tree file inventory 불변을 확인�
 
 ## 정확한 다음 milestone
 
-Roadmap의 다음 milestone은 **Phase 2 — Project Evolution and Persistent Migration**이다. 별도 승인과
-ExecPlan 뒤 Phase 1C의 canonical project lifecycle 위에 versioned evolution, persistent identity와 explicit
-migration을 추가한다.
+이 문서가 닫힐 당시 다음 milestone은 Phase 2였다. 이후
+[Phase 2A](phase-2a-project-migration-validation.md)가 editable schema v1→v2와 headless migration을
+**PASS**로 완료했다. 현재 정확한 다음 milestone은 **Phase 2B — Studio Migration, Backup, Recovery and
+Durable Persistence UX**이며 Phase 2C compiled/state compatibility는 pending이다.

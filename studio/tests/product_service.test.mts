@@ -23,18 +23,38 @@ const DRAFT: ProductDraft = {
   gainDb: -6,
 };
 
-function snapshot(revision = 'a'.repeat(64)): ProductProjectSnapshot {
+function snapshot(
+  revision = 'a'.repeat(64),
+  sourceSchemaVersion: 1 | 2 = 2,
+): ProductProjectSnapshot {
+  let schemaStatus: ProductProjectSnapshot['schemaStatus'];
+  if (sourceSchemaVersion === 1) {
+    schemaStatus = {
+      sourceSchemaVersion: 1,
+      currentSchemaVersion: 2,
+      migrationRequired: true,
+      steps: ['project-schema-1-to-2'],
+    };
+  } else {
+    schemaStatus = {
+      sourceSchemaVersion: 2,
+      currentSchemaVersion: 2,
+      migrationRequired: false,
+      steps: [],
+    };
+  }
   return {
     sourceDirectory: PROJECT_DIRECTORY,
     revision,
+    schemaStatus,
     document: {
-      schemaVersion: 1,
+      schemaVersion: 2,
       productId: PRODUCT_ID,
       vendor: DRAFT.vendor,
       name: DRAFT.name,
       version: DRAFT.version,
       category: 'Fx',
-      template: 'garak.gain-v1',
+      template: { id: 'garak.gain', version: 1 },
       defaults: { gainDb: DRAFT.gainDb },
     },
     inspection: {
@@ -43,7 +63,7 @@ function snapshot(revision = 'a'.repeat(64)): ProductProjectSnapshot {
       name: DRAFT.name,
       version: DRAFT.version,
       category: 'Fx',
-      template: 'garak.gain-v1',
+      template: { id: 'garak.gain', version: 1 },
       processorFuid: '00112233445566778899AABBCCDDEEFF',
       controllerFuid: 'FFEEDDCCBBAA99887766554433221100',
       gain: { id: 1001, defaultDb: -6, defaultNormalized: 0.75 },
@@ -175,6 +195,91 @@ test('main-owned session keeps Product ID out of editable requests', async () =>
       message: 'The Product document capability is unknown or has expired.',
     },
   });
+});
+
+test('legacy open reports canonical memory migration and ordinary save preserves compiler refusal', async () => {
+  let saveCalls = 0;
+  const productService = service(
+    dialogs(),
+    compiler({
+      openProductProject: async () => snapshot('a'.repeat(64), 1),
+      saveProductProject: async () => {
+        saveCalls += 1;
+        throw new MockCompilerError({
+          code: 'GARAK_PROJECT_MIGRATION_REQUIRED',
+          path: 'project.schemaVersion',
+          message:
+            'Legacy projects must be migrated to a distinct output before they can be saved.',
+        });
+      },
+    }),
+  );
+
+  const opened = await productService.openProduct();
+  assert.equal(opened.status, 'ok');
+  if (opened.status !== 'ok') return;
+  assert.equal(opened.value.schemaVersion, 2);
+  assert.deepEqual(opened.value.template, { id: 'garak.gain', version: 1 });
+  assert.deepEqual(opened.value.schemaStatus, {
+    sourceSchemaVersion: 1,
+    currentSchemaVersion: 2,
+    migrationRequired: true,
+    steps: ['project-schema-1-to-2'],
+  });
+
+  const saved = await productService.saveProduct({
+    documentId: opened.value.documentId,
+    draft: opened.value.draft,
+  });
+  assert.deepEqual(saved, {
+    status: 'error',
+    diagnostic: {
+      code: 'GARAK_PROJECT_MIGRATION_REQUIRED',
+      path: 'project.schemaVersion',
+      message:
+        'Legacy projects must be migrated to a distinct output before they can be saved. Phase 2A does not rewrite a source project in place.',
+    },
+  });
+  assert.equal(saveCalls, 0);
+});
+
+test('future-schema open failure creates no session that can overwrite the source', async () => {
+  let saveCalls = 0;
+  const productService = service(
+    dialogs(),
+    compiler({
+      openProductProject: async () => {
+        throw new MockCompilerError({
+          code: 'GARAK_PROJECT_VERSION_TOO_NEW',
+          path: 'product.json.schemaVersion',
+          message: 'schemaVersion 3 is newer than the current version 2.',
+        });
+      },
+      saveProductProject: async () => {
+        saveCalls += 1;
+        return mutation();
+      },
+    }),
+  );
+
+  assert.deepEqual(await productService.openProduct(), {
+    status: 'error',
+    diagnostic: {
+      code: 'GARAK_PROJECT_VERSION_TOO_NEW',
+      path: 'product.json.schemaVersion',
+      message: 'schemaVersion 3 is newer than the current version 2.',
+    },
+  });
+  assert.equal(
+    (
+      await productService.saveProduct({
+        documentId: 'future-document',
+        draft: DRAFT,
+      })
+    ).status,
+    'error',
+  );
+  assert.equal(saveCalls, 0);
 });
 
 test('export owns output selection, validates, and confirms before replacement', async () => {

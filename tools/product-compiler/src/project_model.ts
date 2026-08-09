@@ -1,6 +1,15 @@
-export const PRODUCT_SCHEMA_VERSION = 1 as const;
+export const PRODUCT_SCHEMA_V1 = 1 as const;
+export const PRODUCT_SCHEMA_V2 = 2 as const;
+export const PRODUCT_SCHEMA_VERSION = PRODUCT_SCHEMA_V2;
 export const PRODUCT_CATEGORY = "Fx" as const;
-export const PRODUCT_TEMPLATE = "garak.gain-v1" as const;
+export const PRODUCT_TEMPLATE_ID = "garak.gain" as const;
+export const PRODUCT_TEMPLATE_VERSION = 1 as const;
+export const PRODUCT_TEMPLATE = Object.freeze({
+  id: PRODUCT_TEMPLATE_ID,
+  version: PRODUCT_TEMPLATE_VERSION,
+});
+export const LEGACY_PRODUCT_TEMPLATE = "garak.gain-v1" as const;
+export const COMPILED_PRODUCT_TEMPLATE = LEGACY_PRODUCT_TEMPLATE;
 export const PRODUCT_JSON_FILENAME = "product.json";
 export const PRODUCT_JSON_MAXIMUM_BYTES = 65_536;
 export const PRODUCT_VENDOR_MAXIMUM_BYTES = 63;
@@ -20,17 +29,66 @@ export interface ProductVersion {
   readonly patch: number;
 }
 
-export interface ProductProject {
-  readonly schemaVersion: typeof PRODUCT_SCHEMA_VERSION;
+export interface ProductTemplate {
+  readonly id: typeof PRODUCT_TEMPLATE_ID;
+  readonly version: typeof PRODUCT_TEMPLATE_VERSION;
+}
+
+interface ProductProjectSourceCommon {
   readonly productId: string;
   readonly vendor: string;
   readonly name: string;
   readonly version: string;
   readonly versionParts: ProductVersion;
   readonly category: typeof PRODUCT_CATEGORY;
-  readonly template: typeof PRODUCT_TEMPLATE;
   readonly defaults: ProductDefaults;
-  readonly sourceDirectory: string;
+}
+
+export interface ProductProjectSourceV1 extends ProductProjectSourceCommon {
+  readonly schemaVersion: typeof PRODUCT_SCHEMA_V1;
+  readonly template: typeof LEGACY_PRODUCT_TEMPLATE;
+}
+
+export interface ProductProjectSourceV2 extends ProductProjectSourceCommon {
+  readonly schemaVersion: typeof PRODUCT_SCHEMA_V2;
+  readonly template: ProductTemplate;
+}
+
+export type ProductProject = ProductProjectSourceV2;
+export type ProjectMigrationStepId = "project-schema-1-to-2";
+
+export type ProjectSchemaDetection =
+  | {
+      readonly kind: "supported-legacy";
+      readonly schemaVersion: typeof PRODUCT_SCHEMA_V1;
+      readonly currentSchemaVersion: typeof PRODUCT_SCHEMA_VERSION;
+    }
+  | {
+      readonly kind: "current";
+      readonly schemaVersion: typeof PRODUCT_SCHEMA_V2;
+      readonly currentSchemaVersion: typeof PRODUCT_SCHEMA_VERSION;
+    }
+  | {
+      readonly kind: "too-old";
+      readonly schemaVersion: number;
+      readonly minimumSupportedSchemaVersion: typeof PRODUCT_SCHEMA_V1;
+    }
+  | {
+      readonly kind: "too-new";
+      readonly schemaVersion: number;
+      readonly currentSchemaVersion: typeof PRODUCT_SCHEMA_VERSION;
+    }
+  | {
+      readonly kind: "invalid";
+      readonly reason: "root-type" | "missing" | "non-integer";
+    };
+
+export interface ProjectSchemaStatus {
+  readonly sourceSchemaVersion:
+    typeof PRODUCT_SCHEMA_V1 | typeof PRODUCT_SCHEMA_V2;
+  readonly currentSchemaVersion: typeof PRODUCT_SCHEMA_VERSION;
+  readonly migrationRequired: boolean;
+  readonly steps: readonly ProjectMigrationStepId[];
 }
 
 export interface ProductIdentity {
@@ -44,7 +102,7 @@ export interface ProductInspection extends ProductIdentity {
   readonly name: string;
   readonly version: string;
   readonly category: typeof PRODUCT_CATEGORY;
-  readonly template: typeof PRODUCT_TEMPLATE;
+  readonly template: ProductTemplate;
   readonly gain: {
     readonly id: typeof GAIN_PARAMETER_ID;
     readonly defaultDb: number;
@@ -86,6 +144,18 @@ export function normalizedGainDefault(gainDb: number): number {
   return Object.is(normalized, -0) ? 0 : normalized;
 }
 
+export function compiledTemplateFor(
+  template: ProductTemplate,
+): typeof COMPILED_PRODUCT_TEMPLATE {
+  if (
+    template.id !== PRODUCT_TEMPLATE_ID ||
+    template.version !== PRODUCT_TEMPLATE_VERSION
+  ) {
+    throw new Error("Unsupported canonical product template.");
+  }
+  return COMPILED_PRODUCT_TEMPLATE;
+}
+
 export function inspectionFor(
   project: ProductProject,
   identity: ProductIdentity,
@@ -96,7 +166,7 @@ export function inspectionFor(
     name: project.name,
     version: project.version,
     category: project.category,
-    template: project.template,
+    template: { ...project.template },
     processorFuid: identity.processorFuid,
     controllerFuid: identity.controllerFuid,
     gain: {

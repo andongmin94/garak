@@ -130,5 +130,7 @@ Phase 1C.1은 최소 Warm/Bright 제품에 대해 다음 evidence를 요구한�
 **Cross-platform release gate**에서 별도 CI 또는 Mac 장비로 검증한다. 그 evidence와 trade-off를
 바탕으로 ADR 0003을 Accepted/Superseded하거나 다른 대안을 제안한다.
 
-Phase 1C.1 이후의 제품 작업은 `Phase 1C.2 — Garak Studio Product Workspace and Export UX`이며,
-Studio가 이 ADR의 headless 경로를 대체하거나 별도 compiler/runtime path를 만들지 않는다.
+Phase 1C.1 이후 `Phase 1C.2 — Garak Studio Product Workspace and Export UX`와 Phase 2A editable project
+migration이 완료됐다. Studio와 migration engine은 이 ADR의 headless 경로를 대체하거나 별도
+compiler/runtime path를 만들지 않으며, schema v1/v2는 같은 `GARAKCPD` v1과 prebuilt Runtime으로
+lower/export된다. 정확한 다음 milestone은 Phase 2B Studio migration publication/backup/recovery UX다.

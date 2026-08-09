@@ -33,12 +33,41 @@ test("callable validation and inspection facade preserves the CLI result contrac
   assert.equal(validated.valid, true);
   assert.equal(validated.products.length, 2);
   assert.deepEqual(
+    validated.products.map((product) => ({
+      sourceSchemaVersion: product.sourceSchemaVersion,
+      currentSchemaVersion: product.currentSchemaVersion,
+      migrationRequired: product.migrationRequired,
+      migrationPath: product.migrationPath,
+    })),
+    [
+      {
+        sourceSchemaVersion: 2,
+        currentSchemaVersion: 2,
+        migrationRequired: false,
+        migrationPath: [],
+      },
+      {
+        sourceSchemaVersion: 2,
+        currentSchemaVersion: 2,
+        migrationRequired: false,
+        migrationPath: [],
+      },
+    ],
+  );
+  assert.deepEqual(
     validated.products.map(({ name }) => name),
     ["Artist Gain Warm", "Artist Gain Bright"],
   );
   const inspection = await inspectProductProject(warm);
   assert.equal(inspection.productId, validated.products[0]?.productId);
   assert.equal(inspection.processorFuid, validated.products[0]?.processorFuid);
+  assert.deepEqual(inspection.template, { id: "garak.gain", version: 1 });
+  assert.deepEqual(inspection.schemaStatus, {
+    sourceSchemaVersion: 2,
+    currentSchemaVersion: 2,
+    migrationRequired: false,
+    steps: [],
+  });
   await expectProductError(
     () => validateProductProjects([]),
     "GARAK_VALIDATE_EMPTY_BATCH",

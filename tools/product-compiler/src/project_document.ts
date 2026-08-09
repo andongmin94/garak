@@ -14,15 +14,17 @@ import {
   isJsonObject,
 } from "./project_model.ts";
 import type {
+  ProjectSchemaStatus,
   ProductDefaults,
   ProductInspection,
   ProductProject,
 } from "./project_model.ts";
+import { serializeCanonicalProductProject } from "./project_migration_core.ts";
 import { ownedCleanupDiagnostic } from "./owned_cleanup.ts";
 import type { OwnedCleanupDiagnostic } from "./owned_cleanup.ts";
 import {
   loadProductProjectSource,
-  validateProjectValue,
+  validateProjectSchemaV2,
 } from "./validation.ts";
 
 export interface ProductProjectDraft {
@@ -46,6 +48,7 @@ export interface ProductProjectDocument {
 export interface ProductProjectSnapshot {
   readonly sourceDirectory: string;
   readonly revision: string;
+  readonly schemaStatus: ProjectSchemaStatus;
   readonly document: ProductProjectDocument;
   readonly inspection: ProductInspection;
 }
@@ -117,7 +120,7 @@ function assertExactDraft(
     projectFailure(
       "GARAK_PROJECT_UNKNOWN_FIELD",
       unknown[0],
-      `Unknown draft field '${unknown[0]}' is not allowed by product schema v1.`,
+      `Unknown draft field '${unknown[0]}' is not allowed by product schema v2.`,
     );
   }
   for (const key of DRAFT_KEYS) {
@@ -150,7 +153,7 @@ export function validateProductProjectDocument(
   value: unknown,
   sourceDirectory = "document.garak",
 ): ProductProjectDocument {
-  return documentForProject(validateProjectValue(value, sourceDirectory));
+  return documentForProject(validateProjectSchemaV2(value, sourceDirectory));
 }
 
 function projectForDraft(
@@ -159,7 +162,7 @@ function projectForDraft(
   sourceDirectory: string,
 ): ProductProject {
   assertExactDraft(draft);
-  return validateProjectValue(
+  return validateProjectSchemaV2(
     {
       schemaVersion: PRODUCT_SCHEMA_VERSION,
       productId,
@@ -196,16 +199,21 @@ export function serializeProductProjectDocument(
   sourceDirectory = "document.garak",
 ): string {
   const document = validateProductProjectDocument(value, sourceDirectory);
-  return `${JSON.stringify(document, undefined, 2)}\n`;
+  return serializeCanonicalProductProject(
+    validateProjectSchemaV2(document, sourceDirectory),
+  );
 }
 
 function snapshotForProject(
   project: ProductProject,
+  sourceDirectory: string,
   sourceBytes: Uint8Array,
+  schemaStatus: ProjectSchemaStatus,
 ): ProductProjectSnapshot {
   return {
-    sourceDirectory: project.sourceDirectory,
+    sourceDirectory,
     revision: sha256Hex(sourceBytes).toLowerCase(),
+    schemaStatus,
     document: documentForProject(project),
     inspection: inspectionFor(
       project,
@@ -218,7 +226,12 @@ export async function openProductProject(
   projectDirectory: string,
 ): Promise<ProductProjectSnapshot> {
   const loaded = await loadProductProjectSource(projectDirectory);
-  return snapshotForProject(loaded.project, loaded.sourceBytes);
+  return snapshotForProject(
+    loaded.project,
+    loaded.sourceDirectory,
+    loaded.sourceBytes,
+    loaded.schemaStatus,
+  );
 }
 
 function assertProjectLeaf(projectDirectory: string): void {
@@ -317,7 +330,7 @@ function transactionPath(
 }
 
 interface MutationInput extends ProjectMutationHooks {
-  readonly mode: "create" | "save";
+  readonly mode: "create" | "save" | "migration-replace";
   readonly projectDirectory: string;
   readonly expectedRevision: string | undefined;
   readonly productId: unknown;
@@ -330,8 +343,8 @@ async function mutateProductProject(
   const projectDirectory = path.resolve(options.projectDirectory);
   assertProjectLeaf(projectDirectory);
   const parentDirectory = path.dirname(projectDirectory);
-  await assertNoExistingSymlinkInChain(parentDirectory);
   await assertPhysicalDirectory(parentDirectory, "project.parent");
+  await assertNoExistingSymlinkInChain(parentDirectory);
 
   const finalExists = await pathExists(projectDirectory);
   if (options.mode === "create" && finalExists) {
@@ -341,7 +354,7 @@ async function mutateProductProject(
       `Project directory already exists: ${projectDirectory}`,
     );
   }
-  if (options.mode === "save" && !finalExists) {
+  if (options.mode !== "create" && !finalExists) {
     fail(
       "GARAK_PROJECT_NOT_FOUND",
       "project",
@@ -350,7 +363,7 @@ async function mutateProductProject(
   }
 
   let priorProject: ProductProject | undefined;
-  if (options.mode === "save") {
+  if (options.mode !== "create") {
     if (
       options.expectedRevision === undefined ||
       !REVISION.test(options.expectedRevision)
@@ -362,6 +375,13 @@ async function mutateProductProject(
       );
     }
     const current = await loadProductProjectSource(projectDirectory);
+    if (options.mode === "save" && current.schemaStatus.migrationRequired) {
+      fail(
+        "GARAK_PROJECT_MIGRATION_REQUIRED",
+        "project.schemaVersion",
+        "Legacy projects must be migrated to a distinct output before they can be saved. Phase 2A does not rewrite a source project in place.",
+      );
+    }
     const currentRevision = sha256Hex(current.sourceBytes).toLowerCase();
     if (currentRevision !== options.expectedRevision) {
       fail(
@@ -454,7 +474,7 @@ async function mutateProductProject(
       );
     }
 
-    if (options.mode === "save") {
+    if (options.mode !== "create") {
       try {
         await fileSystem.rename(projectDirectory, backupProject);
       } catch (error) {
@@ -485,7 +505,7 @@ async function mutateProductProject(
       fail(
         "GARAK_PROJECT_PUBLISH",
         "project.publish",
-        `Failed to publish project '${projectDirectory}'. ${options.mode === "save" ? "The prior project was restored." : "No project was published."} ${boundedFailureDetail(publishError)}`,
+        `Failed to publish project '${projectDirectory}'. ${options.mode !== "create" ? "The prior project was restored." : "No project was published."} ${boundedFailureDetail(publishError)}`,
       );
     }
   } catch (error) {
@@ -544,7 +564,12 @@ async function mutateProductProject(
     }
   }
   return {
-    ...snapshotForProject(project, sourceBytes),
+    ...snapshotForProject(project, projectDirectory, sourceBytes, {
+      sourceSchemaVersion: PRODUCT_SCHEMA_VERSION,
+      currentSchemaVersion: PRODUCT_SCHEMA_VERSION,
+      migrationRequired: false,
+      steps: [],
+    }),
     cleanupDiagnostics,
   };
 }
@@ -563,4 +588,10 @@ export async function saveProductProject(
   options: SaveProductProjectOptions,
 ): Promise<ProjectMutationResult> {
   return await mutateProductProject({ ...options, mode: "save" });
+}
+
+export async function replaceProductProjectForMigration(
+  options: SaveProductProjectOptions,
+): Promise<ProjectMutationResult> {
+  return await mutateProductProject({ ...options, mode: "migration-replace" });
 }

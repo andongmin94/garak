@@ -69,6 +69,18 @@ Phase 1C.1의 canonical Windows product path는 minimal directory `.garak` proje
 
 Phase 1C.2의 canonical Studio product path는 Electron main이 side-effect-free Product Compiler facade를 직접 호출하는 repository-local workflow다. Main은 native dialog, trusted sender와 opaque document/output/cleanup capability를 소유하고 preload는 new/open/validate/save/export/cleanup의 fixed typed API만 renderer에 노출한다. Renderer에는 filesystem, shell, process, raw IPC 또는 arbitrary path mutation 권한을 주지 않는다. Studio와 CLI는 같은 validation, canonical serialization, atomic project transaction과 export 구현을 사용한다. 이 bounded process/security 결정은 [ADR 0006](docs/adr/0006-studio-product-workflow-boundary.md)을 따른다.
 
+Phase 2A의 current editable project schema는 v2이며 template identity와 version을
+`{ "id": "garak.gain", "version": 1 }`로 분리한다. Schema v1은 exact supported legacy persistent input이고
+Product Compiler input boundary에서 pure `project-schema-1-to-2` step으로 current v2 model에 변환한다.
+Version detection은 version-specific unknown-field validation보다 먼저 수행해 supported-legacy, current,
+too-old, too-new와 invalid를 구분한다. `schemaVersion`은 fraction/exponent 없는 lexical integer JSON
+token이어야 하며 `2.0`, `2e0`와 precision-loss token을 exact current version으로 받지 않는다.
+Validate/inspect/compile/export/open은 legacy source를 자동으로
+덮어쓰지 않으며 headless migration은 explicit distinct output만 허용한다. Studio legacy ordinary save는
+Phase 2B 전까지 migration-required로 거부한다. 상세 계약은 [ADR 0007](docs/adr/0007-editable-project-schema-migration-policy.md),
+[Editable Project Schema v2](docs/architecture/editable-project-schema-v2.md)와
+[Project Migration Engine](docs/architecture/project-migration-engine.md)을 따른다.
+
 ## Realtime audio 규칙
 
 Audio process callback과 그 하위 경로에서는 다음을 금지한다.
@@ -120,7 +132,7 @@ Obsolete 내부 API, pre-release draft, unused adapter와 낡은 실행 경로�
 
 Steinberg VST3 SDK만 exact Git pin으로 도입했다. Phase 1A adapter, Phase 1B A/B fixture와 ADR 0005의 Phase 1C.1 Windows x64 v0.x Product Runtime 경계에서 build·validator를 검증했으며 [Phase 1A dependency 상태](docs/status/phase-1a-vst3-dependency.md)에 pin과 license 경계를 기록한다. 이 검증은 macOS/AU, 상용 재배포 또는 전체 legal audit의 승인이 아니다. Recursive checkout에 포함된 VSTGUI도 build/link하지 않는다. 그 밖의 audio/plugin/graphics 후보는 계속 미설치·미검증·미승인 상태다.
 
-Phase 0B에서 확정한 Studio exact direct dependency 16개는 Phase 1C.2에서도 유지하며 [Phase 0B dependency 상태](docs/status/phase-0b-dependencies.md)에 기준선을 기록한다. Product Compiler의 runtime third-party dependency는 0이며 development dependency는 저장소의 exact TypeScript quality toolchain을 재사용한다. Studio와 compiler dependency는 generated plugin에 전이되지 않는다. 모든 추가 도입은 [Dependency and License Policy](docs/architecture/dependency-policy.md)를 따른다.
+Phase 0B에서 확정한 Studio exact direct dependency 16개는 Phase 2A에서도 유지하며 [Phase 0B dependency 상태](docs/status/phase-0b-dependencies.md)에 기준선을 기록한다. Product Compiler의 runtime third-party dependency는 0이며 development dependency는 저장소의 exact TypeScript quality toolchain을 재사용한다. Studio와 compiler dependency는 generated plugin에 전이되지 않는다. 모든 추가 도입은 [Dependency and License Policy](docs/architecture/dependency-policy.md)를 따른다.
 
 ## 대표 검증 명령
 
@@ -214,6 +226,22 @@ Phase 1C.2 repository-local Studio ProductService smoke는 해당 configuration�
 pnpm --dir studio verify:product-workflow --configuration Debug
 pnpm --dir studio verify:product-workflow --configuration Release
 ```
+
+Phase 2A editable project migration 대표 명령은 다음과 같다. Status와 dry-run은 source를 수정하지 않고,
+actual migration은 source와 겹치지 않는 explicit `.garak` output을 요구한다.
+
+```text
+pnpm product:migration-status --project examples/products/legacy/v1/artist-gain-warm.garak --json
+pnpm product:migrate --project examples/products/legacy/v1/artist-gain-warm.garak --to latest --dry-run --json
+New-Item -ItemType Directory -Force out\migration | Out-Null
+pnpm product:migrate --project examples/products/legacy/v1/artist-gain-warm.garak --to latest --output out/migration/artist-gain-warm.garak --force --json
+tools\product-compiler\scripts\verify_project_migration_export_parity.ps1 -Configuration Debug
+tools\product-compiler\scripts\verify_project_migration_export_parity.ps1 -Configuration Release
+```
+
+Phase 2A PASS는 Phase 2 전체 완료가 아니다. 정확한 다음 milestone은 Phase 2B Studio migration
+confirmation, backup/recovery와 durable persistence UX이며 Phase 2C compiled/state compatibility는 pending이다.
+macOS VST3/Universal과 AU는 첫 상용 배포 전 cross-platform release gate에 남는다.
 
 `tools/product-compiler/**`에는 이 root `AGENTS.md`만 적용한다. `native/**`에는 [native instructions](native/AGENTS.md)가 추가 적용되고, `native/adapters/vst3/**`에는 [VST3 adapter instructions](native/adapters/vst3/AGENTS.md)도 적용된다. `studio/**`에는 [Studio instructions](studio/AGENTS.md)가 추가 적용된다.
 

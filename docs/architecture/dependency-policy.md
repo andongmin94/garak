@@ -1,12 +1,12 @@
 # Dependency and License Policy
 
-- 상태: Phase 1A/1B evidence와 Phase 1C Windows product 경계 반영
+- 상태: Phase 1A/1B evidence, Phase 1C Windows product와 Phase 2A migration 경계 반영
 - 권위: dependency 도입, 후보 상태, adapter, third-party source와 license 검토
-- 관련 문서: [v0.1 PRD](../product/v0.1-prd.md), [Realtime and Quality](realtime-and-quality.md), [Interface Designer](interface-designer.md), [VST3 Adapter](vst3-adapter.md), [Compiled Product Data v1](compiled-product-data-v1.md), [Phase 1A VST3 Dependency](../status/phase-1a-vst3-dependency.md), [Phase 1B Runtime Strategy Artifacts](../status/phase-1b-runtime-strategy-artifacts.md), [ADR 0005](../adr/0005-windows-v0x-prebuilt-product-runtime.md)
+- 관련 문서: [v0.1 PRD](../product/v0.1-prd.md), [Realtime and Quality](realtime-and-quality.md), [Interface Designer](interface-designer.md), [VST3 Adapter](vst3-adapter.md), [Editable Project Schema v2](editable-project-schema-v2.md), [Project Migration Engine](project-migration-engine.md), [Compiled Product Data v1](compiled-product-data-v1.md), [Phase 1A VST3 Dependency](../status/phase-1a-vst3-dependency.md), [Phase 1B Runtime Strategy Artifacts](../status/phase-1b-runtime-strategy-artifacts.md), [Phase 2A validation](../status/phase-2a-project-migration-validation.md), [ADR 0005](../adr/0005-windows-v0x-prebuilt-product-runtime.md)
 
 ## 목적과 현재 상태
 
-잘 유지되는 library가 전체 복잡성과 위험을 줄이면 활용하되 `.garak`, graph/runtime, parameter/state, scene와 export contract는 Garak이 소유한다. Phase 0A에서는 외부 SDK/library를 다운로드, 설치 또는 통합하지 않았다. Phase 1A에서는 공식 Steinberg VST3 SDK의 exact tag `v3.8.0_build_66`, superproject commit `9fad9770f2ae8542ab1a548a68c1ad1ac690abe0`을 recursive Git submodule로 고정하고 Windows x64의 고정 editorless VST3 adapter 범위에서 checkout, Debug/Release build와 official validator를 검증했다. Phase 1B는 이 exact checkout과 기존 first-party Gain implementation만 사용해 runtime packaging A/B를 비교했으며 dependency를 추가하지 않았다. ADR 0005는 같은 admitted SDK 경계 위에서 Windows x64 VST3 v0.x의 prebuilt Product Runtime을 선택하지만 새 serialization dependency를 채택하지 않는다.
+잘 유지되는 library가 전체 복잡성과 위험을 줄이면 활용하되 `.garak`, graph/runtime, parameter/state, scene와 export contract는 Garak이 소유한다. Phase 0A에서는 외부 SDK/library를 다운로드, 설치 또는 통합하지 않았다. Phase 1A에서는 공식 Steinberg VST3 SDK의 exact tag `v3.8.0_build_66`, superproject commit `9fad9770f2ae8542ab1a548a68c1ad1ac690abe0`을 recursive Git submodule로 고정하고 Windows x64의 고정 editorless VST3 adapter 범위에서 checkout, Debug/Release build와 official validator를 검증했다. Phase 1B는 이 exact checkout과 기존 first-party Gain implementation만 사용해 runtime packaging A/B를 비교했으며 dependency를 추가하지 않았다. ADR 0005는 같은 admitted SDK 경계 위에서 Windows x64 VST3 v0.x의 prebuilt Product Runtime을 선택하지만 새 serialization dependency를 채택하지 않는다. Phase 2A의 schema v1/v2 detection, migration과 canonical serialization도 Node built-in과 first-party code만 사용해 dependency delta 0으로 완료했다.
 
 Phase 1A/1B evidence와 ADR 0005의 선택은 Windows x64 VST3 범위에만 한정된다. VSTGUI는 recursive
 checkout에는 존재하지만 build/link하지 않는다. macOS VST3/AU, signing/notarization, installer,
@@ -113,8 +113,25 @@ nested license/notice inventory는 [third-party dependency manifest](../../third
 - Phase 1B ASCII descriptor와 Thin wrapper는 regression/reference target이다. 새 Runtime이 이를
   compatibility parser, fallback 또는 transitive production path로 포함하지 않는다.
 
-이 경계는 Phase 1C.1 검증 결과를 미리 PASS로 선언하지 않는다. Exact compiler manifest, binary import,
-SDK pin, bundle content와 validator evidence는 구현 검증 및 status 문서에서 별도로 기록한다.
+Exact compiler manifest, binary import, SDK pin, bundle content와 validator evidence는 구현 검증 및 status
+문서에서 별도로 기록한다.
+
+### Phase 2A project migration dependency 경계
+
+- Version envelope, exact v1/v2 validator, pure migration, canonical serializer와 atomic explicit-output
+  transaction은 first-party Product Compiler가 소유한다.
+- JSON schema/migration framework, archive, database, UUID 또는 serialization package를 추가하지 않았다.
+  Strict JSON scanner와 Node built-in file/path/crypto/text facility를 재사용한다.
+- Studio는 shared Product Compiler facade와 fixed typed preload contract만 갱신했다. Direct dependency는
+  runtime 2 + development 14 = 16을 유지한다.
+- Product Compiler runtime third-party dependency는 0이고 exact lockfile dependency inventory는 변하지
+  않았다.
+- Generated Runtime, native/CMake와 pinned VST3 SDK source는 변경하지 않았다. Editable schema v2는
+  `GARAKCPD`/`GARAKPST` 또는 native dependency version 변경을 요구하지 않는다.
+
+Exact test/export/validator 결과는
+[Phase 2A validation](../status/phase-2a-project-migration-validation.md)에 기록한다. 이 dependency delta 0을
+macOS/AU redistribution 또는 full legal audit의 승인으로 일반화하지 않는다.
 
 ## First-party 경계와 Adapter 규칙
 

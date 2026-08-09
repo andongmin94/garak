@@ -1,6 +1,13 @@
-export const PRODUCT_SCHEMA_VERSION = 1 as const;
+export const LEGACY_PRODUCT_SCHEMA_VERSION = 1 as const;
+export const PRODUCT_SCHEMA_VERSION = 2 as const;
 export const PRODUCT_CATEGORY = 'Fx' as const;
-export const PRODUCT_TEMPLATE = 'garak.gain-v1' as const;
+export const PRODUCT_TEMPLATE_ID = 'garak.gain' as const;
+export const PRODUCT_TEMPLATE_VERSION = 1 as const;
+export const PRODUCT_TEMPLATE = Object.freeze({
+  id: PRODUCT_TEMPLATE_ID,
+  version: PRODUCT_TEMPLATE_VERSION,
+});
+export const PROJECT_MIGRATION_STEP_V1_TO_V2 = 'project-schema-1-to-2' as const;
 
 export type ProductConfiguration = 'Debug' | 'Release';
 
@@ -17,11 +24,20 @@ export interface ProductDraft {
   readonly gainDb: number;
 }
 
+export interface ProductSchemaStatus {
+  readonly sourceSchemaVersion:
+    typeof LEGACY_PRODUCT_SCHEMA_VERSION | typeof PRODUCT_SCHEMA_VERSION;
+  readonly currentSchemaVersion: typeof PRODUCT_SCHEMA_VERSION;
+  readonly migrationRequired: boolean;
+  readonly steps: readonly (typeof PROJECT_MIGRATION_STEP_V1_TO_V2)[];
+}
+
 export interface ProductDocument {
   readonly documentId: string;
   readonly locationLabel: string | null;
   readonly saved: boolean;
   readonly schemaVersion: typeof PRODUCT_SCHEMA_VERSION;
+  readonly schemaStatus: ProductSchemaStatus;
   readonly productId: string;
   readonly category: typeof PRODUCT_CATEGORY;
   readonly template: typeof PRODUCT_TEMPLATE;
@@ -130,6 +146,43 @@ function isFiniteNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value);
 }
 
+function isProductTemplate(value: unknown): value is typeof PRODUCT_TEMPLATE {
+  return (
+    isRecord(value) &&
+    hasExactKeys(value, ['id', 'version']) &&
+    value.id === PRODUCT_TEMPLATE_ID &&
+    value.version === PRODUCT_TEMPLATE_VERSION
+  );
+}
+
+function isProductSchemaStatus(value: unknown): value is ProductSchemaStatus {
+  if (
+    !isRecord(value) ||
+    !hasExactKeys(value, [
+      'sourceSchemaVersion',
+      'currentSchemaVersion',
+      'migrationRequired',
+      'steps',
+    ]) ||
+    value.currentSchemaVersion !== PRODUCT_SCHEMA_VERSION ||
+    !Array.isArray(value.steps)
+  ) {
+    return false;
+  }
+  if (value.sourceSchemaVersion === LEGACY_PRODUCT_SCHEMA_VERSION) {
+    return (
+      value.migrationRequired === true &&
+      value.steps.length === 1 &&
+      value.steps[0] === PROJECT_MIGRATION_STEP_V1_TO_V2
+    );
+  }
+  return (
+    value.sourceSchemaVersion === PRODUCT_SCHEMA_VERSION &&
+    value.migrationRequired === false &&
+    value.steps.length === 0
+  );
+}
+
 function isNonNegativeInteger(value: unknown): value is number {
   return isFiniteNumber(value) && Number.isInteger(value) && value >= 0;
 }
@@ -202,6 +255,7 @@ function isProductDocument(value: unknown): value is ProductDocument {
       'locationLabel',
       'saved',
       'schemaVersion',
+      'schemaStatus',
       'productId',
       'category',
       'template',
@@ -212,10 +266,11 @@ function isProductDocument(value: unknown): value is ProductDocument {
     (typeof value.locationLabel === 'string' || value.locationLabel === null) &&
     typeof value.saved === 'boolean' &&
     value.schemaVersion === PRODUCT_SCHEMA_VERSION &&
+    isProductSchemaStatus(value.schemaStatus) &&
     typeof value.productId === 'string' &&
     CANONICAL_PRODUCT_ID.test(value.productId) &&
     value.category === PRODUCT_CATEGORY &&
-    value.template === PRODUCT_TEMPLATE &&
+    isProductTemplate(value.template) &&
     isProductDraft(value.draft) &&
     Array.isArray(value.cleanupWarnings) &&
     value.cleanupWarnings.every(isProductCleanupWarning)
@@ -243,7 +298,7 @@ function isProductInspection(value: unknown): value is ProductInspection {
     typeof value.name !== 'string' ||
     typeof value.version !== 'string' ||
     value.category !== PRODUCT_CATEGORY ||
-    value.template !== PRODUCT_TEMPLATE ||
+    !isProductTemplate(value.template) ||
     typeof value.processorFuid !== 'string' ||
     !FUID.test(value.processorFuid) ||
     typeof value.controllerFuid !== 'string' ||

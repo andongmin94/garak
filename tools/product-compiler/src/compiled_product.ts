@@ -10,14 +10,15 @@ import {
 } from "./identity.ts";
 import {
   BYPASS_PARAMETER_ID,
+  COMPILED_PRODUCT_TEMPLATE,
   GAIN_PARAMETER_ID,
   PRODUCT_CATEGORY,
   PRODUCT_MAXIMUM_GAIN_DB,
   PRODUCT_MINIMUM_GAIN_DB,
   PRODUCT_NAME_MAXIMUM_BYTES,
-  PRODUCT_TEMPLATE,
   PRODUCT_VENDOR_MAXIMUM_BYTES,
   containsControlCharacter,
+  compiledTemplateFor,
   isWellFormedUnicode,
   normalizedGainDefault,
   utf8ByteLength,
@@ -25,6 +26,7 @@ import {
 import type {
   ProductIdentity,
   ProductProject,
+  ProductTemplate,
   ProductVersion,
 } from "./project_model.ts";
 
@@ -61,7 +63,7 @@ export interface CompiledProduct {
   readonly version: ProductVersion;
   readonly versionText: string;
   readonly category: typeof PRODUCT_CATEGORY;
-  readonly template: typeof PRODUCT_TEMPLATE;
+  readonly template: typeof COMPILED_PRODUCT_TEMPLATE;
   readonly parameters: readonly [CompiledParameter, CompiledParameter];
 }
 
@@ -89,6 +91,11 @@ function writeParameter(
   output.writeUInt32LE(0, offset + 20);
 }
 
+function encodedTemplateId(template: ProductTemplate): number {
+  compiledTemplateFor(template);
+  return TEMPLATE_GAIN_V1;
+}
+
 export function encodeCompiledProduct(project: ProductProject): Buffer {
   const identity = deriveProductIdentity(project.productId);
   const vendorBytes = Buffer.from(project.vendor, "utf8");
@@ -114,7 +121,7 @@ export function encodeCompiledProduct(project: ProductProject): Buffer {
   output.writeUInt16LE(project.versionParts.minor, 78);
   output.writeUInt16LE(project.versionParts.patch, 80);
   output.writeUInt16LE(CATEGORY_FX, 82);
-  output.writeUInt32LE(TEMPLATE_GAIN_V1, 84);
+  output.writeUInt32LE(encodedTemplateId(project.template), 84);
   output.writeUInt16LE(vendorBytes.length, 88);
   output.writeUInt16LE(nameBytes.length, 90);
   output.writeUInt16LE(COMPILED_PRODUCT_PARAMETER_COUNT, 92);
@@ -442,7 +449,7 @@ export function decodeCompiledProduct(input: Uint8Array): CompiledProduct {
     version,
     versionText: `${version.major}.${version.minor}.${version.patch}`,
     category: PRODUCT_CATEGORY,
-    template: PRODUCT_TEMPLATE,
+    template: COMPILED_PRODUCT_TEMPLATE,
     parameters: [gain, bypass],
   };
 }

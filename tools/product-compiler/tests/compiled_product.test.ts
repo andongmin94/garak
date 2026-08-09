@@ -11,6 +11,7 @@ import {
 import { loadProductProject, validateProjectValue } from "../src/validation.ts";
 import {
   expectProductError,
+  mutableLegacyWarmProduct,
   mutableWarmProduct,
   withTemporaryDirectory,
   writeRawProject,
@@ -42,6 +43,38 @@ test("encodes the normative Warm fixture bytes and SHA-256 exactly", () => {
   assert.equal(decoded.parameters[0].defaultNormalized, 0.75);
   assert.equal(decoded.parameters[1].id, 1002);
   assert.equal(decoded.parameters[1].defaultNormalized, 0);
+});
+
+test("legacy v1 migration and native v2 lower to identical GARAKCPD v1 bytes", () => {
+  const legacy = encodeCompiledProduct(
+    validateProjectValue(mutableLegacyWarmProduct(), "legacy.garak"),
+  );
+  const current = encodeCompiledProduct(
+    validateProjectValue(mutableWarmProduct(), "current.garak"),
+  );
+  assert.deepEqual(legacy, current);
+  assert.equal(sha256Hex(legacy), WARM_COMPILED_SHA256);
+  assert.equal(decodeCompiledProduct(legacy).template, "garak.gain-v1");
+});
+
+test("legacy and current Bright fixtures preserve the normative GARAKCPD SHA", async () => {
+  const repositoryRoot = path.resolve(import.meta.dirname, "../../..");
+  const legacy = encodeCompiledProduct(
+    await loadProductProject(
+      path.join(
+        repositoryRoot,
+        "examples/products/legacy/v1/artist-gain-bright.garak",
+      ),
+    ),
+  );
+  const current = encodeCompiledProduct(
+    await loadProductProject(
+      path.join(repositoryRoot, "examples/products/artist-gain-bright.garak"),
+    ),
+  );
+  assert.deepEqual(legacy, current);
+  assert.equal(legacy.length, 179);
+  assert.equal(sha256Hex(legacy), BRIGHT_COMPILED_SHA256);
 });
 
 test("encodes the independent Bright fixture size and SHA-256 exactly", () => {
@@ -265,13 +298,13 @@ test("compiled data ignores JSON order, whitespace, source path, timestamp, and 
     const firstText = JSON.stringify(mutableWarmProduct());
     const reorderedText = `{
       "defaults": { "gainDb": -6.0 },
-      "template": "garak.gain-v1",
+      "template": { "version": 1, "id": "garak.gain" },
       "category": "Fx",
       "version": "0.1.0",
       "name": "Artist Gain Warm",
       "vendor": "Garak Test Artist",
       "productId": "6f0e50f1-a2d4-4b37-8c9e-1f2a3b4c5d6e",
-      "schemaVersion": 1
+      "schemaVersion": 2
     }`;
     const firstDirectory = await writeRawProject(
       temporary,

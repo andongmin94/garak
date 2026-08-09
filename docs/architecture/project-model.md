@@ -1,15 +1,17 @@
 # Garak Project Model
 
-- 문서 상태: Phase 0A architecture 기준선
-- 최종 갱신: 2026-08-09
+- 문서 상태: Phase 2A editable project schema/migration 경계 반영
+- 최종 갱신: 2026-08-12
 - 권위 범위: `.garak` semantic model, product identity, node version reference, project schema와 migration
-- 관련 문서: [v0.1 제품 요구사항](../product/v0.1-prd.md), [시스템 개요](system-overview.md), [모듈 경계](module-boundaries.md), [Parameter와 state](parameter-and-state.md), [Interface Designer](interface-designer.md), [Runtime과 export](runtime-and-export.md)
+- 관련 문서: [v0.1 제품 요구사항](../product/v0.1-prd.md), [시스템 개요](system-overview.md), [모듈 경계](module-boundaries.md), [Minimal Garak Product Project](minimal-garak-product-project.md), [Editable Project Schema v2](editable-project-schema-v2.md), [Project Migration Engine](project-migration-engine.md), [Parameter와 state](parameter-and-state.md), [Interface Designer](interface-designer.md), [Runtime과 export](runtime-and-export.md), [ADR 0007](../adr/0007-editable-project-schema-migration-policy.md)
 
 ## 문서의 역할
 
 이 문서는 하나의 Garak product project가 어떤 의미를 보존해야 하는지 정의한다. `.garak`은 Studio 편집 상태와 제품 의도를 다시 열고 발전시킬 수 있는 versioned source of truth이다. Generated plugin이 직접 실행하는 compiled runtime data나 DAW가 저장하는 plugin state와 동일한 형식으로 취급하지 않는다.
 
-여기서 설명하는 section과 속성은 semantic aggregate이다. 파일 확장자는 `.garak`으로 확정되어 있지만 JSON, archive, directory, binary field name, schema library와 asset container는 아직 정하지 않았다.
+여기서 설명하는 section과 속성은 semantic aggregate이다. Current minimal physical form은 exact
+`product.json` 하나를 가진 directory `.garak`이고 current editable schema는 JSON v2다. 이는 general
+graph/interface/asset project의 final single-file/archive/container나 schema library를 확정하지 않는다.
 
 ## Project의 책임
 
@@ -49,7 +51,10 @@
 
 ### Plugin class ID
 
-각 제품은 영구 plugin class ID를 가진다. Format adapter는 이를 VST3 또는 AU가 요구하는 표현으로 변환한다. Exact bit width, text/binary encoding, format 간 공유 방식과 생성 algorithm은 format spike 전에는 확정하지 않는다.
+각 제품은 영구 plugin class identity를 가진다. Windows VST3 v0.x는 Product ID에서
+`garak.vst3-product-identity.v1`로 processor/controller FUID를 도출한다. AU identity 표현과
+VST3/AU 간 identity sharing 방식은 아직 미결정이다. Exact Windows contract는
+[Product Identity Derivation](product-identity-derivation.md)이 소유한다.
 
 ### Identity lifecycle
 
@@ -113,7 +118,11 @@ Migration은 version이 명시된 source project를 검증 가능한 target sche
 - Migration이 완전히 성공하기 전에 source project를 덮어쓰지 않는다.
 - 실행된 migration과 warning을 사용자가 확인할 수 있어야 한다.
 
-Migration chain, backup/UI 흐름, 지원할 최초 version과 지원 기간은 미결정이다. “migration 체계를 둔다”는 계약은 모든 역사적 또는 pre-release draft를 무기한 지원한다는 뜻이 아니다.
+Phase 2A의 initial chain은 exact supported legacy v1에서 current v2로 가는 pure
+`project-schema-1-to-2` 하나다. Version-first reader와 headless status/dry-run/explicit distinct-output
+publication은 [Project Migration Engine](project-migration-engine.md)이 정의한다. Studio confirmation,
+backup/recovery와 in-place publication은 Phase 2B이고, schema v1 이후 장기 support 기간은 아직
+미결정이다. 이 initial chain은 모든 역사적 또는 pre-release draft를 무기한 지원한다는 뜻이 아니다.
 
 ## Released data와 내부 compatibility의 구분
 
@@ -177,6 +186,9 @@ Project validation은 최소한 다음 층을 구분해 설명 가능한 diagnos
 
 ## Physical format을 정하기 전 평가할 사항
 
+Phase 2A는 minimal directory package와 JSON v2/v1 migration을 검증했다. 아래 항목은 general/final
+container를 정하기 전에 계속 평가한다.
+
 - Human-readable diff와 merge 필요 수준
 - Large/binary asset 처리와 project portability
 - Atomic save, corruption detection과 recovery
@@ -190,12 +202,12 @@ FlatBuffers를 포함한 알려진 기술은 검증 후보일 뿐이다. Candida
 
 ## Open Questions
 
-- `.garak`의 container, schema language와 canonical text/binary representation은 무엇인가?
-- Product/plugin ID의 형식과 새 제품·복제 workflow는 무엇인가?
+- General/final `.garak` container와 schema technology는 current directory JSON v2 이후 무엇인가?
+- 새 제품·복제 workflow가 current canonical Product ID를 언제 명시적으로 재발급하는가?
 - Graph, scene, component와 asset reference의 ID scope와 lifecycle은 무엇인가?
 - Authoring-only data와 product-semantic data를 어느 경계에서 분리할 것인가?
 - Asset embedding, font/SVG subset과 project portability 한계는 무엇인가?
-- Migration 지원 range, backup, warning와 failure UX는 무엇인가?
+- Schema v1 이후 migration support range는 무엇이며 Phase 2B backup/warning/failure UX는 어떻게 동작하는가?
 - Studio와 native compiler가 같은 schema를 검증하도록 보장하는 생성 또는 conformance 방식은 무엇인가?
 
 이 결정은 prototype fixture와 schema spike 없이 확정하지 않는다.

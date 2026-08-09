@@ -4,11 +4,29 @@ Garak(가락)은 음악가, 프로듀서와 사운드 디자이너가 자신의 
 
 ## 현재 상태
 
-저장소는 Phase 0A/0B, Phase 1A/1B와 Phase 1C.1 기준선을 보존한 채 **Phase 1C.2 — Garak Studio Product Workspace and Export UX**를 Windows x64에서 PASS로 완료했다. Studio Product workspace에서 minimal directory `.garak` product를 만들고 열고 편집하고 검증하고 atomic 저장한 뒤, 같은 canonical Product Compiler를 통해 Debug 또는 Release white-label VST3를 export할 수 있다.
+저장소는 Phase 0/1 기준선을 보존한 채 **Phase 2A — Editable Project Schema Evolution and Deterministic
+Migration Engine**을 Windows x64에서 PASS로 완료했다. Current editable `.garak` schema는 v2이고 schema
+v1은 exact supported legacy input이다. Product Compiler는 version-first detection, strict v1/v2 validator,
+pure v1→v2 migration, deterministic canonical v2 serialization과 explicit distinct-output CLI를 제공한다.
+Legacy source를 validate/inspect/compile/export/open할 때 자동으로 덮어쓰지 않는다.
 
-Renderer에는 filesystem, shell, process 또는 raw IPC 권한이 없다. Electron main이 dialog, opaque document/output/cleanup capability와 trusted sender를 소유하고, preload는 new/open/validate/save/export/cleanup의 fixed typed API만 노출한다. Studio와 CLI는 같은 side-effect-free Product Compiler facade를 사용하며 Studio direct dependency 16개와 Product Compiler runtime third-party dependency 0을 유지한다.
+Renderer에는 filesystem, shell, process 또는 raw IPC 권한이 없다. Electron main이 dialog, opaque
+document/output/cleanup capability와 trusted sender를 소유하고, preload는 fixed typed API만 노출한다.
+Studio legacy open은 current v2 memory document와 migration-required status를 반환하고 ordinary Save는
+silent rewrite 없이 거부한다. Studio migration confirmation, backup/recovery와 in-place publication은
+Phase 2B 범위다.
 
-Product Compiler quality gate와 52/52 test, Studio quality gate와 10/10 test, production build, bounded Electron launch, ProductService Debug/Release lifecycle/export와 Phase 1C.1 Runtime Debug/Release fresh clean build 177/177·CTest 7/7·no-native-build evidence가 모두 통과했다. ProductService smoke는 temp physical project의 new→validate→save→reopen parity와 immutable Product ID를 확인한 뒤 exact three-file reference export와 validator/inspection child 5/5 exit 0을 검증했다. 범용 DSP graph, final single-file `.garak`, 실제 plugin editor와 commercial packaging은 아직 없다.
+Final gate는 Product Compiler 76/76 test, Studio 12/12 test와 production build, Product Runtime
+Debug/Release fresh clean 177/177·CTest 7/7, Werror/tidy 110/110과 native format 58 files를 통과했다.
+Debug/Release migration parity는 configuration마다 Warm/Bright v1/v2 네 export와 child 20/20 exit 0,
+source/artifact 불변, forbidden native build 0을 확인했다. Same product의 v1/v2는 Product ID/FUID,
+Gain/Bypass ID, exact `GARAKCPD` v1, Runtime, moduleinfo와 bundle inventory가 같다. Studio direct dependency
+16개와 Product Compiler runtime third-party dependency 0을 유지한다.
+
+Phase 2A만 완료됐고 Phase 2 전체는 미완료다. 정확한 다음 milestone은 **Phase 2B — Studio Migration,
+Backup, Recovery and Durable Persistence UX**다. Phase 2C compiled product 및 plug-in/preset/DAW state
+compatibility는 pending이다. 범용 DSP graph, final single-file `.garak`, 실제 plugin editor와 commercial
+packaging은 아직 없다.
 
 생성 플러그인의 목표는 Garak Studio가 없는 컴퓨터에서 독립적으로 오프라인 동작하는 white-label native 제품이다. 생성물에는 Electron, Chromium, Node.js 또는 임의의 JavaScript runtime을 넣지 않는다.
 
@@ -16,7 +34,7 @@ macOS VST3/Universal, AU, Apple Clang, representative DAW, Developer ID signing,
 
 ## 빠른 시작
 
-아래 명령은 2026-08-12 Windows x64에서 실제로 통과했다. Native 명령은 Visual Studio x64 Developer Command 환경에서 저장소 루트 기준으로 실행한다. 현재 검증 환경은 Node.js 24.19.0, pnpm 11.16.0, MSVC 19.51, CMake 4.3.1과 Ninja 1.13.2다.
+아래 명령은 2026-08-12 Windows x64 Phase 2A final source에서 실제로 통과했다. Native 명령은 Visual Studio x64 Developer Command 환경에서 저장소 루트 기준으로 실행한다. 현재 검증 환경은 Node.js 24.19.0, pnpm 11.16.0, MSVC 19.51, CMake 4.3.1과 Ninja 1.13.2다.
 
 ### Native configure, build, test와 run
 
@@ -64,6 +82,29 @@ pnpm --dir studio verify:product-workflow --configuration Release
 ```
 
 이 명령은 repository-local development workflow다. Packaged Studio에 Runtime과 도구를 공급하는 installer contract를 검증하지 않는다.
+
+### Phase 2A editable project migration
+
+Status와 dry-run은 source를 읽기만 한다. Actual migrate는 source와 다른 explicit `.garak` output을
+요구하며 current v2 clone, same/overlapping path와 resolved Windows junction/reparse alias를 거부한다.
+
+```text
+pnpm product:migration-status --project examples/products/legacy/v1/artist-gain-warm.garak --json
+pnpm product:migrate --project examples/products/legacy/v1/artist-gain-warm.garak --to latest --dry-run --json
+New-Item -ItemType Directory -Force out\migration | Out-Null
+pnpm product:migrate --project examples/products/legacy/v1/artist-gain-warm.garak --to latest --output out/migration/artist-gain-warm.garak --force --json
+```
+
+해당 configuration의 Product Runtime을 먼저 fresh/clean build한 뒤 v1/v2 Windows export parity를
+재현한다.
+
+```text
+tools\product-compiler\scripts\verify_project_migration_export_parity.ps1 -Configuration Debug
+tools\product-compiler\scripts\verify_project_migration_export_parity.ps1 -Configuration Release
+```
+
+Exact fixture/hash는 [Phase 2A fixture status](docs/status/phase-2a-project-migration-fixtures.md), 전체
+gate와 failure history는 [Phase 2A validation](docs/status/phase-2a-project-migration-validation.md)에 있다.
 
 ### Phase 1C.1 Product Compiler와 Windows x64 product export
 
@@ -259,6 +300,8 @@ Phase 1B는 두 대안을 Windows x64의 동일한 Gain behavior와 identity/pac
 - [모듈 경계](docs/architecture/module-boundaries.md)
 - [Project model](docs/architecture/project-model.md)
 - [Minimal Garak Product Project](docs/architecture/minimal-garak-product-project.md)
+- [Editable Project Schema v2](docs/architecture/editable-project-schema-v2.md)
+- [Project Migration Engine](docs/architecture/project-migration-engine.md)
 - [Product Identity Derivation](docs/architecture/product-identity-derivation.md)
 - [Compiled Product Data v1](docs/architecture/compiled-product-data-v1.md)
 - [Product State v1](docs/architecture/product-state-v1.md)
@@ -277,6 +320,7 @@ Phase 1B는 두 대안을 Windows x64의 동일한 Gain behavior와 identity/pac
 - [ADR 0004 — Windows, macOS, and Plugin Formats](docs/adr/0004-windows-macos-and-plugin-formats.md) — Accepted
 - [ADR 0005 — Windows v0.x Prebuilt Product Runtime](docs/adr/0005-windows-v0x-prebuilt-product-runtime.md) — Accepted (Windows x64 v0.x scope)
 - [ADR 0006 — Studio Product Workflow Boundary](docs/adr/0006-studio-product-workflow-boundary.md) — Accepted (repository-local Phase 1C.2 scope)
+- [ADR 0007 — Editable Project Schema Migration Policy](docs/adr/0007-editable-project-schema-migration-policy.md) — Accepted
 
 ### 계획과 상태
 
@@ -296,14 +340,24 @@ Phase 1B는 두 대안을 Windows x64의 동일한 Gain behavior와 identity/pac
 - [Phase 1C.1 headless export validation](docs/status/phase-1c1-headless-export-validation.md)
 - [Phase 1C.2 ExecPlan](plans/0006-phase-1c2-studio-product-workspace-and-export-ux.md)
 - [Phase 1C.2 Studio Product workflow validation](docs/status/phase-1c2-studio-product-workspace-validation.md)
+- [Phase 2A ExecPlan](plans/0007-phase-2a-editable-project-schema-migration.md)
+- [Phase 2A project migration fixtures](docs/status/phase-2a-project-migration-fixtures.md)
+- [Phase 2A project migration validation](docs/status/phase-2a-project-migration-validation.md)
 
 저장소 작업 규칙과 문서 우선순위는 [AGENTS.md](AGENTS.md)를 따른다.
 
 ## 정확한 다음 milestone
 
-다음 권장 작업은 별도 승인과 ExecPlan이 필요한 **Phase 2 — Project Evolution and Persistent Migration**이다. Phase 1C.1의 minimal Gain schema와 Phase 1C.2의 Studio project lifecycle 위에 versioned project evolution, released identity lifecycle, explicit migration과 compiled-data mismatch 정책을 추가한다.
+다음 권장 작업은 별도 승인과 ExecPlan이 필요한 **Phase 2B — Studio Migration, Backup, Recovery and
+Durable Persistence UX**다. Phase 2A의 headless source-preserving migration 위에 사용자 confirmation,
+backup/restore, safe in-place publication, autosave/crash recovery와 durable multi-session UX를 추가한다.
+Phase 2C compiled product 및 plug-in/preset/DAW state compatibility policy는 그 뒤의 pending 범위다.
 
-Phase 1C의 Windows Product Creation Vertical Slice는 완료했다. ADR 0003은 계속 Proposed이고 ADR 0005와 ADR 0006은 각각 Windows x64 v0.x Runtime 및 repository-local Studio workflow 범위에서만 Accepted다. macOS VST3/Universal, AU, representative DAW, signing/notarization, installer와 commercial packaging은 첫 상용 배포 전 release gate로 미검증 상태다.
+Phase 1C의 Windows Product Creation Vertical Slice와 Phase 2A editable source migration은 완료했다. Phase
+2 전체는 아직 완료하지 않았다. ADR 0003은 계속 Proposed이고 ADR 0005와 ADR 0006은 각각 Windows x64
+v0.x Runtime 및 repository-local Studio workflow 범위에서만 Accepted다. macOS VST3/Universal, AU,
+representative DAW, signing/notarization, installer와 commercial packaging은 첫 상용 배포 전 release
+gate로 미검증 상태다.
 
 ## License
 

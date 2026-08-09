@@ -1,8 +1,8 @@
 # Product Identity Derivation
 
-- 상태: Phase 1C.1 normative contract
+- 상태: Phase 1C.1 normative contract; Phase 2A schema v1/v2 parity validated
 - Algorithm: `garak.vst3-product-identity.v1`
-- 관련 문서: [Minimal Garak Product Project](minimal-garak-product-project.md), [Compiled Product Data v1](compiled-product-data-v1.md), [Parameter와 state](parameter-and-state.md), [ADR 0005](../adr/0005-windows-v0x-prebuilt-product-runtime.md)
+- 관련 문서: [Minimal Garak Product Project](minimal-garak-product-project.md), [Editable Project Schema v2](editable-project-schema-v2.md), [Project Migration Engine](project-migration-engine.md), [Compiled Product Data v1](compiled-product-data-v1.md), [Parameter와 state](parameter-and-state.md), [ADR 0005](../adr/0005-windows-v0x-prebuilt-product-runtime.md), [Phase 2A fixtures](../status/phase-2a-project-migration-fixtures.md)
 
 ## 목적
 
@@ -29,9 +29,10 @@ Namespace literal은 30 bytes이고 그 hex는 다음과 같다.
 676172616B2E767374332D70726F647563742D6964656E746974792E7631
 ```
 
-Product ID는
-[`product.json` schema](minimal-garak-product-project.md)의 canonical/non-nil validation을 먼저
-통과해야 한다. Role은 위 두 lowercase literal 외 값을 허용하지 않는다.
+Product ID는 current
+[`product.json` schema v2](editable-project-schema-v2.md)의 canonical/non-nil validation을 먼저
+통과해야 한다. Supported legacy v1도 exact validation 뒤 Product ID 값을 바꾸지 않고 v2로 migration한다.
+Role은 위 두 lowercase literal 외 값을 허용하지 않는다.
 
 ## Algorithm v1
 
@@ -99,6 +100,8 @@ Algorithm은 다음 성질을 가져야 한다.
 - Name, vendor, product version, source/output path, CWD, timestamp, machine, user, PID와 random state는
   preimage에 들어가지 않는다.
 - JSON whitespace/key order와 source timestamp는 결과에 영향을 주지 않는다.
+- Editable project schema v1/v2 representation, migration step과 canonical source hash는 결과에 영향을
+  주지 않는다.
 - Phase 1A/1B의 고정 spike FUID 열 개와 reference product FUID 네 개 사이 collision은 0이어야 한다.
 
 SHA-256의 128-bit truncation은 deterministic namespace separation을 위한 class-ID derivation이지
@@ -126,8 +129,9 @@ role/name/path를 preimage에 몰래 추가하지 않는다.
 
 ## Parameter identity separation
 
-VST3 class FUID와 public Parameter ID는 별도 계약이다. `garak.gain-v1`은 모든 제품에서 다음 ID를
-고정한다.
+VST3 class FUID와 public Parameter ID는 별도 계약이다. Source template
+`{ id: "garak.gain", version: 1 }`은 compiled boundary에서 existing `garak.gain-v1` contract로 낮아지며
+모든 제품에서 다음 ID를 고정한다.
 
 | Parameter | Numeric ID | 의미 |
 | --- | ---: | --- |
@@ -147,3 +151,7 @@ processor/controller inequality만 검사하는 것으로 충분하지 않다.
 Runtime factory와 controller association은 검증한 exact bytes만 사용한다. First-party inspector는
 project-derived expected identity, compiled bytes, actual factory class IDs와 `moduleinfo.json`을 다시
 대조한다. 어느 단계도 stale template identity 또는 Phase 1A/1B spike identity로 fallback하지 않는다.
+
+Phase 2A Warm/Bright의 schema v1/v2 pair는 Processor/Controller FUID, Gain/Bypass ID와 exact
+`GARAKCPD` v1 bytes를 모두 보존했다. 이는 editable source migration이 identity algorithm의 새 version을
+발급하거나 path/name/template spelling을 FUID preimage에 추가하지 않았다는 regression evidence다.

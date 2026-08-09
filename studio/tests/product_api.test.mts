@@ -7,6 +7,7 @@ import {
   isProductDocumentResult,
   isProductDraft,
   isProductExportOperationResult,
+  isProductInspectionResult,
   isValidateProductRequest,
 } from '../src/shared/product_api.mts';
 
@@ -60,10 +61,16 @@ test('Product IPC response guards reject malformed or authority-bearing results'
     documentId: 'document-1',
     locationLabel: null,
     saved: false,
-    schemaVersion: 1,
+    schemaVersion: 2,
+    schemaStatus: {
+      sourceSchemaVersion: 2,
+      currentSchemaVersion: 2,
+      migrationRequired: false,
+      steps: [],
+    },
     productId: '6f0e50f1-a2d4-4b37-8c9e-1f2a3b4c5d6e',
     category: 'Fx',
-    template: 'garak.gain-v1',
+    template: { id: 'garak.gain', version: 1 },
     draft: {
       vendor: 'Artist',
       name: 'Gain',
@@ -76,7 +83,64 @@ test('Product IPC response guards reject malformed or authority-bearing results'
   assert.equal(
     isProductDocumentResult({
       status: 'ok',
+      value: {
+        ...document,
+        schemaStatus: {
+          sourceSchemaVersion: 1,
+          currentSchemaVersion: 2,
+          migrationRequired: true,
+          steps: ['project-schema-1-to-2'],
+        },
+      },
+    }),
+    true,
+  );
+  assert.equal(
+    isProductDocumentResult({
+      status: 'ok',
+      value: {
+        ...document,
+        schemaStatus: {
+          sourceSchemaVersion: 1,
+          currentSchemaVersion: 2,
+          migrationRequired: false,
+          steps: [],
+        },
+      },
+    }),
+    false,
+  );
+  assert.equal(
+    isProductDocumentResult({
+      status: 'ok',
+      value: { ...document, template: 'garak.gain-v1' },
+    }),
+    false,
+  );
+  assert.equal(
+    isProductDocumentResult({
+      status: 'ok',
       value: { ...document, projectDirectory: 'C:/private.garak' },
+    }),
+    false,
+  );
+  const inspection = {
+    productId: document.productId,
+    vendor: document.draft.vendor,
+    name: document.draft.name,
+    version: document.draft.version,
+    category: 'Fx',
+    template: { id: 'garak.gain', version: 1 },
+    processorFuid: '00112233445566778899AABBCCDDEEFF',
+    controllerFuid: 'FFEEDDCCBBAA99887766554433221100',
+    gain: { id: 1001, defaultDb: -6, defaultNormalized: 0.75 },
+    bypass: { id: 1002, default: false, defaultNormalized: 0 },
+  };
+  assert.equal(isProductInspectionResult({ status: 'ok', value: inspection }), true);
+  assert.equal(
+    isProductInspectionResult({
+      status: 'ok',
+      value: { ...inspection, template: 'garak.gain-v1' },
     }),
     false,
   );

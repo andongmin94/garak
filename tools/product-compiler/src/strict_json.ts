@@ -16,19 +16,21 @@ class DuplicateKeyScanner {
   readonly #text: string;
   readonly #options: StrictJsonOptions;
   #offset = 0;
+  readonly #numberTokens = new Map<string, string>();
 
   constructor(text: string, options: StrictJsonOptions) {
     this.#text = text;
     this.#options = options;
   }
 
-  scan(): void {
+  scan(): ReadonlyMap<string, string> {
     this.#skipWhitespace();
     this.#scanValue(this.#options.sourcePath);
     this.#skipWhitespace();
     if (this.#offset !== this.#text.length) {
       this.#syntaxFailure();
     }
+    return this.#numberTokens;
   }
 
   #scanValue(path: string): void {
@@ -58,7 +60,7 @@ class DuplicateKeyScanner {
       return;
     }
     if (character === "-" || this.#isDigit(character)) {
-      this.#scanNumber();
+      this.#numberTokens.set(path, this.#scanNumber());
       return;
     }
     this.#syntaxFailure();
@@ -172,7 +174,8 @@ class DuplicateKeyScanner {
     }
   }
 
-  #scanNumber(): void {
+  #scanNumber(): string {
+    const start = this.#offset;
     if (this.#take("-") && this.#offset >= this.#text.length) {
       this.#syntaxFailure();
     }
@@ -215,6 +218,7 @@ class DuplicateKeyScanner {
         this.#offset += 1;
       }
     }
+    return this.#text.slice(start, this.#offset);
   }
 
   #consumeLiteral(literal: string): void {
@@ -273,10 +277,22 @@ export function parseStrictJson(
   text: string,
   options: StrictJsonOptions = DEFAULT_OPTIONS,
 ): unknown {
-  new DuplicateKeyScanner(text, options).scan();
+  return parseStrictJsonWithNumberTokens(text, options).value;
+}
+
+export interface StrictJsonParseResult {
+  readonly value: unknown;
+  readonly numberTokens: ReadonlyMap<string, string>;
+}
+
+export function parseStrictJsonWithNumberTokens(
+  text: string,
+  options: StrictJsonOptions = DEFAULT_OPTIONS,
+): StrictJsonParseResult {
+  const numberTokens = new DuplicateKeyScanner(text, options).scan();
   try {
     const parsed: unknown = JSON.parse(text);
-    return parsed;
+    return { value: parsed, numberTokens };
   } catch {
     fail(options.syntaxCode, options.sourcePath, "Malformed JSON.");
   }

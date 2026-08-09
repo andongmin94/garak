@@ -1,9 +1,9 @@
 # Garak Module Boundaries
 
-- 문서 상태: Phase 1C.2 Studio Product workflow 경계 반영
+- 문서 상태: Phase 2A project migration과 Studio Product workflow 경계 반영
 - 최종 갱신: 2026-08-12
 - 권위 범위: first-party 책임, dependency direction, public contract와 third-party adapter 경계
-- 관련 문서: [시스템 개요](system-overview.md), [프로젝트 모델](project-model.md), [Runtime과 export](runtime-and-export.md), [의존성 정책](dependency-policy.md), [Product Identity Derivation](product-identity-derivation.md), [Compiled Product Data v1](compiled-product-data-v1.md), [Product State v1](product-state-v1.md), [ADR 0002](../adr/0002-no-juce-and-adapter-boundaries.md), [ADR 0005](../adr/0005-windows-v0x-prebuilt-product-runtime.md), [ADR 0006](../adr/0006-studio-product-workflow-boundary.md)
+- 관련 문서: [시스템 개요](system-overview.md), [프로젝트 모델](project-model.md), [Project Migration Engine](project-migration-engine.md), [Runtime과 export](runtime-and-export.md), [의존성 정책](dependency-policy.md), [Product Identity Derivation](product-identity-derivation.md), [Compiled Product Data v1](compiled-product-data-v1.md), [Product State v1](product-state-v1.md), [ADR 0002](../adr/0002-no-juce-and-adapter-boundaries.md), [ADR 0005](../adr/0005-windows-v0x-prebuilt-product-runtime.md), [ADR 0006](../adr/0006-studio-product-workflow-boundary.md), [ADR 0007](../adr/0007-editable-project-schema-migration-policy.md)
 
 ## 문서의 역할
 
@@ -25,14 +25,14 @@ Dependency 선택과 license 승인 절차는 [의존성 정책](dependency-poli
 | 논리적 책임 | 소유하는 것 | 소유하지 않는 것 |
 | --- | --- | --- |
 | Studio Authoring | Sound/Control/Interface/Product workflow, editing command와 사용자 진단 표현 | Native plugin runtime, third-party 타입을 포함한 영속 제품 계약 |
-| Project Model | `.garak` semantic model, schema version, identity/reference와 project migration; Phase 1C.1 minimal unpacked directory 계약 | DSP 실행, host format object, third-party serialization library API |
+| Project Model | `.garak` semantic model, version-first v1/v2 reading, current canonical v2, identity/reference와 pure project migration; minimal unpacked directory 계약 | DSP 실행, host format object, third-party serialization library API |
 | DSP Graph Model | Node instance, typed port, connection과 graph validity 의미 | Renderer interaction model, host process buffer 타입 |
 | DSP Node Contract | `NodeDescriptor`에 해당하는 first-party descriptor, node configuration와 implementation version contract | Third-party DSP object를 public node contract로 노출하는 것 |
 | Graph Compiler | Graph validation, execution ordering, buffer planning와 latency propagation | Audio-device I/O, plugin package 생성 |
 | Parameter and Macro | Public/internal parameter, macro mapping, automation normalization와 smoothing contract | Host SDK parameter object |
 | State and Preset | Default, preset, DAW/plugin state schema와 migration | `.garak` 전체 project migration, format SDK stream 타입 |
 | Interface Scene | Scene tree, style, layout intent, reusable control와 binding 의미 | 특정 renderer canvas, layout-node 또는 Studio DOM 타입 |
-| Product Compiler | Strict project validation, identity derivation과 deterministic compiled product definition 생성 | Native host lifecycle; Windows v0.x에서 product별 C++ source generation/compile/link |
+| Product Compiler | Strict version detection/validation, source migration, identity derivation, canonical serialization과 deterministic compiled product definition 생성 | Native host lifecycle; Windows v0.x에서 product별 C++ source generation/compile/link |
 | Native Runtime | Validated compiled definition, parameter/state와 native interface 실행 | Authoring editor, `.garak` mutation과 Phase 1B descriptor fallback |
 | Export and Validation | Target 선택, Windows v0.x prebuilt Runtime packaging, atomic output, validator/inspector result 수집과 설명 | Format SDK 타입을 core compiler에 누출하는 것 |
 | Adapters | External API와 Garak public contract 사이 변환 | Product semantics와 장기 identity 정책 결정 |
@@ -113,6 +113,14 @@ path, opaque document/cleanup capability와 orchestration을 소유한다. Main�
 Compiler workflow를 호출하며 renderer/main에 validation, serialization 또는 atomic transaction을
 복제하지 않는다. 이 좁은 결정은 general graph/interface generated binding, native preview/Engine IPC와
 audio-device process 배치를 정하지 않는다.
+
+Phase 2A의 editable source migration은 Product Compiler input boundary가 소유한다. Exact v1 validator와
+pure `project-schema-1-to-2` step은 current v2 model을 만든 뒤 사라지고 inspect/compile/export downstream에
+legacy representation union을 누출하지 않는다. Canonical `ProductProject`와 versioned source model에는
+filesystem path가 없고 `LoadedProductProject`의 lexical/physical source directory, document snapshot과
+compile/export operation option이 collision/output safety provenance를 semantic model 밖에서 별도로 소유한다. CLI와
+Electron main은 shared workflow를 호출하고
+renderer에 migration path 또는 filesystem mutation 권한을 주지 않는다.
 
 ## Graph와 node 경계
 

@@ -122,7 +122,13 @@ main이 ownership을 보존하는 capability 방식을 선택한다.
 - Packaged Studio의 Runtime/tool resource layout와 updater/installer
 - macOS sandbox/bookmark, VST3/AU export와 signing/notarization
 - Cross-process cancellation/progress streaming과 background job queue
-- Multi-document recovery, autosave, undo history와 released project migration UI
+- Multi-document recovery, autosave, undo history와 Phase 2B released project migration publication UI
 
 이 ADR은 ADR 0003의 Proposed cross-platform runtime 전략을 Accepted로 바꾸지 않으며 ADR 0005의
 Windows x64 v0.x scope만 Studio에서 소비한다.
+
+Phase 2A는 이 process/security boundary 안에서 legacy schema v1 open의 current v2 memory document와
+migration-required status를 typed boundary로 전달하고 ordinary Save를 fail closed하도록 확장했다. Renderer에 filesystem
+또는 migration publication path를 추가하지 않았고, confirmation/backup/recovery/in-place publication은
+Phase 2B로 남겼다. Exact 결과는
+[Phase 2A validation](../status/phase-2a-project-migration-validation.md)에 기록한다.

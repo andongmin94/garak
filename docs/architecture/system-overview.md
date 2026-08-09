@@ -1,9 +1,9 @@
 # Garak System Overview
 
-- 문서 상태: Phase 1C product creation 경로 반영
-- 최종 갱신: 2026-08-10
+- 문서 상태: Phase 2A editable project migration 경로 반영
+- 최종 갱신: 2026-08-12
 - 권위 범위: 전체 시스템 문맥, 최상위 구성 요소와 authoring-to-runtime 흐름
-- 관련 문서: [제품 비전](../product/vision.md), [v0.1 제품 요구사항](../product/v0.1-prd.md), [모듈 경계](module-boundaries.md), [프로젝트 모델](project-model.md), [Runtime과 export](runtime-and-export.md), [Minimal Garak Product Project](minimal-garak-product-project.md), [ADR 0005](../adr/0005-windows-v0x-prebuilt-product-runtime.md)
+- 관련 문서: [제품 비전](../product/vision.md), [v0.1 제품 요구사항](../product/v0.1-prd.md), [모듈 경계](module-boundaries.md), [프로젝트 모델](project-model.md), [Runtime과 export](runtime-and-export.md), [Minimal Garak Product Project](minimal-garak-product-project.md), [Editable Project Schema v2](editable-project-schema-v2.md), [Project Migration Engine](project-migration-engine.md), [ADR 0005](../adr/0005-windows-v0x-prebuilt-product-runtime.md), [ADR 0007](../adr/0007-editable-project-schema-migration-policy.md)
 
 ## 문서의 역할
 
@@ -60,7 +60,12 @@ Studio preview는 project의 sound/control/interface 의미를 빠르게 확인�
 
 ### Garak Project Model
 
-Project Model은 `.garak`에 저장되는 제품 의도를 정의한다. Product identity, graph, parameter와 macro, interface scene, preset, asset reference와 metadata가 하나의 versioned aggregate를 이룬다. Phase 1C.1의 최소 source는 unpacked `.garak` directory 안의 exact `product.json` 하나이며 `garak.gain-v1` 제품 identity, metadata와 default만 표현한다. General graph/interface/preset project의 최종 physical container, serialization technology와 asset embedding 방식은 아직 정하지 않았다.
+Project Model은 `.garak`에 저장되는 제품 의도를 정의한다. Product identity, graph, parameter와 macro,
+interface scene, preset, asset reference와 metadata가 하나의 versioned aggregate를 이룬다. 현재 최소
+source는 unpacked `.garak` directory 안의 exact `product.json` 하나다. Current schema v2는 structured
+Gain template identity/version을 사용하고 schema v1은 supported legacy input으로 deterministic memory
+migration한다. General graph/interface/preset project의 최종 physical container, serialization technology와
+asset embedding 방식은 아직 정하지 않았다.
 
 장기 의미의 세부 권위는 [프로젝트 모델](project-model.md), 현재 최소 physical contract는
 [Minimal Garak Product Project](minimal-garak-product-project.md)에 있다.
@@ -77,9 +82,10 @@ Compiler 책임은 editable model을 검증하고 runtime에서 직접 실행할
 - preset, asset와 product metadata 검증
 
 Phase 1C.1의 최소 Product Compiler는 Studio와 독립된 headless TypeScript entry point로 strict project
-validation, identity derivation, deterministic `GARAKCPD` v1 compile과 Windows VST3 packaging을
-수행한다. Phase 1C.2 Studio의 Electron main은 동일한 callable Product Compiler workflow를 직접
-호출한다. 이 authoring/export 연결은 general graph/interface compiler와 native preview/audio Engine의
+validation, identity derivation, deterministic `GARAKCPD` v1 compile과 Windows VST3 packaging을 수행한다.
+Phase 1C.2 Studio의 Electron main은 동일한 callable workflow를 직접 호출한다. Phase 2A는 이 source
+boundary에 version-first v1/v2 validation, pure sequential migration, canonical v2 writer와 explicit-output
+CLI를 추가했다. 이 authoring/export 연결은 general graph/interface compiler와 native preview/audio Engine의
 언어 또는 process 배치를 확정하지 않는다.
 
 ### Generated Plugin Runtime
@@ -112,7 +118,8 @@ Adapters는 Garak contract와 plugin format, renderer, layout, audio device, ope
 Product creator
   → Garak Studio or headless authoring handoff
   → versioned unpacked .garak project
-  → validation and product compilation
+  → version-first validation and supported source migration
+  → current canonical project and product compilation
   → versioned GARAKCPD product data + format metadata
   → Windows v0.x: prebuilt Product Runtime packaging
   → VST3 adapter and bundle
@@ -140,8 +147,10 @@ Authoring audition은 같은 project 의미를 입력으로 사용하지만 expo
 
 1. Phase 1C.1 — Product Contracts and Headless Windows VST3 Export — 완료
 2. Phase 1C.2 — Studio Product Workspace and Export UX — 완료
-3. Phase 2 — Project Evolution and Persistent Migration — 다음 milestone
-4. 후속 product capability를 단계적으로 구현한 뒤 첫 상용 배포 전 cross-platform release gate
+3. Phase 2A — Editable Project Schema Evolution and Deterministic Migration Engine — 완료
+4. Phase 2B — Studio Migration, Backup, Recovery and Durable Persistence UX — 정확한 다음 milestone
+5. Phase 2C — Compiled Product and Plug-in State Compatibility Policy — pending
+6. 후속 product capability를 단계적으로 구현한 뒤 첫 상용 배포 전 cross-platform release gate
 
 Release gate에는 macOS arm64/x86_64 및 Universal VST3, macOS AU, signing/notarization, installer와
 Windows/macOS 실제 DAW 검증이 포함된다. 첫 상용 v0.1 목표는 계속 Windows VST3, macOS Universal VST3와 macOS
@@ -184,12 +193,12 @@ Phase 0A에서는 BLOOM의 DSP algorithm, node 목록, control range/curve 또�
 - General graph/interface compiler와 native preview/audio Engine의 process/language 배치. Phase 1C.2의
   project authoring/export는 Electron main이 callable Product Compiler를 직접 호출하는 경계로 확정됐지만,
   이 결정은 realtime preview 또는 general graph compiler topology를 정하지 않는다.
-- Minimal v1 이후 `.garak`과 general compiled runtime data의 physical container 및 schema technology
+- Minimal schema v2 이후 general `.garak`/compiled runtime data의 physical container 및 schema technology
 - macOS VST3/AU와 장기 cross-platform generated runtime packaging 선택
 - Format adapter SDK와 renderer/layout/audio-device 등 외부 구현의 적합성
 - Preview와 native runtime의 audio/visual parity 측정 방법과 허용 오차
 - 지원 OS/DAW matrix, CPU/latency/memory budget와 accessibility threshold
 - Signing, notarization, installer와 최종 고객 지원의 v0.1 경계
-- Migration 지원 범위와 기간
+- Schema v1→v2 이후 project/preset/state migration 지원 범위와 기간
 
 이 항목은 후속 spike, 품질 계획 또는 ADR 전에는 확정 구현 선택으로 표현하지 않는다.

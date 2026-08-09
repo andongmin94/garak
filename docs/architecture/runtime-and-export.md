@@ -1,13 +1,13 @@
 # Garak Runtime and Export
 
-- 문서 상태: Phase 1C.2 Studio Product workflow 경계 반영
+- 문서 상태: Phase 2A editable project migration과 Studio boundary 반영
 - 최종 갱신: 2026-08-12
 - 권위 범위: compiled runtime contract, product compilation/export 단계와 generated runtime 전략 평가 기준
-- 관련 문서: [v0.1 제품 요구사항](../product/v0.1-prd.md), [시스템 개요](system-overview.md), [프로젝트 모델](project-model.md), [모듈 경계](module-boundaries.md), [Realtime과 quality](realtime-and-quality.md), [Minimal Garak Product Project](minimal-garak-product-project.md), [Product Identity Derivation](product-identity-derivation.md), [Compiled Product Data v1](compiled-product-data-v1.md), [Product State v1](product-state-v1.md), [ADR 0003 — Proposed](../adr/0003-generated-plugin-runtime-strategy.md), [ADR 0004](../adr/0004-windows-macos-and-plugin-formats.md), [ADR 0005 — Windows v0.x Accepted](../adr/0005-windows-v0x-prebuilt-product-runtime.md), [ADR 0006 — Studio workflow](../adr/0006-studio-product-workflow-boundary.md)
+- 관련 문서: [v0.1 제품 요구사항](../product/v0.1-prd.md), [시스템 개요](system-overview.md), [프로젝트 모델](project-model.md), [모듈 경계](module-boundaries.md), [Realtime과 quality](realtime-and-quality.md), [Minimal Garak Product Project](minimal-garak-product-project.md), [Editable Project Schema v2](editable-project-schema-v2.md), [Project Migration Engine](project-migration-engine.md), [Product Identity Derivation](product-identity-derivation.md), [Compiled Product Data v1](compiled-product-data-v1.md), [Product State v1](product-state-v1.md), [ADR 0003 — Proposed](../adr/0003-generated-plugin-runtime-strategy.md), [ADR 0004](../adr/0004-windows-macos-and-plugin-formats.md), [ADR 0005 — Windows v0.x Accepted](../adr/0005-windows-v0x-prebuilt-product-runtime.md), [ADR 0006 — Studio workflow](../adr/0006-studio-product-workflow-boundary.md), [ADR 0007 — Project migration](../adr/0007-editable-project-schema-migration-policy.md)
 
 ## 문서의 역할
 
-이 문서는 validated `.garak` project가 independent native plugin package가 되는 흐름과 generated runtime이 지켜야 하는 format-neutral 계약을 정의한다. Phase 1C.1은 Studio UX보다 먼저 실행 가능한 headless Windows VST3 export 경계를 만들며, Phase 1C.2 Studio는 이 경로를 호출하는 authoring/product workspace가 된다.
+이 문서는 validated `.garak` project가 independent native plugin package가 되는 흐름과 generated runtime이 지켜야 하는 format-neutral 계약을 정의한다. Phase 1C.1은 Studio UX보다 먼저 실행 가능한 headless Windows VST3 export 경계를 만들고, Phase 1C.2 Studio는 이 경로를 호출하는 authoring/product workspace를 완성했다. Phase 2A는 같은 source boundary에 schema v1→v2 migration을 추가했지만 compiled/runtime contract는 바꾸지 않았다.
 
 Windows x64 VST3 v0.x의 결합 방식은 [ADR 0005](../adr/0005-windows-v0x-prebuilt-product-runtime.md)가
 prebuilt Product Runtime plus product data로 Accepted했다. 이 결정 밖의 macOS VST3/AU와 장기
@@ -31,11 +31,13 @@ Runtime은 `.garak` authoring editor, Studio workspace, cloud service 또는 arb
 
 `.garak`은 editable source of truth이고 compiled runtime data는 특정 compiler/runtime contract를 위한 derived artifact이다. Export는 source project를 plugin bundle에 그대로 넣는 과정이 아니라 authoring-only 정보와 runtime에 필요한 의미를 검증하여 target-independent product definition으로 낮추는 과정이다.
 
-Phase 1C.1의 minimal source는 unpacked `.garak` directory와 그 안의 exact `product.json` 하나다.
-현재 schema는 `garak.gain-v1`의 product ID, vendor/name/version과 Gain/Bypass default만 표현한다.
-Canonical key, validation과 Windows name 제한은
-[Minimal Garak Product Project](minimal-garak-product-project.md)가 소유한다. General graph, scene,
-preset와 asset을 아직 이 minimal schema에 placeholder로 추가하지 않는다.
+현재 minimal source는 unpacked `.garak` directory와 그 안의 exact `product.json` 하나다. Current editable
+schema v2는 Product ID, vendor/name/version, structured `{ id: "garak.gain", version: 1 }` template와 Gain
+default를 표현한다. Schema v1의 string `garak.gain-v1`은 exact supported legacy input이고 source
+boundary에서 current v2 model로 memory migration한다. Canonical key, validation과 Windows name 제한은
+[Minimal Garak Product Project](minimal-garak-product-project.md)와
+[Editable Project Schema v2](editable-project-schema-v2.md)가 소유한다. General graph, scene, preset와
+asset을 아직 이 minimal schema에 placeholder로 추가하지 않는다.
 
 Compiled runtime data는 최소한 다음을 가능하게 해야 한다.
 
@@ -59,7 +61,8 @@ integrity/signing 방식은 아직 미결정이다.
 
 1. **Project load와 schema handling**
    - `.garak` container와 schema version을 확인한다.
-   - 지원되는 이전 project라면 명시적 migration을 수행한다.
+   - Exact v1 legacy source는 validated pure migration으로 current v2 model에 변환한다.
+   - Too-old, too-new와 invalid version은 current shape로 추측하지 않고 fail closed한다.
 2. **Project-level validation**
    - Product/plugin identity, metadata, graph, mapping, scene, preset와 asset reference를 검증한다.
 3. **Sound compilation**
@@ -153,6 +156,30 @@ Studio Product workspace는 headless path의 별도 frontend이지 두 번째 co
 상세 process/security 결정은 [ADR 0006](../adr/0006-studio-product-workflow-boundary.md)이 소유한다.
 Repository-local prebuilt Runtime tree를 소비하는 현재 Windows workflow는 installed Studio의
 resource/installer layout을 결정하지 않으며 missing artifact에는 structured failure로 fail closed한다.
+
+### Phase 2A editable project migration boundary
+
+Product Compiler는 physical/JSON validation 뒤 `schemaVersion`을 structured
+`supported-legacy`/`current`/`too-old`/`too-new`/`invalid` 결과로 먼저 분류한다. Exact v1은 pure
+`project-schema-1-to-2` step과 v2 revalidation을 거친 뒤에만 inspect/compile/export로 전달된다. Current
+v2와 migrated v1은 같은 canonical compiler/export path를 사용하고 v1/v2 union, fallback parser 또는
+dual writer를 downstream에 두지 않는다.
+
+- Validate/inspect/compile/export, migration-status와 dry-run은 source를 수정하지 않는다.
+- Actual migrate는 explicit distinct `.garak` output만 atomic publish한다. Same/overlapping path와 resolved
+  Windows junction/reparse alias를 거부하고 migration output parent는 존재해야 한다. `--force`도 source
+  replacement을 허용하지 않는다. 별도로 아직 없는 compile output/export final bundle path는 nearest
+  existing ancestor의 real path로 prospective physical path를 구한다. Compile output은 source와, export
+  bundle은 source와 existing immutable artifact root 모두와 비교한다.
+- Legacy Studio open은 current v2 memory document와 migration-required status를 반환하지만 ordinary Save는
+  `GARAK_PROJECT_MIGRATION_REQUIRED`로 실패한다. Studio UI/in-place publication은 Phase 2B다.
+- Migration identity/product-semantics invariant는 output mutation 전에 검사한다.
+- V1/v2 template representation은 compile boundary에서 same `GARAKCPD` v1 template enum으로 낮아진다.
+  `GARAKCPD`/`GARAKPST` version과 Product Runtime binary는 바뀌지 않는다.
+
+Exact contract는 [Project Migration Engine](project-migration-engine.md), fixture/hash는
+[Phase 2A fixture status](../status/phase-2a-project-migration-fixtures.md), Windows Debug/Release parity는
+[Phase 2A validation](../status/phase-2a-project-migration-validation.md)이 소유한다.
 
 ### Windows Unicode export boundary
 
@@ -275,8 +302,10 @@ Spike 결과는 재현 명령, tool/SDK version, package 구조, validator outpu
 
 1. Phase 1C.1 — Product Contracts and Headless Windows VST3 Export — 완료
 2. Phase 1C.2 — Studio Product Workspace and Export UX — 완료
-3. Phase 2 — Project Evolution and Persistent Migration — 다음 milestone
-4. 후속 product capability를 단계적으로 구현한 뒤 첫 상용 배포 전 cross-platform release gate
+3. Phase 2A — Editable Project Schema Evolution and Deterministic Migration Engine — 완료
+4. Phase 2B — Studio Migration, Backup, Recovery and Durable Persistence UX — 정확한 다음 milestone
+5. Phase 2C — Compiled Product and Plug-in State Compatibility Policy — pending
+6. 후속 product capability를 단계적으로 구현한 뒤 첫 상용 배포 전 cross-platform release gate
 
 첫 상용 목표:
 
@@ -321,7 +350,10 @@ Runtime/export 영역은 다음 version을 구분한다.
 - Preset/DAW state schema version
 - Runtime binary/compiler compatibility
 
-한 version을 다른 version의 대용으로 사용하지 않는다. Released `.garak`, preset과 DAW state는 선언된 지원 범위에서 명시적 migration을 제공한다. Compiled data는 source project에서 재생성 가능한 derived artifact이므로 무기한 migration할지, compatible compiler로 rebuild할지, 또는 거부할지는 별도 정책으로 정한다.
+한 version을 다른 version의 대용으로 사용하지 않는다. Editable `.garak` schema v1→v2의 exact 지원
+범위와 migration은 Phase 2A에서 확정·검증했다. Preset과 DAW state는 선언된 지원 범위에서 별도 migration
+계약을 가진다. Compiled data는 source project에서 재생성 가능한 derived artifact이므로 이전 blob을
+migrate할지, compatible compiler로 rebuild할지, 또는 거부할지는 Phase 2C에서 정한다.
 
 Obsolete 내부 compiler API, adapter, generated wrapper template 또는 pre-release binary ABI는 compatibility shim으로 보존하지 않는다. Persistent data migration은 입력 경계에서 현재 canonical contract로 변환하며 obsolete runtime path를 계속 실행하는 방식으로 구현하지 않는다.
 
@@ -349,5 +381,6 @@ Windows v0.x 범위를 넘어서는 질문은 cross-platform release gate, depen
 prototype evidence 뒤 ADR 또는 구현 ExecPlan에서 결정한다. 완료된 Phase 1C.2는 headless
 compiler/export contract를 바꾸지 않고 Studio Product Workspace와 Export UX를 연결했다. Atomic
 publication에 대해서는 `cleanupDiagnostics` 표시와 transaction-owned orphan cleanup UX만 추가했으며,
-다음 milestone인 Phase 2는 이 검증된 project lifecycle 위에서 project evolution과 persistent migration을
-다룬다.
+Phase 2A는 이 lifecycle 위에서 editable schema v1→v2와 headless explicit-output migration을 완료했다.
+정확한 다음 milestone인 Phase 2B는 Studio confirmation, backup/recovery, in-place publication과 durable
+persistence UX를 다룬다. Phase 2C compiled/state compatibility와 macOS/AU release gate는 계속 pending이다.

@@ -521,7 +521,9 @@ export function ProductWorkspace() {
                 <div>
                   <dt>Template</dt>
                   <dd>
-                    <code>{document.template}</code>
+                    <code>
+                      {document.template.id}@{document.template.version}
+                    </code>
                   </dd>
                 </div>
               </dl>

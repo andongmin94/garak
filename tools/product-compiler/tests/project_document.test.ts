@@ -55,13 +55,13 @@ async function captureProductError(
 test("draft validation owns the canonical document and inspection contract", () => {
   const document = validateProductProjectDraft(PRODUCT_ID, warmDraft());
   assert.deepEqual(document, {
-    schemaVersion: 1,
+    schemaVersion: 2,
     productId: PRODUCT_ID,
     vendor: "Garak Test Artist",
     name: "Artist Gain Warm",
     version: "0.1.0",
     category: "Fx",
-    template: "garak.gain-v1",
+    template: { id: "garak.gain", version: 1 },
     defaults: { gainDb: -6 },
   });
   const inspection = inspectProductProjectDraft(PRODUCT_ID, warmDraft());
@@ -75,13 +75,16 @@ test("draft validation owns the canonical document and inspection contract", () 
   assert.equal(
     serializeProductProjectDocument(document),
     `{
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "productId": "${PRODUCT_ID}",
   "vendor": "Garak Test Artist",
   "name": "Artist Gain Warm",
   "version": "0.1.0",
   "category": "Fx",
-  "template": "garak.gain-v1",
+  "template": {
+    "id": "garak.gain",
+    "version": 1
+  },
   "defaults": {
     "gainDb": -6
   }
@@ -139,6 +142,7 @@ test("atomic create writes exact canonical bytes and reopens the same snapshot",
     assert.deepEqual(opened, {
       sourceDirectory: created.sourceDirectory,
       revision: created.revision,
+      schemaStatus: created.schemaStatus,
       document: created.document,
       inspection: created.inspection,
     });
@@ -224,6 +228,7 @@ test("save publishes a canonical edit while preserving immutable identity", asyn
     assert.deepEqual(await openProductProject(projectDirectory), {
       sourceDirectory: saved.sourceDirectory,
       revision: saved.revision,
+      schemaStatus: saved.schemaStatus,
       document: saved.document,
       inspection: saved.inspection,
     });

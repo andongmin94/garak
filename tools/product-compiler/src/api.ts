@@ -9,13 +9,28 @@ import type {
 import { fail } from "./errors.ts";
 import { deriveProductIdentity, PHASE_1A_1B_FUIDS } from "./identity.ts";
 import { inspectionFor } from "./project_model.ts";
-import type { ProductInspection } from "./project_model.ts";
+import type {
+  ProductInspection,
+  ProjectMigrationStepId,
+  ProjectSchemaStatus,
+} from "./project_model.ts";
+export {
+  inspectProjectMigration,
+  migrateProductProject,
+} from "./project_migration.ts";
+export type {
+  MigrateProductProjectOptions,
+  ProductMigrationIdentity,
+  ProductMigrationReport,
+  ProductMigrationStatus,
+} from "./project_migration.ts";
 import type { ProcessRunner } from "./process_runner.ts";
 import {
   assertNoBatchCollisions,
   batchRecord,
-  loadProductProject,
+  loadProductProjectSource,
 } from "./validation.ts";
+import type { LoadedProductProject } from "./validation.ts";
 
 export { ProductCompilerError, diagnosticFor } from "./errors.ts";
 export type { Diagnostic } from "./errors.ts";
@@ -54,6 +69,8 @@ export type {
   SaveProductProjectOptions,
 } from "./project_document.ts";
 export type { ProductInspection } from "./project_model.ts";
+export type { ProjectSchemaDetection } from "./project_model.ts";
+export { detectProjectSchemaVersion } from "./validation.ts";
 
 export interface ValidatedProductRecord {
   readonly project: string;
@@ -61,11 +78,19 @@ export interface ValidatedProductRecord {
   readonly name: string;
   readonly processorFuid: string;
   readonly controllerFuid: string;
+  readonly sourceSchemaVersion: number;
+  readonly currentSchemaVersion: number;
+  readonly migrationRequired: boolean;
+  readonly migrationPath: readonly ProjectMigrationStepId[];
 }
 
 export interface ValidateProductProjectsResult {
   readonly valid: true;
   readonly products: readonly ValidatedProductRecord[];
+}
+
+export interface InspectedProductProject extends ProductInspection {
+  readonly schemaStatus: ProjectSchemaStatus;
 }
 
 export interface CompileProductProjectOptions {
@@ -99,11 +124,13 @@ export async function validateProductProjects(
       "At least one product project is required.",
     );
   }
-  const projects = [];
+  const loadedProjects: LoadedProductProject[] = [];
   for (const projectPath of projectPaths) {
-    projects.push(await loadProductProject(projectPath));
+    loadedProjects.push(await loadProductProjectSource(projectPath));
   }
-  const records = projects.map((project) => batchRecord(project));
+  const records = loadedProjects.map(({ project, sourceDirectory }) =>
+    batchRecord(project, undefined, sourceDirectory),
+  );
   assertNoBatchCollisions(records);
   for (const record of records) {
     const reservedCollision = [
@@ -120,29 +147,45 @@ export async function validateProductProjects(
   }
   return {
     valid: true,
-    products: records.map((record) => ({
-      project: record.project.sourceDirectory,
+    products: records.map((record, index) => ({
+      project: record.sourceLabel ?? record.project.name,
       productId: record.project.productId,
       name: record.project.name,
       processorFuid: record.identity.processorFuid,
       controllerFuid: record.identity.controllerFuid,
+      sourceSchemaVersion:
+        loadedProjects[index]?.schemaStatus.sourceSchemaVersion ??
+        record.project.schemaVersion,
+      currentSchemaVersion:
+        loadedProjects[index]?.schemaStatus.currentSchemaVersion ??
+        record.project.schemaVersion,
+      migrationRequired:
+        loadedProjects[index]?.schemaStatus.migrationRequired ?? false,
+      migrationPath: loadedProjects[index]?.schemaStatus.steps ?? [],
     })),
   };
 }
 
 export async function inspectProductProject(
   projectPath: string,
-): Promise<ProductInspection> {
-  const project = await loadProductProject(projectPath);
-  return inspectionFor(project, deriveProductIdentity(project.productId));
+): Promise<InspectedProductProject> {
+  const loaded = await loadProductProjectSource(projectPath);
+  return {
+    ...inspectionFor(
+      loaded.project,
+      deriveProductIdentity(loaded.project.productId),
+    ),
+    schemaStatus: loaded.schemaStatus,
+  };
 }
 
 export async function compileProductProject(
   options: CompileProductProjectOptions,
 ): Promise<CompileFileResult> {
-  const project = await loadProductProject(options.projectPath);
+  const loaded = await loadProductProjectSource(options.projectPath);
   return await compileProductFile({
-    project,
+    project: loaded.project,
+    sourceDirectory: loaded.physicalSourceDirectory,
     outputFile: options.outputFile,
     force: options.force,
     ...(options.createTransactionId === undefined
@@ -157,9 +200,10 @@ export async function compileProductProject(
 export async function exportProductProject(
   options: ExportProductProjectOptions,
 ): Promise<ExportWindowsResult> {
-  const project = await loadProductProject(options.projectPath);
+  const loaded = await loadProductProjectSource(options.projectPath);
   return await exportWindowsProduct({
-    project,
+    project: loaded.project,
+    sourceDirectory: loaded.physicalSourceDirectory,
     configuration: options.configuration,
     outputDirectory: options.outputDirectory,
     repositoryRoot: options.repositoryRoot,

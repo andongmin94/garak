@@ -1,15 +1,12 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 1,
   "productId": "6f0e50f1-a2d4-4b37-8c9e-1f2a3b4c5d6e",
   "vendor": "Garak Test Artist",
   "name": "Artist Gain Warm",
   "version": "0.1.0",
   "category": "Fx",
-  "template": {
-    "id": "garak.gain",
-    "version": 1
-  },
+  "template": "garak.gain-v1",
   "defaults": {
-    "gainDb": -6
+    "gainDb": -6.0
   }
 }

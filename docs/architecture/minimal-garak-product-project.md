@@ -1,14 +1,16 @@
 # Minimal Garak Product Project
 
-- 상태: Phase 1C.1 normative contract
-- 범위: `garak.gain-v1`용 editable `.garak` schema version 1
-- 관련 문서: [Product Identity Derivation](product-identity-derivation.md), [Compiled Product Data v1](compiled-product-data-v1.md), [Runtime과 export](runtime-and-export.md), [v0.1 PRD](../product/v0.1-prd.md), [ExecPlan 0005](../../plans/0005-phase-1c1-product-contracts-and-headless-windows-export.md)
+- 상태: Phase 2A validated minimal physical/logical project contract
+- 범위: `garak.gain` template version 1, current editable schema v2와 supported legacy schema v1
+- 관련 문서: [Editable Project Schema v2](editable-project-schema-v2.md), [Project Migration Engine](project-migration-engine.md), [Product Identity Derivation](product-identity-derivation.md), [Compiled Product Data v1](compiled-product-data-v1.md), [Runtime과 export](runtime-and-export.md), [v0.1 PRD](../product/v0.1-prd.md), [ExecPlan 0007](../../plans/0007-phase-2a-editable-project-schema-migration.md)
 
 ## 목적과 현재 경계
 
 이 contract는 editable Garak product의 가장 작은 logical model과 현재 development physical form을
-정의한다. Phase 1C.1은 하나의 editorless Gain template를 실제 Windows VST3로 export하는 데 필요한
-정보만 받는다. Graph, macro, UI, preset, asset 또는 platform build 설정을 미리 추가하지 않는다.
+정의한다. Current schema v2는 하나의 editorless Gain template를 실제 Windows VST3로 export하는 데
+필요한 정보만 받는다. Schema v1은 exact supported legacy input이며 Product Compiler가 source boundary에서
+v2 canonical model로 memory migration한다. Graph, macro, UI, preset, asset 또는 platform build 설정을
+미리 추가하지 않는다.
 
 현재 `.garak` project는 **unpacked directory package**다. Production single-file archive, ZIP 또는
 다른 container는 미결정이며 이번 schema의 일부가 아니다. 향후 physical container가 바뀌어도
@@ -38,43 +40,64 @@ Valid project는 다음 inventory와 정확히 같아야 한다.
 Reference fixture 위치는 다음과 같다.
 
 ```text
-examples/products/artist-gain-warm.garak/product.json
-examples/products/artist-gain-bright.garak/product.json
+examples/products/artist-gain-warm.garak/product.json             # current v2
+examples/products/artist-gain-bright.garak/product.json           # current v2
+examples/products/legacy/v1/artist-gain-warm.garak/product.json   # legacy v1
+examples/products/legacy/v1/artist-gain-bright.garak/product.json # legacy v1
 ```
 
-## Schema version 1
+동일 product의 v1/v2 counterpart는 Product ID가 같으므로 일반 batch collision input이 아니라 migration
+parity fixture로 비교한다. Exact byte/hash는
+[Phase 2A fixture status](../status/phase-2a-project-migration-fixtures.md)가 소유한다.
+
+## Current schema version 2
 
 Canonical example:
 
 ```json
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "productId": "6f0e50f1-a2d4-4b37-8c9e-1f2a3b4c5d6e",
   "vendor": "Garak Test Artist",
   "name": "Artist Gain Warm",
   "version": "0.1.0",
   "category": "Fx",
-  "template": "garak.gain-v1",
+  "template": {
+    "id": "garak.gain",
+    "version": 1
+  },
   "defaults": {
-    "gainDb": -6.0
+    "gainDb": -6
   }
 }
 ```
 
-Root object의 key set은 정확히 다음 여덟 개다.
+Root object의 key set은 정확히 여덟 개이며 `template`은 exact structured object다.
 
-| Field | Type | v1 contract |
+| Field | Type | v2 contract |
 | --- | --- | --- |
-| `schemaVersion` | JSON number | Integer이며 정확히 `1` |
+| `schemaVersion` | JSON number | Fraction/exponent 없는 lexical integer token이며 정확히 `2` |
 | `productId` | string | Canonical lowercase UUID, non-nil, immutable |
 | `vendor` | string | White-label vendor, valid UTF-8 `1..63` bytes |
 | `name` | string | Product/bundle leaf, valid UTF-8 `1..52` bytes |
 | `version` | string | Prerelease/build 없는 strict `major.minor.patch` |
 | `category` | string | 정확히 `Fx` |
-| `template` | string | 정확히 `garak.gain-v1` |
+| `template` | object | Exact `{ "id": "garak.gain", "version": 1 }` |
 | `defaults` | object | Exact key `gainDb` 하나만 포함 |
 
 `defaults.gainDb`는 finite JSON number이고 inclusive range `-60.0..+12.0` dB다.
+
+Property order, UTF-8/LF/final-newline와 negative-zero normalization을 포함한 exact current writer contract는
+[Editable Project Schema v2](editable-project-schema-v2.md)가 단일 권위를 가진다.
+
+## Supported legacy schema version 1
+
+Schema v1은 위 root metadata/default를 유지하면서 exact string
+`template: "garak.gain-v1"`을 사용한다. V1 validator는 structured v2 template를 거부하고 v2 validator는
+legacy string을 거부한다. Valid v1은 pure `project-schema-1-to-2` step으로 current v2 model에 변환되며
+Product ID, FUID, Parameter ID, metadata, default와 compiled template meaning을 보존한다. Legacy source의
+exact shape, explicit-output publication과 failure behavior는
+[Project Migration Engine](project-migration-engine.md)이 정의한다.
 
 ## Strict JSON and field validation
 
@@ -86,9 +109,10 @@ scope의 duplicate key를 JSON string escape decode 이후의 key 값으로 감�
 다음 input은 오류다.
 
 - Malformed JSON, root array/null/scalar, invalid UTF-8 또는 UTF-8 BOM
-- Root/defaults의 duplicate key, unknown key 또는 missing key
+- Root/template/defaults의 duplicate key, unknown key 또는 missing key
 - Field의 incorrect JSON type
-- `schemaVersion`이 integer `1`이 아님
+- `schemaVersion` raw token이 fraction/exponent 없는 integer spelling이 아니거나 version-first detection에서
+  supported legacy/current로 분류되지 않음. `2.0`, `2e0`, `2.0000000000000001`도 거부함
 - UUID가 `8-4-4-4-12` lowercase hexadecimal/hyphen canonical form이 아님
 - Nil UUID `00000000-0000-0000-0000-000000000000`
 - Vendor/name이 empty 또는 Unicode whitespace-only임
@@ -96,7 +120,7 @@ scope의 duplicate key를 JSON string escape decode 이후의 key 값으로 감�
 - Vendor/name에 embedded NUL, `U+0000..U+001F` 또는 `U+007F..U+009F` control이 있음
 - Version이 `^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$`와 다르거나
   각 component가 `65535`를 초과함
-- Category/template가 위 exact literal과 다름
+- Category 또는 version-specific template contract가 위 exact 값과 다름
 - `gainDb`가 nonfinite이거나 template range 밖임
 
 JSON lexical spellings `NaN`과 `Infinity`는 malformed JSON이다. `1e309`처럼 parse 후 nonfinite가 되는
@@ -135,7 +159,8 @@ UTF-16 code unit이나 Unicode code-point count가 아니라 UTF-8 encoding 결�
 - Signing identity, installer, updater 또는 commercial distribution 설정
 
 FUID는 Product ID에서 [versioned algorithm](product-identity-derivation.md)으로 도출한다. Gain `1001`과
-Bypass `1002`는 `garak.gain-v1` template contract가 부여한다.
+Bypass `1002`는 source `{ id: "garak.gain", version: 1 }`이 가리키는 existing compiled
+`garak.gain-v1` contract가 부여한다.
 
 ## Product ID, rename and clone semantics
 
@@ -164,7 +189,13 @@ fallback, unknown field ignore, duplicate overwrite와 automatic filename correc
 
 ## Version boundary
 
-Schema v1 reader는 exact version `1`만 지원한다. Unknown schema를 v1로 추측해 읽거나 obsolete draft
-path로 fallback하지 않는다. Released project format에 이후 migration이 필요하면 source/target version과
-단계를 별도로 명시하고 current logical model로 변환한다. 이 문서는 production single-file `.garak`
-container나 그 migration 방식을 결정하지 않는다.
+Reader는 physical/JSON boundary를 통과한 뒤 schema field validation 전에 version envelope를
+`supported-legacy`, `current`, `too-old`, `too-new` 또는 `invalid`로 분류한다. Exact v1/v2만 해당
+version validator에 전달한다. Unknown schema를 v1/v2로 추측하거나 obsolete draft path로 fallback하지
+않는다. V1은 current v2 model로 sequential migration하고 compile/export downstream은 legacy union을
+소비하지 않는다.
+
+Current v2 open/save/export와 legacy v1 read/memory-migration/explicit distinct-output migration은 Phase 2A
+PASS다. Legacy ordinary Studio save는 source rewrite 대신 migration-required로 실패한다. Studio confirmation,
+backup/recovery와 in-place publication은 Phase 2B이고 compiled/state compatibility는 Phase 2C다. 이 문서는
+production single-file `.garak` container를 결정하지 않는다.

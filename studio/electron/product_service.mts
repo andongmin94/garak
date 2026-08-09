@@ -17,6 +17,11 @@ import type {
   ProductProjectSnapshot,
   ProjectMutationResult,
 } from '../../tools/product-compiler/src/api.ts';
+import {
+  PRODUCT_CATEGORY,
+  PRODUCT_SCHEMA_VERSION,
+  PRODUCT_TEMPLATE,
+} from '../src/shared/product_api.mts';
 import type {
   CleanupProductArtifactRequest,
   ExportProductRequest,
@@ -27,6 +32,7 @@ import type {
   ProductExportResult,
   ProductInspection,
   ProductOperationResult,
+  ProductSchemaStatus,
   SaveProductRequest,
   ValidateProductRequest,
 } from '../src/shared/product_api.mts';
@@ -37,6 +43,12 @@ const NEW_PRODUCT_DRAFT: ProductDraft = Object.freeze({
   version: '0.1.0',
   gainDb: 0,
 });
+const CURRENT_SCHEMA_STATUS = Object.freeze({
+  sourceSchemaVersion: PRODUCT_SCHEMA_VERSION,
+  currentSchemaVersion: PRODUCT_SCHEMA_VERSION,
+  migrationRequired: false,
+  steps: Object.freeze([]),
+}) satisfies ProductSchemaStatus;
 const CANCELLED = Symbol('cancelled');
 
 interface DraftSession {
@@ -50,6 +62,7 @@ interface SavedSession {
   readonly documentId: string;
   readonly productId: string;
   readonly projectDirectory: string;
+  readonly sourceSchemaVersion: 1 | 2;
   revision: string;
 }
 
@@ -181,6 +194,7 @@ export class ProductService {
         documentId,
         productId: snapshot.document.productId,
         projectDirectory: snapshot.sourceDirectory,
+        sourceSchemaVersion: snapshot.schemaStatus.sourceSchemaVersion,
         revision: snapshot.revision,
       };
       this.#sessions.set(documentId, session);
@@ -207,6 +221,13 @@ export class ProductService {
   async saveProduct(request: SaveProductRequest): Promise<ProductOperationResult<ProductDocument>> {
     return this.#run(async () => {
       const session = this.#requireSession(request.documentId);
+      if (session.kind === 'saved' && session.sourceSchemaVersion === 1) {
+        studioFailure(
+          'GARAK_PROJECT_MIGRATION_REQUIRED',
+          'project.schemaVersion',
+          'Legacy projects must be migrated to a distinct output before they can be saved. Phase 2A does not rewrite a source project in place.',
+        );
+      }
       this.#compiler.inspectProductProjectDraft(
         session.productId,
         request.draft,
@@ -228,6 +249,7 @@ export class ProductService {
           documentId: session.documentId,
           productId: session.productId,
           projectDirectory: result.sourceDirectory,
+          sourceSchemaVersion: 2,
           revision: result.revision,
         };
         this.#sessions.set(savedSession.documentId, savedSession);
@@ -396,10 +418,11 @@ export class ProductService {
       documentId: session.documentId,
       locationLabel: null,
       saved: false,
-      schemaVersion: 1,
+      schemaVersion: PRODUCT_SCHEMA_VERSION,
+      schemaStatus: CURRENT_SCHEMA_STATUS,
       productId: session.productId,
-      category: 'Fx',
-      template: 'garak.gain-v1',
+      category: PRODUCT_CATEGORY,
+      template: PRODUCT_TEMPLATE,
       draft,
       cleanupWarnings: [],
     };
@@ -415,6 +438,12 @@ export class ProductService {
       locationLabel: snapshot.sourceDirectory,
       saved: true,
       schemaVersion: snapshot.document.schemaVersion,
+      schemaStatus: {
+        sourceSchemaVersion: snapshot.schemaStatus.sourceSchemaVersion,
+        currentSchemaVersion: snapshot.schemaStatus.currentSchemaVersion,
+        migrationRequired: snapshot.schemaStatus.migrationRequired,
+        steps: [...snapshot.schemaStatus.steps],
+      },
       productId: snapshot.document.productId,
       category: snapshot.document.category,
       template: snapshot.document.template,

@@ -182,8 +182,10 @@ Compiled runtime data 모델보다 훨씬 큰 code-generation surface를 도입�
 
 Phase 1B Windows spike는 Phase 1A가 확립한 VST3 format baseline에서 두 대안을 같은 editorless
 Gain/Bypass/state reference로 비교했다. Phase 1C.1은 Windows v0.x에 한정된 ADR 0005 결정 위에서
-formal project/compiled-data/state contract와 headless export를 만든다. 그 다음 제품 milestone은 이
-검증된 headless 경로를 호출하는 **Phase 1C.2 — Studio Product Workspace and Export UX**다.
+formal project/compiled-data/state contract와 headless export를 만들었고, Phase 1C.2는 이 경로를 호출하는
+Studio Product Workspace and Export UX를 완료했다. Phase 2A editable project migration도 같은 Windows
+Runtime path를 regression했으며 이 ADR의 cross-platform 선택을 바꾸지 않았다. 현재 정확한 다음
+milestone은 Phase 2B Studio migration/backup/recovery UX다.
 
 Cross-platform evidence는 현재 Windows 제품 제작을 멈추는 선행 milestone이 아니라 첫 상용 배포 전
 release gate다. 그 gate는 이 ADR의 장기 결정을 위해 아직 없는 다음 evidence를 채운다.

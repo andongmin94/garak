@@ -15,6 +15,7 @@ import type { ProductRuntimeArtifacts } from "../src/export_windows.ts";
 import {
   BYPASS_PARAMETER_ID,
   GAIN_PARAMETER_ID,
+  compiledTemplateFor,
   normalizedGainDefault,
 } from "../src/project_model.ts";
 import type { ProductProject } from "../src/project_model.ts";
@@ -38,15 +39,27 @@ export interface MutableProductJson {
 }
 
 export const WARM_PRODUCT_JSON: Readonly<MutableProductJson> = Object.freeze({
-  schemaVersion: 1,
+  schemaVersion: 2,
   productId: "6f0e50f1-a2d4-4b37-8c9e-1f2a3b4c5d6e",
   vendor: "Garak Test Artist",
   name: "Artist Gain Warm",
   version: "0.1.0",
   category: "Fx",
-  template: "garak.gain-v1",
+  template: Object.freeze({ id: "garak.gain", version: 1 }),
   defaults: Object.freeze({ gainDb: -6 }),
 });
+
+export const LEGACY_WARM_PRODUCT_JSON: Readonly<MutableProductJson> =
+  Object.freeze({
+    schemaVersion: 1,
+    productId: "6f0e50f1-a2d4-4b37-8c9e-1f2a3b4c5d6e",
+    vendor: "Garak Test Artist",
+    name: "Artist Gain Warm",
+    version: "0.1.0",
+    category: "Fx",
+    template: "garak.gain-v1",
+    defaults: Object.freeze({ gainDb: -6 }),
+  });
 
 export function mutableWarmProduct(): MutableProductJson {
   return {
@@ -56,7 +69,20 @@ export function mutableWarmProduct(): MutableProductJson {
     name: WARM_PRODUCT_JSON.name,
     version: WARM_PRODUCT_JSON.version,
     category: WARM_PRODUCT_JSON.category,
-    template: WARM_PRODUCT_JSON.template,
+    template: { id: "garak.gain", version: 1 },
+    defaults: { gainDb: -6 },
+  };
+}
+
+export function mutableLegacyWarmProduct(): MutableProductJson {
+  return {
+    schemaVersion: LEGACY_WARM_PRODUCT_JSON.schemaVersion,
+    productId: LEGACY_WARM_PRODUCT_JSON.productId,
+    vendor: LEGACY_WARM_PRODUCT_JSON.vendor,
+    name: LEGACY_WARM_PRODUCT_JSON.name,
+    version: LEGACY_WARM_PRODUCT_JSON.version,
+    category: LEGACY_WARM_PRODUCT_JSON.category,
+    template: LEGACY_WARM_PRODUCT_JSON.template,
     defaults: { gainDb: -6 },
   };
 }
@@ -191,7 +217,7 @@ export function fakeProcessRunner(
         ["--name", project.name],
         ["--version", project.version],
         ["--category", project.category],
-        ["--template", project.template],
+        ["--template", compiledTemplateFor(project.template)],
         ["--processor-fuid", identity.processorFuid],
         ["--controller-fuid", identity.controllerFuid],
         ["--gain-id", String(GAIN_PARAMETER_ID)],
