@@ -1,0 +1,11 @@
+GARAK_PRODUCT_SPIKE_V1
+schema=1
+vendor=Garak
+product_name=Garak Data Alpha
+semantic_version=0.1.0
+processor_fuid=4B2B557251D44CE9914F9B105136FB7E
+controller_fuid=7A90454628B34A3497F05E7CC718F8A1
+gain_parameter_id=1001
+bypass_parameter_id=1002
+default_gain_db=-6.0
+category=Fx

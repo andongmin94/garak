@@ -1,9 +1,9 @@
 # Garak Roadmap
 
-- 문서 상태: Phase 1A 검증 기준선
+- 문서 상태: Phase 1B Windows x64 검증 기준선
 - 최종 갱신: 2026-08-09
-- 현재 단계: Phase 0B PASS 보존. Phase 1A Windows x64 PASS. Phase 1 전체 미완료.
-- 관련 문서: [v0.1 제품 요구사항](docs/product/v0.1-prd.md), [시스템 개요](docs/architecture/system-overview.md), [모듈 경계](docs/architecture/module-boundaries.md), [프로젝트 모델](docs/architecture/project-model.md), [Runtime과 export](docs/architecture/runtime-and-export.md), [Realtime과 quality](docs/architecture/realtime-and-quality.md), [Parameter와 state](docs/architecture/parameter-and-state.md), [Interface Designer](docs/architecture/interface-designer.md), [의존성 정책](docs/architecture/dependency-policy.md), [VST3 Adapter](docs/architecture/vst3-adapter.md), [Phase 0A ExecPlan](plans/0001-phase-0a-repository-foundation.md), [Phase 0B ExecPlan](plans/0002-phase-0b-buildable-native-and-studio-scaffolds.md), [Phase 1A ExecPlan](plans/0003-phase-1a-windows-minimal-vst3-gain-shell.md), [Phase 1A validation](docs/status/phase-1a-vst3-validation.md)
+- 현재 단계: Phase 0B PASS 보존. Phase 1A와 Phase 1B Windows x64 PASS. Phase 1 전체 미완료.
+- 관련 문서: [v0.1 제품 요구사항](docs/product/v0.1-prd.md), [시스템 개요](docs/architecture/system-overview.md), [모듈 경계](docs/architecture/module-boundaries.md), [프로젝트 모델](docs/architecture/project-model.md), [Runtime과 export](docs/architecture/runtime-and-export.md), [Realtime과 quality](docs/architecture/realtime-and-quality.md), [Parameter와 state](docs/architecture/parameter-and-state.md), [Interface Designer](docs/architecture/interface-designer.md), [의존성 정책](docs/architecture/dependency-policy.md), [VST3 Adapter](docs/architecture/vst3-adapter.md), [Phase 0A ExecPlan](plans/0001-phase-0a-repository-foundation.md), [Phase 0B ExecPlan](plans/0002-phase-0b-buildable-native-and-studio-scaffolds.md), [Phase 1A ExecPlan](plans/0003-phase-1a-windows-minimal-vst3-gain-shell.md), [Phase 1A validation](docs/status/phase-1a-vst3-validation.md), [Phase 1B ExecPlan](plans/0004-phase-1b-generated-runtime-ab-spike.md)
 
 ## 진행 원칙
 
@@ -49,7 +49,7 @@
 
 ## Phase 0B — Buildable Native and Studio Scaffolds
 
-[Phase 0B ExecPlan](plans/0002-phase-0b-buildable-native-and-studio-scaffolds.md)에 따라 2026-08-09 **PASS**로 완료했다. Windows x64에서 MSVC/Ninja Debug·Release build, CTest, smoke, warnings-as-errors와 clang 도구를 검증했고, Electron/React/strict TypeScript Studio의 frozen install, lint, format, typecheck, production build와 production/dev GUI launch를 확인했다. macOS, Apple Clang과 macOS Electron launch는 미검증이다. Phase 1A 작업 뒤에도 이 기준선의 회귀 검증은 통과했다.
+[Phase 0B ExecPlan](plans/0002-phase-0b-buildable-native-and-studio-scaffolds.md)에 따라 2026-08-09 **PASS**로 완료했다. Windows x64에서 MSVC/Ninja Debug·Release build, CTest, smoke, warnings-as-errors와 clang 도구를 검증했고, Electron/React/strict TypeScript Studio의 frozen install, lint, format, typecheck, production build와 production/dev GUI launch를 확인했다. macOS, Apple Clang과 macOS Electron launch는 미검증이다. Phase 1A/1B 작업 뒤에도 이 기준선의 회귀 검증은 통과했다.
 
 ### 진입 조건
 
@@ -84,7 +84,15 @@
 
 [Phase 1A ExecPlan](plans/0003-phase-1a-windows-minimal-vst3-gain-shell.md)에 따라 Windows x64의 고정 `Garak Gain Spike` adapter를 **PASS**로 완료했다. Exact-pinned official Steinberg SDK, editorless processor/controller, mono/stereo, float32/float64, Gain/Bypass automation, schema 1 state와 repository-local official validator 경로를 검증했다. Debug/Release의 CTest와 validator standard/extensive 결과는 [validation 상태](docs/status/phase-1a-vst3-validation.md)에 기록한다.
 
-이 결과는 Phase 1 전체 완료가 아니다. macOS VST3, representative DAW host, generated runtime 대안 A/B 비교가 남아 있고 [ADR 0003](docs/adr/0003-generated-plugin-runtime-strategy.md)은 Proposed다. `Garak Gain Spike`는 fixed module 하나이며 Alternative A/B 어느 쪽도 구현·선호·기본값으로 두지 않는다.
+`Garak Gain Spike`는 fixed module 하나이며 Phase 1A 자체는 Alternative A/B 어느 쪽도 구현·선호·기본값으로 두지 않는다. Windows x64의 bounded A/B 비교는 후속 Phase 1B evidence에서 별도로 다뤘다.
+
+### Phase 1B 완료 증거
+
+[Phase 1B ExecPlan](plans/0004-phase-1b-generated-runtime-ab-spike.md)에 따라 Windows x64의 generated runtime 결합 전략 기술 spike를 **PASS**로 완료했다. Alternative A는 같은 prebuilt inner binary에 module-relative descriptor와 product별 moduleinfo를 결합해 `Garak Data Alpha/Beta`를 compiler/linker 없는 package-only 흐름으로 만들었다. Alternative B는 common implementation을 재사용하되 `Garak Thin Alpha/Beta`의 product별 factory wrapper를 각각 compile/link했다.
+
+Debug/Release 모두 네 experimental product와 Phase 1A Gain baseline의 five-module coexistence CTest 5/5를 통과했다. 각 bundle/configuration의 official validator 결과는 standard 47/47, extensive 537/537, warning/failure 0이다. Alternative A product는 `out/build/runtime-strategy-{debug|release}/runtime-products/`, Data Runtime template·Alternative B thin product·Gain baseline은 해당 build root의 `VST3/{Debug|Release}/`에 생성된다.
+
+이 결과는 Phase 1 전체 완료나 runtime 전략 결정이 아니다. [ADR 0003](docs/adr/0003-generated-plugin-runtime-strategy.md)은 계속 Proposed이며 A/B 어느 쪽도 채택·선호·기본값이 아니다. macOS VST3, AU, representative DAW host, signing/notarization, installer, product compiler와 commercial packaging은 미검증이다. 다음 제안은 별도 승인과 ExecPlan이 필요한 **Phase 1C — macOS VST3 Runtime Strategy Portability Spike**이며 아직 착수하지 않았다.
 
 ### 진입 조건
 

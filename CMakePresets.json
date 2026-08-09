@@ -79,6 +79,40 @@
       "cacheVariables": {
         "GARAK_ENABLE_CLANG_TIDY": true
       }
+    },
+    {
+      "name": "runtime-strategy-debug",
+      "displayName": "Runtime Strategy Spike Debug",
+      "inherits": "debug",
+      "cacheVariables": {
+        "GARAK_BUILD_VST3_GAIN_SPIKE": true,
+        "GARAK_BUILD_RUNTIME_STRATEGY_SPIKE": true
+      }
+    },
+    {
+      "name": "runtime-strategy-release",
+      "displayName": "Runtime Strategy Spike Release",
+      "inherits": "release",
+      "cacheVariables": {
+        "GARAK_BUILD_VST3_GAIN_SPIKE": true,
+        "GARAK_BUILD_RUNTIME_STRATEGY_SPIKE": true
+      }
+    },
+    {
+      "name": "runtime-strategy-werror",
+      "displayName": "Runtime Strategy Spike Debug with warnings as errors",
+      "inherits": "runtime-strategy-debug",
+      "cacheVariables": {
+        "GARAK_WARNINGS_AS_ERRORS": true
+      }
+    },
+    {
+      "name": "runtime-strategy-clang-tidy",
+      "displayName": "Runtime Strategy Spike Debug with clang-tidy",
+      "inherits": "runtime-strategy-debug",
+      "cacheVariables": {
+        "GARAK_ENABLE_CLANG_TIDY": true
+      }
     }
   ],
   "buildPresets": [
@@ -117,6 +151,26 @@
       "name": "vst3-clang-tidy-build",
       "configurePreset": "vst3-clang-tidy",
       "targets": ["garak_vst3_gain_spike_all"]
+    },
+    {
+      "name": "runtime-strategy-debug-build",
+      "configurePreset": "runtime-strategy-debug",
+      "targets": ["garak_runtime_strategy_spike_all"]
+    },
+    {
+      "name": "runtime-strategy-release-build",
+      "configurePreset": "runtime-strategy-release",
+      "targets": ["garak_runtime_strategy_spike_all"]
+    },
+    {
+      "name": "runtime-strategy-werror-build",
+      "configurePreset": "runtime-strategy-werror",
+      "targets": ["garak_runtime_strategy_spike_all"]
+    },
+    {
+      "name": "runtime-strategy-clang-tidy-build",
+      "configurePreset": "runtime-strategy-clang-tidy",
+      "targets": ["garak_runtime_strategy_spike_all"]
     }
   ],
   "testPresets": [
@@ -153,6 +207,26 @@
     {
       "name": "vst3-release-test",
       "configurePreset": "vst3-release",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "error"
+      }
+    },
+    {
+      "name": "runtime-strategy-debug-test",
+      "configurePreset": "runtime-strategy-debug",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "error"
+      }
+    },
+    {
+      "name": "runtime-strategy-release-test",
+      "configurePreset": "runtime-strategy-release",
       "output": {
         "outputOnFailure": true
       },

@@ -4,9 +4,9 @@ Garak(가락)은 음악가, 프로듀서와 사운드 디자이너가 자신의 
 
 ## 현재 상태
 
-저장소는 Phase 0A 문서 기준선과 Phase 0B buildable scaffold를 보존한 채 **Phase 1A — Windows Minimal VST3 Gain Shell**을 PASS로 완료했다. Windows x64에서 exact-pinned 공식 Steinberg SDK로 fixed-metadata editorless VST3를 Debug/Release build하고 CTest와 official validator standard/extensive run을 검증했다.
+저장소는 Phase 0A 문서 기준선과 Phase 0B buildable scaffold, Phase 1A fixed Gain 기준선을 보존한 채 **Phase 1B — Generated Runtime A/B Comparison**의 Windows x64 기술 spike를 PASS로 완료했다. Debug/Release에서 Alternative A 두 제품, Alternative B 두 제품과 `Garak Gain Spike` 기준선이 다섯 module로 함께 load되며 CTest 5/5를 통과했다. 각 bundle/configuration의 official validator 결과는 standard 47/47, extensive 537/537, warning/failure 0이다.
 
-현재 구현은 `0.0.0` version API, Native smoke/test, Sound / Control / Interface / Product placeholder Studio shell, 그리고 Gain/Bypass와 20-byte state를 가진 고정 `Garak Gain Spike` VST3 기술 spike다. 범용 DSP graph, `.garak`, generated runtime, native IPC, 실제 plugin editor, product compiler, export와 packaging은 아직 없다. 실제 DAW host, macOS VST3, AU, Apple Clang과 macOS Electron launch도 검증하지 않았다.
+현재 구현은 `0.0.0` version API, Native smoke/test, Sound / Control / Interface / Product placeholder Studio shell, Gain/Bypass와 20-byte state를 가진 고정 `Garak Gain Spike`, 그리고 runtime 결합 전략만 비교하는 private experimental VST3 fixture다. Alternative A는 같은 prebuilt inner binary에 module-relative descriptor를 결합해 compiler/linker 없이 두 product bundle을 package하고, Alternative B는 product별 thin factory wrapper를 각각 compile/link한다. 범용 DSP graph, `.garak`, production compiled runtime data, native IPC, 실제 plugin editor, product compiler와 export pipeline은 아직 없다. 실제 DAW host, macOS VST3, AU, Apple Clang, signing/notarization, installer와 macOS Electron launch도 검증하지 않았다.
 
 생성 플러그인의 목표는 Garak Studio가 없는 컴퓨터에서 독립적으로 오프라인 동작하는 white-label native 제품이다. 생성물에는 Electron, Chromium, Node.js 또는 임의의 JavaScript runtime을 넣지 않는다.
 
@@ -74,6 +74,103 @@ cmake --build --preset vst3-clang-tidy-build --clean-first
 
 실제 artifact, validator 수치와 미검증 범위는 [Phase 1A validation 상태](docs/status/phase-1a-vst3-validation.md)에 기록한다. System/user VST3 directory에 설치하거나 link하지 않는다.
 
+### Phase 1B Windows x64 runtime strategy spike
+
+이 흐름은 실험용 repository-local bundle만 만든다. Global package/tool 설치나 system/user VST3 directory write는 없으며, SDK는 위 Phase 1A와 같은 exact recursive checkout을 사용한다. 아래 명령은 모든 mandatory script path를 명시한다.
+
+Debug build, coexistence test, validator와 artifact inspection:
+
+```powershell
+cmake --preset runtime-strategy-debug --fresh
+cmake --build --preset runtime-strategy-debug-build --clean-first
+ctest --preset runtime-strategy-debug-test --no-tests=error
+
+$artifactRoot = 'out\build\runtime-strategy-debug'
+$reportRoot = 'out\reports\vst3\runtime-strategy'
+tools\vst3\validate_runtime_strategy.ps1 `
+  -Configuration Debug `
+  -ArtifactRootPath $artifactRoot `
+  -ValidatorPath "$artifactRoot\bin\validator.exe" `
+  -GainSpikeBundlePath "$artifactRoot\VST3\Debug\Garak Gain Spike.vst3" `
+  -DataAlphaBundlePath "$artifactRoot\runtime-products\Garak Data Alpha.vst3" `
+  -DataBetaBundlePath "$artifactRoot\runtime-products\Garak Data Beta.vst3" `
+  -ThinAlphaBundlePath "$artifactRoot\VST3\Debug\Garak Thin Alpha.vst3" `
+  -ThinBetaBundlePath "$artifactRoot\VST3\Debug\Garak Thin Beta.vst3" `
+  -ReportDirectory $reportRoot
+tools\vst3\inspect_runtime_strategy.ps1 `
+  -Configuration Debug `
+  -ArtifactRootPath $artifactRoot `
+  -TemplateBundlePath "$artifactRoot\VST3\Debug\Garak Data Runtime Template.vst3" `
+  -GainSpikeBundlePath "$artifactRoot\VST3\Debug\Garak Gain Spike.vst3" `
+  -DataAlphaBundlePath "$artifactRoot\runtime-products\Garak Data Alpha.vst3" `
+  -DataBetaBundlePath "$artifactRoot\runtime-products\Garak Data Beta.vst3" `
+  -ThinAlphaBundlePath "$artifactRoot\VST3\Debug\Garak Thin Alpha.vst3" `
+  -ThinBetaBundlePath "$artifactRoot\VST3\Debug\Garak Thin Beta.vst3" `
+  -ReportPath "$reportRoot\debug-artifacts.json"
+```
+
+Release build, coexistence test, validator와 artifact inspection:
+
+```powershell
+cmake --preset runtime-strategy-release --fresh
+cmake --build --preset runtime-strategy-release-build --clean-first
+ctest --preset runtime-strategy-release-test --no-tests=error
+
+$artifactRoot = 'out\build\runtime-strategy-release'
+$reportRoot = 'out\reports\vst3\runtime-strategy'
+tools\vst3\validate_runtime_strategy.ps1 `
+  -Configuration Release `
+  -ArtifactRootPath $artifactRoot `
+  -ValidatorPath "$artifactRoot\bin\validator.exe" `
+  -GainSpikeBundlePath "$artifactRoot\VST3\Release\Garak Gain Spike.vst3" `
+  -DataAlphaBundlePath "$artifactRoot\runtime-products\Garak Data Alpha.vst3" `
+  -DataBetaBundlePath "$artifactRoot\runtime-products\Garak Data Beta.vst3" `
+  -ThinAlphaBundlePath "$artifactRoot\VST3\Release\Garak Thin Alpha.vst3" `
+  -ThinBetaBundlePath "$artifactRoot\VST3\Release\Garak Thin Beta.vst3" `
+  -ReportDirectory $reportRoot
+tools\vst3\inspect_runtime_strategy.ps1 `
+  -Configuration Release `
+  -ArtifactRootPath $artifactRoot `
+  -TemplateBundlePath "$artifactRoot\VST3\Release\Garak Data Runtime Template.vst3" `
+  -GainSpikeBundlePath "$artifactRoot\VST3\Release\Garak Gain Spike.vst3" `
+  -DataAlphaBundlePath "$artifactRoot\runtime-products\Garak Data Alpha.vst3" `
+  -DataBetaBundlePath "$artifactRoot\runtime-products\Garak Data Beta.vst3" `
+  -ThinAlphaBundlePath "$artifactRoot\VST3\Release\Garak Thin Alpha.vst3" `
+  -ThinBetaBundlePath "$artifactRoot\VST3\Release\Garak Thin Beta.vst3" `
+  -ReportPath "$reportRoot\release-artifacts.json"
+```
+
+First-party strict configurations:
+
+```text
+cmake --preset runtime-strategy-werror --fresh
+cmake --build --preset runtime-strategy-werror-build --clean-first
+cmake --preset runtime-strategy-clang-tidy --fresh
+cmake --build --preset runtime-strategy-clang-tidy-build --clean-first
+```
+
+Alternative A product output은 `out/build/runtime-strategy-{debug|release}/runtime-products/`에 있다. Data Runtime template, Alternative B thin products와 Gain baseline은 같은 build root의 `VST3/{Debug|Release}/`에 있다. 별도 일반 PowerShell package-only rerun에서도 `cl.exe`와 `link.exe` 없이 같은 Alternative A inner binary와 product별 descriptor/moduleinfo를 재생성했다.
+
+Alternative A의 Debug product만 다시 package하는 실제 명령은 다음과 같다. 이미 build한 template과
+official `moduleinfotool.exe`만 사용하며 product-specific C++ compile/link를 실행하지 않는다.
+
+```powershell
+$artifactRoot = 'out\build\runtime-strategy-debug'
+$template = "$artifactRoot\VST3\Debug\Garak Data Runtime Template.vst3"
+$moduleInfoTool = "$artifactRoot\bin\moduleinfotool.exe"
+
+tools\vst3\package_data_runtime_variant.ps1 `
+  -TemplateBundlePath $template `
+  -DescriptorPath 'native\adapters\vst3\runtime_strategy_spike\descriptors\data-alpha.txt' `
+  -OutputBundlePath "$artifactRoot\runtime-products\Garak Data Alpha.vst3" `
+  -ModuleInfoToolPath $moduleInfoTool
+tools\vst3\package_data_runtime_variant.ps1 `
+  -TemplateBundlePath $template `
+  -DescriptorPath 'native\adapters\vst3\runtime_strategy_spike\descriptors\data-beta.txt' `
+  -OutputBundlePath "$artifactRoot\runtime-products\Garak Data Beta.vst3" `
+  -ModuleInfoToolPath $moduleInfoTool
+```
+
 ## 확정된 기술 방향
 
 - Garak Studio: Electron, React, TypeScript strict mode, Windows/macOS
@@ -84,14 +181,14 @@ cmake --build --preset vst3-clang-tidy-build --clean-first
 - 기술 검증 순서: Windows x64 VST3 → macOS arm64/x86_64 VST3 → macOS AU
 - 첫 상용 format 목표: Windows VST3, macOS Universal VST3, macOS AU
 
-Steinberg VST3 SDK `v3.8.0_build_66`은 Phase 1A Windows x64 adapter spike에 한정해 exact pin과 build/validator를 검증했다. 이는 generated runtime, macOS, commercial redistribution 또는 전체 legal audit의 승인이 아니다. VSTGUI는 recursive checkout에만 존재하고 build/link하지 않는다. Skia, CanvasKit, Yoga, XYFlow, miniaudio, KissFFT와 FlatBuffers는 계속 미설치·미검증·미승인 후보다. 상세 경계는 [Phase 1A dependency 상태](docs/status/phase-1a-vst3-dependency.md)에 기록한다.
+Steinberg VST3 SDK `v3.8.0_build_66`은 Phase 1A/1B Windows x64 adapter 기술 spike에 한정해 exact pin과 build/validator를 검증했다. 이는 범용 generated runtime, macOS, commercial redistribution 또는 전체 legal audit의 승인이 아니다. VSTGUI는 recursive checkout에만 존재하고 build/link하지 않는다. Skia, CanvasKit, Yoga, XYFlow, miniaudio, KissFFT와 FlatBuffers는 계속 미설치·미검증·미승인 후보다. 상세 경계는 [Phase 1A dependency 상태](docs/status/phase-1a-vst3-dependency.md)에 기록한다.
 
 Generated plugin runtime 결합 방식은 [ADR 0003](docs/adr/0003-generated-plugin-runtime-strategy.md)이 `Proposed`인 동안 미결정이다. 다음 두 대안 중 어느 것도 현재 기본값이나 채택안이 아니다.
 
-- A: prebuilt Garak Runtime에 product별 compiled data와 metadata 삽입
-- B: product별 thin native wrapper를 생성하고 common Garak Runtime과 link
+- A: 같은 prebuilt inner binary에 product별 module-relative descriptor와 metadata를 package
+- B: product별 thin native factory wrapper를 compile/link하고 common implementation을 재사용
 
-두 대안은 후속 Windows x64 VST3 기술 spike의 동일한 수용 기준으로 비교한 뒤 결정한다.
+Phase 1B는 두 대안을 Windows x64의 동일한 Gain behavior와 identity/packaging/validation 기준으로 구현·비교했다. 이 결과는 bounded experimental evidence이며 어느 대안도 채택·선호·기본값으로 만들지 않는다.
 
 ## 문서 지도
 
@@ -132,14 +229,15 @@ Generated plugin runtime 결합 방식은 [ADR 0003](docs/adr/0003-generated-plu
 - [Phase 1A VST3 identity](docs/status/phase-1a-vst3-identity.md)
 - [Phase 1A VST3 dependency](docs/status/phase-1a-vst3-dependency.md)
 - [Phase 1A VST3 validation](docs/status/phase-1a-vst3-validation.md)
+- [Phase 1B ExecPlan](plans/0004-phase-1b-generated-runtime-ab-spike.md)
 
 저장소 작업 규칙과 문서 우선순위는 [AGENTS.md](AGENTS.md)를 따른다.
 
 ## 정확한 다음 milestone
 
-다음 권장 작업은 별도 ExecPlan을 먼저 작성하는 **Phase 1B — Generated Runtime A/B Comparison** 기술 spike다. Phase 1A의 동일한 Windows x64 VST3 수용 기준으로 prebuilt runtime + product data와 product-specific thin wrapper + common runtime을 비교할 최소 evidence만 만든다.
+다음 권장 작업은 별도 승인과 ExecPlan이 필요한 **Phase 1C — macOS VST3 Runtime Strategy Portability Spike**다. 이는 Phase 1B의 Windows x64 evidence를 macOS arm64/x86_64에서 재검증하자는 제안일 뿐이며 아직 착수하지 않았다.
 
-Phase 1A만 완료했으며 Phase 1 전체는 아직 미완료다. ADR 0003은 계속 Proposed이고 어느 대안도 채택·선호·기본값이 아니다. Phase 1B에서는 DSP graph, `.garak`, Studio IPC, editor, export 또는 상용 제품 기능을 함께 구현하지 않는다.
+Phase 1A와 Phase 1B Windows x64 spike만 완료했으며 Phase 1 전체는 아직 미완료다. ADR 0003은 계속 Proposed이고 어느 대안도 채택·선호·기본값이 아니다. macOS VST3, AU, representative DAW, signing/notarization, installer, product compiler와 commercial packaging은 미검증이다.
 
 ## License
 

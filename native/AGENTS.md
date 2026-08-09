@@ -18,9 +18,10 @@ the native build and source tree.
   non-zero exit code; do not use `assert` as the test contract. Do not add public behavior without
   a corresponding test.
 - Realtime code follows the root realtime rules and `docs/architecture/realtime-and-quality.md`.
-  The current Phase 1A boundary is the private `spikes/gain` kernel and the fixed editorless VST3
-  adapter; do not expand it into a generic runtime, graph, project, export, UI, MIDI, sidechain or
-  packaging API without a later approved ExecPlan.
+  The current boundary is the private `spikes/gain` kernel, the fixed Phase 1A editorless VST3
+  adapter, and the private Phase 1B `runtime_strategy_spike` comparison fixture. Phase 1B is not a
+  generic runtime or product compiler; do not expand it into graph, project, export, UI, MIDI,
+  sidechain or production packaging APIs without a later approved ExecPlan.
 - Do not add a third-party native dependency without the repository-level dependency and license
   review.
 
@@ -66,3 +67,95 @@ cmake --build --preset vst3-werror-build --clean-first
 cmake --preset vst3-clang-tidy
 cmake --build --preset vst3-clang-tidy-build --clean-first
 ```
+
+Run the Phase 1B Windows x64 runtime-strategy spike from the repository root. It is experimental,
+uses only repository-local build products, requires no global install, and must not write to a
+system or user VST3 directory. This PowerShell block supplies every mandatory validator and
+inspection path for both configurations:
+
+```powershell
+function Test-GarakRuntimeStrategy {
+  param(
+    [Parameter(Mandatory = $true)]
+    [ValidateSet('Debug', 'Release')]
+    [string]$Configuration
+  )
+
+  $buildName = $Configuration.ToLowerInvariant()
+  $artifactRoot = "out\build\runtime-strategy-$buildName"
+  $reportRoot = 'out\reports\vst3\runtime-strategy'
+  $vstRoot = "$artifactRoot\VST3\$Configuration"
+
+  cmake --preset "runtime-strategy-$buildName" --fresh
+  cmake --build --preset "runtime-strategy-$buildName-build" --clean-first
+  ctest --preset "runtime-strategy-$buildName-test" --no-tests=error
+
+  tools\vst3\validate_runtime_strategy.ps1 `
+    -Configuration $Configuration `
+    -ArtifactRootPath $artifactRoot `
+    -ValidatorPath "$artifactRoot\bin\validator.exe" `
+    -GainSpikeBundlePath "$vstRoot\Garak Gain Spike.vst3" `
+    -DataAlphaBundlePath "$artifactRoot\runtime-products\Garak Data Alpha.vst3" `
+    -DataBetaBundlePath "$artifactRoot\runtime-products\Garak Data Beta.vst3" `
+    -ThinAlphaBundlePath "$vstRoot\Garak Thin Alpha.vst3" `
+    -ThinBetaBundlePath "$vstRoot\Garak Thin Beta.vst3" `
+    -ReportDirectory $reportRoot
+
+  $reportName = "$buildName-artifacts.json"
+  tools\vst3\inspect_runtime_strategy.ps1 `
+    -Configuration $Configuration `
+    -ArtifactRootPath $artifactRoot `
+    -TemplateBundlePath "$vstRoot\Garak Data Runtime Template.vst3" `
+    -GainSpikeBundlePath "$vstRoot\Garak Gain Spike.vst3" `
+    -DataAlphaBundlePath "$artifactRoot\runtime-products\Garak Data Alpha.vst3" `
+    -DataBetaBundlePath "$artifactRoot\runtime-products\Garak Data Beta.vst3" `
+    -ThinAlphaBundlePath "$vstRoot\Garak Thin Alpha.vst3" `
+    -ThinBetaBundlePath "$vstRoot\Garak Thin Beta.vst3" `
+    -ReportPath "$reportRoot\$reportName"
+}
+
+Test-GarakRuntimeStrategy -Configuration Debug
+Test-GarakRuntimeStrategy -Configuration Release
+```
+
+Verify the first-party strict configurations separately:
+
+```text
+cmake --preset runtime-strategy-werror --fresh
+cmake --build --preset runtime-strategy-werror-build --clean-first
+cmake --preset runtime-strategy-clang-tidy --fresh
+cmake --build --preset runtime-strategy-clang-tidy-build --clean-first
+```
+
+Alternative A's standalone package-only path consumes a previously built template and
+`moduleinfotool`; it must work from ordinary PowerShell without `cl.exe` or `link.exe`. The same
+block works for Release by setting `$configuration = 'Release'`:
+
+```powershell
+$configuration = 'Debug'
+$buildName = $configuration.ToLowerInvariant()
+$artifactRoot = "out\build\runtime-strategy-$buildName"
+$templateBundle = "$artifactRoot\VST3\$configuration\Garak Data Runtime Template.vst3"
+$moduleInfoTool = "$artifactRoot\bin\moduleinfotool.exe"
+
+Get-Command cl.exe, link.exe -ErrorAction SilentlyContinue
+tools\vst3\package_data_runtime_variant.ps1 `
+  -TemplateBundlePath $templateBundle `
+  -DescriptorPath 'native\adapters\vst3\runtime_strategy_spike\descriptors\data-alpha.txt' `
+  -OutputBundlePath "$artifactRoot\runtime-products\Garak Data Alpha.vst3" `
+  -ModuleInfoToolPath $moduleInfoTool
+tools\vst3\package_data_runtime_variant.ps1 `
+  -TemplateBundlePath $templateBundle `
+  -DescriptorPath 'native\adapters\vst3\runtime_strategy_spike\descriptors\data-beta.txt' `
+  -OutputBundlePath "$artifactRoot\runtime-products\Garak Data Beta.vst3" `
+  -ModuleInfoToolPath $moduleInfoTool
+```
+
+The Windows x64 closeout result is Debug/Release CTest 5/5 for the two Alternative A products,
+two Alternative B products, and the Gain baseline loaded together. Every one of those five
+bundles in each configuration passed official validator standard 47/47 and extensive 537/537
+with zero warnings or failures. Alternative A outputs are under
+`out/build/runtime-strategy-{debug|release}/runtime-products/`; the template, thin products, and
+Gain baseline are under the corresponding `VST3/{Debug|Release}/` directory. This does not select
+Alternative A or B: ADR 0003 remains Proposed, and macOS, AU, representative DAWs,
+signing/notarization, installers, and the product compiler remain unverified.

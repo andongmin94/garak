@@ -1,10 +1,12 @@
 # Garak VST3 Adapter
 
 - 기준일: 2026-08-09
-- 상태: Phase 1A Windows x64 **PASS / Complete**
+- 상태: Phase 1A Windows x64 **PASS / Complete**; Phase 1B A/B spike evidence 반영
 - Identity: [Phase 1A VST3 Identity](../status/phase-1a-vst3-identity.md)
 - SDK pin: [Phase 1A VST3 Dependency](../status/phase-1a-vst3-dependency.md)
 - 검증: [Phase 1A VST3 Validation](../status/phase-1a-vst3-validation.md)
+- Phase 1B identity: [Phase 1B VST3 Product Identities](../status/phase-1b-vst3-identities.md)
+- Phase 1B artifact: [Phase 1B Runtime Strategy Artifacts](../status/phase-1b-runtime-strategy-artifacts.md)
 - 관련 계획: [ExecPlan 0003](../../plans/0003-phase-1a-windows-minimal-vst3-gain-shell.md)
 - 상위 경계: [Module Boundaries](module-boundaries.md), [Realtime and Quality](realtime-and-quality.md)
 
@@ -15,8 +17,9 @@ format adapter다. Steinberg type, header, lifecycle, factory와 host error code
 및 VST3 전용 contract test 밖으로 노출하지 않는다. SDK-independent Gain, automation과
 state byte contract는 `native/spikes/gain`에 두며 Steinberg type에 의존하지 않는다.
 
-현재 `Garak Gain Spike`는 이 경계를 end-to-end로 검증하는 고정된 editorless native
-module이다. 범용 plugin runtime, product compiler 또는 생성 제품의 구현이 아니다.
+Phase 1A `Garak Gain Spike`는 이 경계를 end-to-end로 검증하는 고정된 editorless native
+module이다. Phase 1B의 runtime strategy code도 같은 adapter 아래에 격리한 비교 spike이며 범용
+plugin runtime public API, product compiler 또는 production export 구현은 아니다.
 
 ## 공식 SDK pin과 build 경계
 
@@ -33,9 +36,11 @@ VSTGUI는 재현 가능한 nested checkout에는 포함되지만 support를 끄�
 않는다. 자동 user/system plugin link, VST3 examples와 hosting examples도 끈다. Windows bundle은
 오직 repository의 `out/` 아래에 생성한다.
 
-현재 spike는 `SMTG_CREATE_MODULE_INFO=OFF`이고 moduleinfo를 만들거나 배포 계약으로 삼지
-않는다. SDK의 자동 post-build validator 실행도 끄며 아래의 명시적인 local validation
-경로만 사용한다.
+Phase 1A Gain Spike는 `SMTG_CREATE_MODULE_INFO=OFF`이고 moduleinfo를 만들거나 배포 계약으로
+삼지 않는다. Phase 1B는 같은 pinned SDK의 `moduleinfotool`을 opt-in build utility로 사용하되
+global/cache `SMTG_CREATE_MODULE_INFO`는 OFF로 유지하고 Thin target과 Data package staging에서만
+moduleinfo를 명시적으로 create/validate한다. SDK의 자동 post-build validator에 의존하지 않고
+repository-local validation 경로만 사용한다.
 
 ## Adapter와 module 구조
 
@@ -203,23 +208,83 @@ Studio frozen install/lint/format/typecheck/build도 최종 rerun PASS이며 Stu
 Phase 1 전체는 미완료다. Windows 결과를 macOS/AU, 실제 DAW host, commercial distribution 또는
 transitive legal audit의 통과로 일반화하지 않는다.
 
+## Phase 1B runtime strategy spike 경계
+
+Phase 1B는 Phase 1A의 Gain/audio/state 구현을 보존하고
+`native/adapters/vst3/runtime_strategy_spike` 안에서만 두 packaging 방식을 비교한다. 네 제품의
+exact FUID, parameter ID와 default는
+[identity 문서](../status/phase-1b-vst3-identities.md), binary/resource/build delta는
+[artifact 문서](../status/phase-1b-runtime-strategy-artifacts.md)가 기록한다.
+
+### Alternative A module-relative data runtime
+
+`Garak Data Runtime Template`은 product descriptor와 moduleinfo가 없는 prebuilt input module이다.
+Package script는 같은 template inner bytes를 configuration별
+`out/build/runtime-strategy-<config>/runtime-products/Garak Data Alpha.vst3`와
+`Garak Data Beta.vst3`에 stage하고 strict descriptor와 product-specific `moduleinfo.json`을 더한다.
+이 `runtime-products` 경로는 현재 Windows spike의 실제 local evidence path이지 production export
+layout 결정이 아니다.
+
+Windows loader는 SDK `dllmain`이 보존한 module image handle에서 bundle path를 얻고
+`Contents/Resources/garak-product-spike-v1.txt`를 module load/factory 경계에서 한 번 읽는다. Current
+working directory, registry와 system VST path를 사용하지 않는다. Descriptor는 최대 1024바이트,
+ASCII/LF-only인 fixed 11-line schema이며 bundle leaf, inner basename과 product name도 일치해야 한다.
+Missing, malformed, duplicate, out-of-range 또는 identity mismatch이면 factory를 만들지 않고 null로
+fail closed한다.
+
+검증된 product definition은 module image가 소유한 immutable value다. Dynamic factory는 그
+definition으로 processor와 controller 두 class만 등록하고 instance construction 시 필요한 값을
+복사한다. Descriptor file I/O와 parsing은 audio process callback에 들어가지 않는다. Mutable
+process-global current product identity 또는 fallback identity는 없다.
+
+### Alternative B thin wrapper와 static common implementation
+
+`garak_runtime_strategy_spike_common`은 processor, controller, factory support와 state stream을
+configuration별 한 번 compile하는 static common implementation이다. `Garak Thin Alpha`와
+`Garak Thin Beta`는 각각 한 개의 product-specific factory wrapper translation unit을 별도로
+compile하고 별도 VST3 module로 link한다. Wrapper는 immutable product definition과 factory entry만
+가지며 DSP, automation, state 구현을 복제하지 않는다.
+
+Static library reuse는 source/object build reuse다. Common executable code는 각 final module에
+포함되므로 외부 shared service나 dynamic shared runtime으로 표현하지 않는다. Thin wrapper가
+작다는 사실도 Alternative B의 production 선택 근거가 아니다.
+
+### Moduleinfo와 coexistence
+
+Alternative A는 final staged bundle의 renamed inner module과 descriptor를 먼저 배치한 뒤 pinned
+`moduleinfotool -create`와 `-validate`를 실행한다. Alternative B는 각 Thin target의 실제 factory에서
+moduleinfo를 생성하고 검증한다. Contract test는 pinned SDK `ModuleInfoLib` parser로 root
+Name/Version, Factory Vendor와 정확히 두 class의 CID/name/category/subcategory/version을 독립 literal
+fixture에 구조적으로 대조한다. Template과 Phase 1A Gain Spike는 moduleinfo 대상이 아니다.
+
+한 contract-test process가 Gain Spike와 Data/Thin Alpha/Beta 다섯 module을 동시에 load한다. Module
+handle, 열 개 class FUID, factory metadata, default, state와 interleaved processing이 서로 새지 않는지
+검증하고 reverse unload 뒤 Data Alpha를 exact metadata/default와 함께 reload한다. Malformed descriptor
+fixture는 canonical bundle/inner basename을 유지하며 descriptor-name mismatch와 bundle-inner mismatch는
+각각 별도 failure다. Callback exception은 VST failure로 변환하고 state를 변경하지 않는다.
+
+이 구현은 Windows A/B evidence를 만들기 위한 spike-local adapter다. First-party persistent model이나
+format-neutral runtime public API에 Steinberg type, Windows handle 또는 descriptor physical path를
+노출하지 않는다.
+
 ## 명시적 비범위
 
 - `.garak` project, compiled runtime blob, product compiler와 export pipeline
 - 범용 first-party plugin runtime API, DSP graph, macro, preset과 custom product UI
-- ADR 0003 Alternative A/B의 구현, 비교 결과 또는 선택
+- ADR 0003 Alternative A/B의 production 선택, 기본값과 export pipeline
 - VSTGUI/editor/resource, meter, program list와 asset pipeline
 - MIDI/event, sidechain, instrument/synth와 process-context 기능
 - Studio/native IPC, Node.js native addon와 Electron 통합
 - AU, macOS/Universal build, signing, notarization, installer와 실제 DAW host 검증
 - User/system VST3 directory write와 commercial product identity
 - Commercial distribution, transitive dependency legal/notice/trademark audit
-- Moduleinfo 생성/배포와 이전 state schema migration
+- Production moduleinfo/signing 정책과 이전 state schema migration
 
 ## Generated runtime 전략과의 관계
 
-[ADR 0003](../adr/0003-generated-plugin-runtime-strategy.md)은 계속 **Proposed**다. Alternative A
-(prebuilt runtime + product data)와 Alternative B(product-specific thin wrapper + common runtime)
-중 어느 것도 선택, 승인 또는 기본값으로 두지 않는다. 이 spike가 fixed native module이라는
-사실은 Alternative B의 채택 근거가 아니다. Phase 1A의 증거는 official VST3 SDK adapter 경계와
-그 최소 host contract에만 한정된다.
+[ADR 0003](../adr/0003-generated-plugin-runtime-strategy.md)은 계속 **Proposed**다. Phase 1B는
+Alternative A(prebuilt runtime + product data)와 Alternative B(product-specific thin wrapper +
+static common implementation)를 같은 Windows contract로 구현·측정했지만 어느 것도 선택, 승인,
+선호 또는 기본값으로 두지 않는다. Phase 1A 증거는 official VST3 SDK adapter baseline에,
+Phase 1B 증거는 Windows x64 spike의 identity, package와 coexistence 관찰에 한정된다. macOS
+Universal/signing과 production export evidence 전에는 runtime 전략을 확정하지 않는다.

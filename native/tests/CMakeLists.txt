@@ -31,6 +31,25 @@ if(GARAK_BUILD_VST3_GAIN_SPIKE)
     target_compile_options(vst3_sdk_test_module_loader PRIVATE /Zc:__cplusplus)
   endif()
 
+  if(GARAK_BUILD_RUNTIME_STRATEGY_SPIKE)
+    # Parse SDK JSON5 moduleinfo files with the pinned SDK implementation. Keep
+    # the unmodified third-party source outside Garak warning/tidy policy.
+    add_library(
+      vst3_sdk_test_moduleinfo_parser
+      STATIC
+      "${GARAK_VST3_SDK_DIR}/public.sdk/source/vst/moduleinfo/moduleinfoparser.cpp"
+    )
+    target_link_libraries(vst3_sdk_test_moduleinfo_parser PRIVATE sdk_hosting)
+    target_compile_features(vst3_sdk_test_moduleinfo_parser PUBLIC cxx_std_20)
+    target_include_directories(
+      vst3_sdk_test_moduleinfo_parser
+      SYSTEM PUBLIC "${GARAK_VST3_SDK_DIR}"
+    )
+    if(MSVC)
+      target_compile_options(vst3_sdk_test_moduleinfo_parser PRIVATE /Zc:__cplusplus)
+    endif()
+  endif()
+
   add_executable(garak_vst3_gain_contract_tests vst3_gain_contract_tests.cpp)
   target_link_libraries(
     garak_vst3_gain_contract_tests
@@ -52,5 +71,64 @@ if(GARAK_BUILD_VST3_GAIN_SPIKE)
     COMMAND
       garak_vst3_gain_contract_tests
       "$<TARGET_GENEX_EVAL:garak_gain_spike_vst3,$<TARGET_PROPERTY:garak_gain_spike_vst3,SMTG_PLUGIN_PACKAGE_PATH>>"
+  )
+endif()
+
+if(GARAK_BUILD_RUNTIME_STRATEGY_SPIKE)
+  add_executable(
+    garak_runtime_strategy_descriptor_tests
+    runtime_strategy_descriptor_tests.cpp
+  )
+  target_link_libraries(
+    garak_runtime_strategy_descriptor_tests
+    PRIVATE garak_runtime_strategy_descriptor
+  )
+  target_include_directories(
+    garak_runtime_strategy_descriptor_tests
+    PRIVATE "${CMAKE_SOURCE_DIR}/native/adapters/vst3/runtime_strategy_spike"
+  )
+  garak_apply_warnings(garak_runtime_strategy_descriptor_tests)
+  garak_apply_clang_tidy(garak_runtime_strategy_descriptor_tests)
+  add_test(
+    NAME garak_runtime_strategy_descriptor_tests
+    COMMAND garak_runtime_strategy_descriptor_tests
+  )
+
+  add_executable(
+    garak_runtime_strategy_contract_tests
+    runtime_strategy_contract_tests.cpp
+  )
+  target_link_libraries(
+    garak_runtime_strategy_contract_tests
+    PRIVATE
+      vst3_sdk_test_module_loader
+      vst3_sdk_test_moduleinfo_parser
+      garak_gain_spike_support
+      sdk_hosting
+  )
+  target_include_directories(
+    garak_runtime_strategy_contract_tests
+    SYSTEM PRIVATE "${GARAK_VST3_SDK_DIR}"
+  )
+  add_dependencies(
+    garak_runtime_strategy_contract_tests
+    garak_gain_spike_vst3
+    garak_data_runtime_products
+    garak_thin_alpha_vst3
+    garak_thin_beta_vst3
+  )
+  garak_apply_warnings(garak_runtime_strategy_contract_tests)
+  garak_apply_clang_tidy(garak_runtime_strategy_contract_tests)
+  add_test(
+    NAME garak_runtime_strategy_contract_tests
+    COMMAND
+      garak_runtime_strategy_contract_tests
+      "$<TARGET_GENEX_EVAL:garak_gain_spike_vst3,$<TARGET_PROPERTY:garak_gain_spike_vst3,SMTG_PLUGIN_PACKAGE_PATH>>"
+      "$<TARGET_PROPERTY:garak_data_runtime_products,GARAK_DATA_ALPHA_BUNDLE>"
+      "$<TARGET_PROPERTY:garak_data_runtime_products,GARAK_DATA_BETA_BUNDLE>"
+      "$<TARGET_GENEX_EVAL:garak_thin_alpha_vst3,$<TARGET_PROPERTY:garak_thin_alpha_vst3,SMTG_PLUGIN_PACKAGE_PATH>>"
+      "$<TARGET_GENEX_EVAL:garak_thin_beta_vst3,$<TARGET_PROPERTY:garak_thin_beta_vst3,SMTG_PLUGIN_PACKAGE_PATH>>"
+      "$<TARGET_GENEX_EVAL:garak_data_runtime_template_vst3,$<TARGET_PROPERTY:garak_data_runtime_template_vst3,SMTG_PLUGIN_PACKAGE_PATH>>"
+      "${CMAKE_BINARY_DIR}/runtime-failure-fixtures"
   )
 endif()

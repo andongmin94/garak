@@ -5,343 +5,260 @@
 - Phase 0A 판정: PASS
 - Phase 0B 판정: PASS
 - Phase 1A 판정: **PASS / Complete**
+- Phase 1B 판정: **PASS / Complete (Windows x64 spike)**
 - Phase 1 전체 판정: 미완료
-- 다음 phase: Phase 1B 미착수
+- 정확한 다음 제안: Phase 1C — macOS VST3 Runtime Strategy Portability Spike
 
 ## 요약
 
-Phase 0A/0B의 제품·architecture·운영 기준선과 두 개발 loop를 보존한 채 Phase 1A Windows x64
-기술 spike를 완료했다. Exact-pin Steinberg SDK의 editorless `Garak Gain Spike`는 Debug/Release
-fresh/clean build와 formatter 뒤 incremental rebuild, CTest 3/3, Werror, clang-tidy 및 first-party
-20개 C++ file의 clang-format을 모두 exit 0으로 통과했다. Official validator 최종 bundle rerun도
-두 configuration에서 standard 47/47, extensive 537/537, warning 0, exit 0이다. Phase 0 Native와
-Studio regression도 최종 PASS다.
+Phase 0A/0B와 Phase 1A 기준선을 보존한 채 ADR 0003의 generated runtime 대안 A/B를
+Windows x64 VST3 기술 spike로 구현·비교했다. Alternative A는 한 번 빌드한 Data Runtime
+template module을 제품별 descriptor와 결합해 `Garak Data Alpha`와 `Garak Data Beta`를 만들며,
+두 제품의 inner module bytes와 SHA-256은 configuration별로 완전히 같다. Alternative B는 한 번
+compile한 internal behavior implementation과 제품별 thin factory translation unit을 link해
+`Garak Thin Alpha`와 `Garak Thin Beta`를 만든다.
 
-Phase 1A는 **PASS / Complete**지만 Phase 1 전체는 미완료다. ADR 0003은 계속 Proposed이며 macOS,
-AU, 실제 DAW host, commercial distribution과 transitive legal audit는 검증하지 않았다.
+기존 `Garak Gain Spike`를 포함한 다섯 module은 한 process에서 고유 identity로 동시에 load되었고,
+factory/moduleinfo parity, processing, state 및 instance isolation, reverse unload와 reload가 모두
+통과했다. Debug/Release CTest는 각각 5/5, official validator는 다섯 제품 각각 standard 47/47과
+extensive 537/537를 통과해 총 20회 모두 warning/failure/crash 0, wrapper exit 0이었다. Alternative A
+네 output의 일반 PowerShell 재패키징은 `cl.exe`와 `link.exe` 없이 성공했고 immutable build input
+18/18이 유지되었다.
 
-## 저장소 초기 상태와 보존
+Phase 1B는 **PASS / Complete**지만 Windows-only private experiment다. Phase 1 전체는 미완료이며
+[ADR 0003](../adr/0003-generated-plugin-runtime-strategy.md)은 계속 **Proposed**다. A/B 어느 쪽도
+채택·선호·기본값이 아니고, production descriptor/runtime format이나 Product Compiler를 정하지 않았다.
 
-- 2026-08-09 최초 조사 시 작업 루트는 비어 있었고 Git 저장소가 아니었다.
-- 기존 파일, commit 또는 보존할 사용자 변경사항은 발견되지 않았다.
-- Phase 0A에서는 허용된 범위에서 `git init`만 수행했고 당시 commit은 만들지 않았다.
-- 사용자 파일을 삭제, 덮어쓰기 또는 reset한 작업은 없다.
-- Phase 0B 시작 시 Phase 0A 파일 24개는 commit이 없는 `master`에서 모두 untracked였으며 24/24를 보존했다.
-- Phase 0B에서도 commit이나 branch 변경, destructive Git 명령을 수행하지 않았다.
-- Phase 1A 시작 전 사용자의 명시적 요청으로 Phase 0의 64개 파일을 root commit
-  `ef71c755ee84a9b82d6589365711211fdbc62f58` (`Establish Phase 0 baseline`)에 기록했다.
-- 그 commit 직후 clean working tree를 확인했으며 Phase 1A 변경은 commit하지 않았다.
+## 저장소 기준선과 보존
+
+- Phase 0 기준선 commit은 `ef71c755ee84a9b82d6589365711211fdbc62f58`
+  (`Establish Phase 0 baseline`)이다.
+- 사용자의 명시적 지시에 따라 Phase 1A를 commit
+  `c9d92bfd800cb702a0c32442598a508b382b1df2`
+  (`feat: complete Garak phase 1A VST3 gain shell`)로 기록했다.
+- Phase 1B 시작 시 branch는 `master`, HEAD는 위 Phase 1A commit, working tree는 clean이었다.
+- Phase 1B에서는 commit, amend, rebase, branch 변경, reset, clean 또는 submodule pin 변경을 하지 않았다.
+- 현재 Phase 1B first-party 변경은 의도적으로 uncommitted이며 build/report는 ignored `out/` 아래에만 있다.
+- SDK superproject와 nested checkout은 모두 initialized, detached, exact gitlink와 일치하며 clean하다.
+- 사용자 파일 삭제, global VST3 install, registry write와 system/user plugin link는 수행하지 않았다.
 
 ## 현재 존재하는 기준선
 
-- [제품 비전](../product/vision.md), [사용자와 사용 사례](../product/users-and-use-cases.md), [v0.1 PRD](../product/v0.1-prd.md)
-- [System Overview](../architecture/system-overview.md)를 포함한 architecture 문서 8개
-- Accepted ADR 3개와 Proposed ADR 1개
-- 저장소 헌법 [AGENTS.md](../../AGENTS.md)와 [ExecPlan 규약](../../PLANS.md)
-- [ROADMAP](../../ROADMAP.md), [README](../../README.md)와 [Phase 0A ExecPlan](../../plans/0001-phase-0a-repository-foundation.md)
-- `.editorconfig`, `.gitattributes`, `.gitignore`의 최소 text/repository 정책
-- CMake/Ninja root project, C++20 `garak_core`, Native smoke와 standalone CTest
-- Electron main/preload, React renderer와 Sound / Control / Interface / Product placeholder
-- pnpm workspace와 frozen lockfile, strict TypeScript, ESLint와 Prettier 구성
-- [Phase 0B ExecPlan](../../plans/0002-phase-0b-buildable-native-and-studio-scaffolds.md)과 [direct dependency 상태](phase-0b-dependencies.md)
-- [Phase 1A ExecPlan](../../plans/0003-phase-1a-windows-minimal-vst3-gain-shell.md),
-  [VST3 adapter](../architecture/vst3-adapter.md), [dependency](phase-1a-vst3-dependency.md),
-  [identity](phase-1a-vst3-identity.md)와 [validation](phase-1a-vst3-validation.md) 근거
-- Exact-pin VST3 SDK submodule, editorless Gain module, pure helper, loaded bundle contract test와
-  repository-local official validator wrapper
+- [제품 비전](../product/vision.md), [v0.1 PRD](../product/v0.1-prd.md)와 Phase 0 architecture/ADR 기준선
+- CMake/Ninja C++20 Native scaffold와 Electron/React/strict TypeScript Studio scaffold
+- Exact-pin Steinberg VST3 SDK와 Phase 1A editorless [Gain Spike](phase-1a-vst3-validation.md)
+- Phase 1B opt-in runtime-strategy Debug/Release/Werror/clang-tidy preset
+- Alternative A Data Runtime template, strict descriptor loader/dynamic factory와 packaging-only script
+- Alternative B static common implementation과 두 product-specific thin factory wrapper
+- 독립 identity, descriptor failure, moduleinfo structure, simultaneous-load, processing/state contract tests
+- Repository-local validator와 artifact inspector; global plugin directory에는 아무것도 설치하지 않음
+- [Phase 1B ExecPlan](../../plans/0004-phase-1b-generated-runtime-ab-spike.md),
+  [identities](phase-1b-vst3-identities.md), [artifacts](phase-1b-runtime-strategy-artifacts.md),
+  [validation](phase-1b-runtime-strategy-validation.md)
 
-## 확정된 결정
+## 확정된 결정과 미결정
 
 | ADR | 상태 | 결정 |
 | --- | --- | --- |
 | [0001](../adr/0001-typescript-studio-and-cpp20-engine.md) | Accepted | Studio는 Electron/React/TypeScript strict mode, Native Engine은 C++20/CMake/Ninja/MSVC/Apple Clang |
 | [0002](../adr/0002-no-juce-and-adapter-boundaries.md) | Accepted | JUCE를 사용하지 않고 external library를 first-party adapter 뒤에 격리 |
-| [0004](../adr/0004-windows-macos-and-plugin-formats.md) | Accepted | Windows/macOS 공동 목표, Windows x64 VST3 → macOS VST3 → AU 검증 순서와 첫 상용 format 집합 |
+| [0004](../adr/0004-windows-macos-and-plugin-formats.md) | Accepted | Windows x64 VST3 → macOS VST3 → AU 검증 순서와 첫 상용 format 집합 |
+| [0003](../adr/0003-generated-plugin-runtime-strategy.md) | **Proposed** | Alternative A/B 모두 Windows에서 성립했으나 runtime 전략은 미선택 |
 
-Generated plugin runtime 전략은 [ADR 0003](../adr/0003-generated-plugin-runtime-strategy.md)이 계속
-**Proposed** 상태다. Prebuilt Runtime에 product data를 삽입하는 대안 A와 product별 thin wrapper를
-생성해 공통 Runtime과 link하는 대안 B 중 어느 것도 채택되지 않았다. 이번 fixed-metadata Windows
-x64 module은 두 대안을 비교하지 않았으므로 어느 쪽의 선택 근거도 아니다.
+Phase 1B는 기술 가능성과 실제 build/package surface를 비교한 증거다. macOS bundle/resource/loading,
+code signing/notarization, Studio export, 다수 제품 scale, real compiled data, runtime update와 released-data
+compatibility, artist UI/assets, commercial distribution/legal 근거가 없으므로 ADR 0003을 Accepted로 바꾸지 않는다.
 
-## Phase 0A에서 고정한 계약
+## 보존한 장기 계약
 
-- `.garak`은 editable, versioned authoring source이고 compiled runtime data는 재생성 가능한 derived artifact다.
-- Product ID와 plugin class ID는 영구적이며 출시된 parameter numeric ID는 변경·재사용하지 않는다.
-- Sound-changing node implementation은 기존 version을 덮어쓰지 않는다.
-- 출시된 project, preset과 DAW state는 명시적인 schema migration 경계를 가진다.
-- Obsolete 내부 API와 pre-release path는 compatibility shim으로 보존하지 않는다.
-- Audio callback에서는 allocation, blocking, I/O, parsing, GUI 호출, 파일 로그, 예외 전파와 graph mutation을 금지한다.
-- Generated plugin은 Studio 없이 offline 동작하고 Electron, Chromium, Node.js 또는 임의의 JavaScript runtime을 포함하지 않는다.
-- 기술 후보와 license 분류는 채택이나 법적 재배포 허가가 아니다.
-- `ANDONGMIN — BLOOM`은 첫 vertical reference product이며 DSP/UI는 아직 구현되거나 확정되지 않았다.
+- `.garak`은 editable authoring source이고 compiled runtime data는 재생성 가능한 derived artifact다.
+- 출시된 Product/plugin/parameter identity와 project/preset/DAW state는 versioned contract로 보존한다.
+- Obsolete 내부 API와 pre-release path는 compatibility shim으로 유지하지 않는다.
+- Audio callback에서는 allocation, blocking, I/O, parsing, GUI, logging과 예외 전파를 금지한다.
+- Generated plugin은 Studio 없이 offline 동작하고 Electron/Chromium/Node/JavaScript runtime을 포함하지 않는다.
+- Steinberg 타입은 VST3 adapter에 격리하며 VSTGUI를 build/link하지 않는다.
+- 저장소 자체 license는 미정이며 이번 단계에서 root `LICENSE`를 추가하지 않았다.
 
-Phase 0B와 Phase 1A는 이 계약을 변경하지 않았다. 특히 generated plugin runtime 전략은 계속
-Proposed이고 Studio에 설치한 Electron/React/Node tooling은 plugin 경계 밖에 있다.
+## Phase 1B 구현 기준선
 
-## Phase 0B 구현 기준선
+### Alternative A — Data-driven prebuilt Runtime
 
-### Native
+- 한 Data Runtime template module을 configuration별로 한 번 compile/link한다.
+- `package_data_runtime_variant.ps1`가 template bundle, canonical descriptor, output bundle과 prebuilt
+  `moduleinfotool.exe`를 명시적으로 받아 제품별 bundle을 atomic staging으로 생성한다.
+- 최종 A output은 build root의 `runtime-products/Garak Data <Alpha|Beta>.vst3/`에 둔다.
+- Inner module은 template bytes를 그대로 copy/rename하며 bundle leaf와 inner filename을 일치시킨다.
+- `Contents/Resources/garak-product-spike-v1.txt`는 1024-byte 이하 strict ASCII/LF, exact 11-line,
+  schema 1 spike descriptor다. `.garak` 또는 production runtime blob이 아니다.
+- Windows loaded-module path에서 descriptor를 한 번 읽고 완전히 검증한 뒤 immutable product definition을
+  만들며, CWD/environment/registry에 의존하지 않는다. Invalid descriptor는 factory를 노출하지 않는다.
+- Dynamic SDK factory가 descriptor의 product/FUID/default를 반영해 processor/controller 두 class만 노출한다.
+- Product-specific `moduleinfo.json`은 official tool로 생성·검증하고 별도 structural parser test가 root,
+  factory와 exact two-class metadata를 독립 literal과 대조한다.
+- Data Alpha/Beta product 생성에는 별도 C++ compile과 module link edge가 0개다.
 
-- `garak_core` static library와 `garak::core` alias
-- `garak::core::Version`, `version()`과 `version_string()`만 공개하는 `0.0.0` scaffold API
-- 정확히 `Garak native scaffold 0.0.0`을 출력하는 `garak_smoke`
-- `assert` 없이 numeric/string version 계약을 확인하는 `garak_version_tests`
-- Ninja Debug, Release, warnings-as-errors와 clang-tidy 전용 preset
-- First-party target에만 적용되는 MSVC/Clang warning과 target-scoped clang-tidy
+### Alternative B — Product-specific thin wrapper
 
-### Studio
+- Processor/controller/state behavior는 spike-local static common library에서 한 번 compile한다.
+- Thin Alpha와 Thin Beta는 각각 product-local constexpr metadata/FUID를 가진 factory translation unit
+  하나와 SDK entry object를 별도 module로 link한다.
+- 제품별 moduleinfo를 생성하고 factory identity와 구조적으로 대조한다.
+- Common implementation은 source/object reuse이지 final product 간 dynamic shared library가 아니다.
+- 새 thin 제품에는 제품별 compile/link가 필요하며 final executable bytes도 서로 다르다.
 
-- Electron main, API를 노출하지 않는 빈 preload와 Node type이 없는 React renderer
-- `contextIsolation: true`, `nodeIntegration: false`, `sandbox: true`, `webviewTag: false`
-- 새 창, navigation과 redirect 차단; production local file과 HTTP loopback dev URL만 허용
-- `vite-plugin-electron`의 기본 `--no-sandbox`를 명시적으로 제거한 development startup
-- 별도 feature component인 Sound, Control, Interface, Product placeholder와 keyboard/ARIA tab pattern
-- Exact direct dependency 16개, pnpm lockfile, strict TypeScript, ESLint 10과 Prettier
+### Product identity
 
-## Phase 1A 구현 기준선
+| Product | Strategy | Processor FUID | Controller FUID | Default Gain |
+| --- | --- | --- | --- | ---: |
+| Garak Data Alpha | A | `4B2B557251D44CE9914F9B105136FB7E` | `7A90454628B34A3497F05E7CC718F8A1` | -6.0 dB |
+| Garak Data Beta | A | `C29B7245261642668ADAC664B6817678` | `1DE08859308F4A0A8473EA5CB70771D2` | +3.0 dB |
+| Garak Thin Alpha | B | `93952A37BFA84FF1AC06CE58B9FA87EA` | `E08F3ACCD825424AB238BBAB6B0248CC` | -6.0 dB |
+| Garak Thin Beta | B | `44BFB8B6F56946FF9F6F193529BCB967` | `826C362FA2784F719351912BE834F9AB` | +3.0 dB |
 
-- Official `steinbergmedia/vst3sdk` tag `v3.8.0_build_66`, superproject commit
-  `9fad9770f2ae8542ab1a548a68c1ad1ac690abe0`과 exact 7개 nested gitlink
-- Superproject와 nested repository 모두 detached, initialized, tracked/untracked clean
-- Default-OFF `GARAK_BUILD_VST3_GAIN_SPIKE` option과 분리된 Debug/Release/Werror/tidy preset
-- Fixed processor/controller FUID, Gain ID `1001`, Bypass ID `1002`의 editorless VST3 audio effect
-- One main mono/stereo audio input/output, no event/sidechain, float32/float64, sample-offset
-  Gain/Bypass automation과 20-byte schema 1 state
-- Pure helper test와 실제 bundle을 load하는 factory/component/controller/processing contract test
-- State codec의 모든 truncated length, loaded stream의 1..19-byte short read/write, malformed 및
-  duplicate queue, prepared maximum block boundary 검증
-- Parameter queue count 최대 2, block별 point cap
-  `numSamples <= 1 ? 2 : min(INT_MAX, 2 * numSamples)`의 bounded host traversal
-- Cap 초과는 point callback 전에 거부하고 host `getParameterCount`/`getPoint` 예외는 top-level에서
-  failure로 변환해 live state를 변경하지 않는 계약
-- Generation/sequence-lock state handoff와 process/setState를 교차한 20,000회 concurrent test
-- Source 상수를 재사용하지 않는 independent literal identity 검증과 baseline smoke/version main의
-  top-level exception boundary
-- Pinned source의 official validator standard/extensive를 local bundle path에만 실행하는 wrapper
-- VSTGUI, example, optional moduleinfo/icon, system/user plugin link와 registry mutation 제외
+모든 제품은 Vendor `Garak`, Version `0.1.0`, Category `Fx`, Gain ID `1001`, Bypass ID `1002`를
+사용한다. 여덟 FUID는 서로 다르고 Phase 1A processor/controller FUID와도 충돌하지 않는다.
 
 ## 검증 환경
 
 | 항목 | 확인한 version 또는 상태 |
 | --- | --- |
 | OS | Microsoft Windows 10.0.26200, x64 |
-| Visual Studio | Community 2026 18.7.3 |
-| MSVC | 19.51.36248, x64 toolset 14.51.36231 |
+| Visual Studio / MSVC | Community 2026 18.7.3 / 19.51.36248 x64 |
 | CMake / Ninja | 4.3.1-msvc1 / 1.13.2 |
 | clang-format / clang-tidy | 22.1.3 / 22.1.3 |
 | Node.js / pnpm | 24.19.0 / 11.16.0 |
-| Electron | 43.3.0 Windows x64 binary와 responding window 확인 |
+| Electron | 43.3.0 Windows x64 |
+| VST3 SDK | `v3.8.0_build_66` / `9fad9770f2ae8542ab1a548a68c1ad1ac690abe0` |
 
-Native tool은 일반 PowerShell PATH가 아니라 `VsDevCmd.bat -arch=x64 -host_arch=x64`가 구성한 Visual Studio x64 Developer 환경에서 실행했다.
+Native 명령은 `VsDevCmd.bat -arch=x64 -host_arch=x64`로 구성한 Visual Studio x64 Developer
+환경에서 실행했다. 이 환경에서는 sandboxed CMake compiler ABI probe가 출력 없이 정지해, fresh
+runtime-strategy configure에 compiler/ABI 확인 cache 값을 명시한 뒤 실제 clean compile/link와 PE x64
+검사로 toolchain을 검증했다. 이 우회는 source나 product artifact를 생략하지 않았다.
 
 ## 수행한 검증
 
-### Phase 0A 보존 확인
+### Phase 1B build, quality와 CTest
 
-| 검사 | 결과 |
+| 검증 | 최종 결과 |
 | --- | --- |
-| `git status --short --branch` | Exit 0. Commit이 없는 `master`; Phase 0A 생성물은 모두 untracked |
-| `git diff --check` | Exit 0, 출력 없음 |
-| 필수 파일과 실제 파일 비교 | 24/24, 누락 0, 예상 외 0 |
-| Markdown local relative link 검사 | Markdown 21개, link 177개, anchor link 0, 깨진 link 0 |
-| Raw text 검사 | Text 24개; strict UTF-8 오류, BOM, CRLF, trailing whitespace, tab, final newline 누락 모두 0 |
-| ADR 상태 검사 | 0001·0002·0004 Accepted, 0003 Proposed |
-| ROADMAP 구조 검사 | Phase 10개; 진입 조건·핵심 산출물·수용 기준·명시적 비범위가 각 10개 |
-| 요구 내용 pattern 검사 | 제품·architecture·ADR·운영 규칙 16개 group 모두 통과 |
-| 금지 산출물 검사 | Source/build/package/lockfile/SDK/vendor/binary/CI 디렉터리·파일 0, `LICENSE`/`COPYING` 없음 |
-| 수동 교차 검토 | Runtime A/B 중립성, 후보 상태, Studio/no-JS 경계, platform 순서, realtime, identity/migration과 business hypothesis 일치; blocking defect 0 |
+| Runtime Debug fresh configure + clean aggregate build | PASS, exit 0 |
+| Runtime Release fresh configure + clean aggregate build | PASS, exit 0 |
+| Debug CTest | 5/5 PASS, failed 0 |
+| Release CTest | 5/5 PASS, failed 0 |
+| Runtime warnings-as-errors fresh/clean build | PASS, first-party `/WX` |
+| Runtime clang-tidy fresh/clean build | PASS, SDK source 제외 |
+| First-party Native clang-format | 37 `.cpp`/`.hpp`, dry-run/Werror PASS |
+| PowerShell scripts | Windows PowerShell 5.1 AST parse 및 failure-exit contract PASS |
 
-모든 파일이 새 untracked 파일이므로 `git diff --check`만으로는 내용을 검사하지 못한다. 따라서 전체 파일을 직접 읽는 raw whitespace/encoding 검사와 local link 검사를 PASS 근거로 함께 사용했다.
+CTest는 Phase 0 version, Phase 1A pure/loaded Gain과 Phase 1B descriptor/coexistence contract를 포함한다.
+Descriptor failure fixtures는 missing/empty/schema/field/FUID/ID/default/size/duplicate/encoding/name mismatch를
+각 canonical bundle path에서 fail closed로 검증한다.
 
-Closeout 뒤 축약한 link checker 한 번은 PowerShell 경로 결합 구문 오류로 대상 검증 전에 실패했다. 파일을 변경하지 않았으며, 검증된 원래 checker를 다시 실행해 Markdown 21개, local link 177개, broken link 0과 exit 0을 확인했다.
+### 동시 load, processing과 state
 
-### Phase 0B Native
+- `Garak Gain Spike`, Data Alpha/Beta, Thin Alpha/Beta 다섯 module을 동시에 load했다.
+- 각 factory는 정확히 processor/controller 두 class와 independent literal identity를 일치시켰다.
+- Identical-byte Data Alpha/Beta는 서로 다른 full path와 distinct loaded module handle을 가졌다.
+- Mono/stereo, float32/float64, in/out-of-place, default Gain, multi-point automation, exact-offset Bypass,
+  zero-sample와 parameter-only process를 네 variant 모두 통과했다.
+- 다섯 session에 서로 다른 state를 먼저 설정한 뒤 read-all, forward/reverse interleaved processing,
+  final read-all을 수행해 module/instance state leakage 0을 확인했다.
+- Corrupt state와 short stream은 prior live state를 변경하지 않았다.
+- Factory/instances를 release하고 reverse unload한 뒤 handle 부재를 확인했으며 Data Alpha reload에서
+  identity/default/factory parity를 다시 검증했다. 충돌, stale context와 crash는 0이었다.
 
-모든 Native 명령은 Visual Studio x64 Developer 환경에서 실행했다.
+### Official validator
 
-| 명령 또는 검사 | 최종 결과 |
-| --- | --- |
-| `cmake --list-presets=all` | Exit 0; configure 4개, build 4개, test 2개 확인 |
-| `cmake --preset debug` | Exit 0; MSVC 19.51과 Ninja Debug configure |
-| `cmake --build --preset debug-build --verbose` | Exit 0; core/smoke/test 3개 target, `/W4 /permissive- /Zc:__cplusplus` 확인 |
-| `ctest --preset debug-test --no-tests=error` | Exit 0; `garak_version_tests` 1/1 통과 |
-| Debug `garak_smoke.exe` | Exit 0; `Garak native scaffold 0.0.0`; PE `8664 machine (x64)` |
-| `cmake --preset release` | Exit 0; Release configure |
-| `cmake --build --preset release-build --verbose` | Exit 0 |
-| `ctest --preset release-test --no-tests=error` | Exit 0; `garak_version_tests` 1/1 통과 |
-| Release `garak_smoke.exe` | Exit 0; `Garak native scaffold 0.0.0` |
-| Werror configure와 `--clean-first` build | Exit 0; core/smoke/test 모두 `/WX` 확인 |
-| `clang-format --dry-run --Werror` | Exit 0; `.cpp`/`.hpp` 4개 |
-| clang-tidy configure와 `--clean-first` build | Exit 0; core/smoke/test에 clang-tidy 22.1.3 실제 적용 |
-
-### Phase 0B Studio
-
-| 명령 또는 검사 | 최종 결과 |
-| --- | --- |
-| `pnpm install` | Exit 0; workspace package 171개, lockfile 생성 |
-| `pnpm --dir studio exec install-electron --no` | Exit 0; Electron 43.3.0 Windows x64 binary 준비 |
-| `pnpm install --frozen-lockfile` | Exit 0; lockfile와 manifest 일치 |
-| `pnpm studio:lint` | Exit 0; warning 0 정책 |
-| `pnpm studio:format:check` | Exit 0 |
-| `pnpm studio:typecheck` | Exit 0; renderer와 Electron config 모두 strict |
-| `pnpm studio:build` | Exit 0; renderer 20 modules, main/preload 각 2 modules |
-| Build output | `studio/dist/index.html`, `dist-electron/main.js`, `preload.js` 존재 |
-| Production GUI bounded launch | Exit 0; Electron process 4개, responding window 1개, title `Garak Studio — Phase 0B` |
-| `pnpm studio:dev` bounded launch | Exit 0; Vite `127.0.0.1:5173`, responding window 1개 |
-| Dev main command line | `electron.exe .`; `--no-sandbox` 없음 |
-| Cleanup | Garak Electron process 0, port 5173 listener 0 |
-
-### Phase 0B repository
-
-- Tracked/untracked와 `.gitignore` 제외 대상을 합친 source 후보 전체의 UTF-8, BOM, CR/LF, trailing whitespace, tab과 final newline을 raw byte로 검사했다.
-- Markdown local link, direct dependency allowlist/exact version, installed direct license metadata와 frozen lockfile를 검사했다.
-- Renderer TypeScript AST에서 Node/Electron/network identifier와 Phase 1 금지 identifier를 검사했다.
-- Native external dependency 구문, 금지 implementation path, repository `LICENSE`/`COPYING`, generated output Git 유출을 검사했다.
-- 최종 source 후보 64개에서 raw text issue 0, Markdown 25개와 local link 192개에서 broken link 0, dependency/security/scope issue 0이었다.
-- `git diff --check`와 cached check는 exit 0이지만 전 파일이 untracked인 현재 저장소에서는 보조 증거로만 사용한다.
-
-### Phase 1A Windows x64 build와 tests
-
-모든 VST3 build는 Visual Studio x64 Developer 환경에서 separate build tree를 사용했다.
-
-| 명령 또는 검사 | 최종 결과 |
-| --- | --- |
-| `cmake --preset vst3-debug --fresh` | Exit 0; exact SDK pin과 Debug graph configure |
-| `cmake --build --preset vst3-debug-build --clean-first` | Exit 0; plugin, validator와 test aggregate build PASS |
-| Debug formatter-triggered incremental rebuild와 CTest | Build exit 0; version, pure Gain, loaded VST3 contract 3/3 exit 0 |
-| `cmake --preset vst3-release --fresh` | Exit 0; Release graph configure |
-| `cmake --build --preset vst3-release-build --clean-first` | Exit 0; aggregate build PASS |
-| Release formatter-triggered incremental rebuild와 CTest | Build exit 0; 3/3 exit 0 |
-| `vst3-werror` fresh configure/clean build와 final incremental build | 모두 exit 0 |
-| `vst3-clang-tidy` fresh configure/clean build와 final incremental build | 모두 exit 0 |
-| First-party clang-format | `.cpp`/`.hpp` 20개 apply 뒤 `--dry-run --Werror` exit 0 |
-
-Pure/loaded tests는 state truncation과 1..19-byte short stream I/O, malformed/non-monotonic/invalid 및
-duplicate automation queues, `maxSamplesPerBlock` 초과를 확인한다. Queue count는 최대 2이고 point
-cap은 `numSamples <= 1 ? 2 : min(INT_MAX, 2 * numSamples)`이다. 4-sample block은 8 point를 받고 9와
-`INT_MAX`를 거부하며 zero-sample은 2를 받고 3을 거부한다. Queue count 3과 `INT_MAX`는 queue data
-callback 전에 거부한다. Host `getParameterCount`/`getPoint`가 throw해도 top-level boundary가 failure로
-변환하고 state를 변경하지 않는다. Identity test는 source 상수와 독립된 literal을 사용한다.
-
-Generation/sequence-lock handoff는 process thread와 20,000회 `setState`/`getState`를 교차해 완료된 새
-state가 이전 process snapshot으로 덮이지 않고 한 whole state만 관찰되는지 검사한다. Baseline
-smoke/version executable도 main top-level exception boundary를 가진다.
-
-### Phase 1A official validator와 artifact
-
-| Configuration | Standard | Extensive | Report |
+| Product | Debug Standard / Extensive | Release Standard / Extensive | Warning / Failure / Crash |
 | --- | --- | --- | --- |
-| Debug | 47/47 PASS, exit 0 | 537/537 PASS, exit 0 | `out/reports/vst3/debug-validator-standard.txt`; `out/reports/vst3/debug-validator-extensive.txt` |
-| Release | 47/47 PASS, exit 0 | 537/537 PASS, exit 0 | `out/reports/vst3/release-validator-standard.txt`; `out/reports/vst3/release-validator-extensive.txt` |
+| Garak Gain Spike | 47/47 / 537/537 | 47/47 / 537/537 | 0 / 0 / 0 |
+| Garak Data Alpha | 47/47 / 537/537 | 47/47 / 537/537 | 0 / 0 / 0 |
+| Garak Data Beta | 47/47 / 537/537 | 47/47 / 537/537 | 0 / 0 / 0 |
+| Garak Thin Alpha | 47/47 / 537/537 | 47/47 / 537/537 | 0 / 0 / 0 |
+| Garak Thin Beta | 47/47 / 537/537 | 47/47 / 537/537 | 0 / 0 / 0 |
 
-- 네 validator run 모두 processor/controller를 발견했고 warning line, failed test와 crash는 0이다.
-- Debug/Release module은 모두 PE `8664 machine (x64)`다.
-- Debug/Release cache의 `SMTG_ENABLE_VSTGUI_SUPPORT`와 `SMTG_CREATE_PLUGIN_LINK`는 OFF이고 plugin
-  link command의 VSTGUI hit는 0이다.
-- Final bundle의 icon과 `moduleinfo.json`은 각각 0이며 bundle/report는 `out/` 아래 local
-  artifact로만 존재한다.
-- System/user VST3 directory, registry와 global validator를 변경하지 않았다.
+총 20회 raw report가 expected set과 정확히 일치하고 wrapper invocation은 모두 exit 0이다. Test filter나
+suite 제외를 사용하지 않았다. Report는 ignored `out/reports/vst3/runtime-strategy/`에 보존한다.
 
-### Phase 1A 이후 Phase 0 regression
+### Artifact와 package-only evidence
+
+- Debug/Release 각각 Template/Data Alpha/Data Beta inner bytes와 SHA-256이 완전히 같다.
+- Release A inner는 700,928 bytes이며 Data A/B bundle은 각각 702,207 / 702,202 bytes다.
+- Release Thin A/B inner는 각각 642,560 bytes이며 hash는 서로 다르다. Bundle은 643,563 / 643,560 bytes다.
+- 모든 final module은 PE machine `0x8664`, PE32+ DLL이고 forbidden/delay import는 0이다.
+- Exact directory/file inventory는 Template/Gain 1 file, Data 3 files, Thin 2 files이며 icon, snapshot,
+  editor, desktop metadata와 VSTGUI resource leak는 0이다.
+- 일반 PowerShell package-only rerun은 Data Debug/Release Alpha/Beta 네 output만 재생성했다.
+- `cl.exe`와 `link.exe`는 PATH에 없었고 compiler/build invocation은 0, immutable input 18/18의
+  bytes/hash/timestamps는 불변이었다. 재생성 뒤 inspector, CTest와 validator를 다시 통과했다.
+- 상세 hash/size/object/translation-unit/link graph는 [artifact status](phase-1b-runtime-strategy-artifacts.md)에 있다.
+
+### 기존 기능 regression
 
 | 영역 | 최종 결과 |
 | --- | --- |
-| Native Debug | Fresh configure/clean build PASS; `garak_version_tests` 1/1; exact smoke PASS |
-| Native Release | Fresh configure/clean build PASS; `garak_version_tests` 1/1; exact smoke PASS |
-| Native Werror | Fresh configure/clean build PASS |
-| Native clang-tidy | Fresh configure/clean build PASS |
-| Studio | Frozen install, lint, format check, typecheck와 production build rerun PASS; direct dependency 16개 유지 |
+| Phase 0 Native Debug/Release | Fresh configure, clean build, CTest 1/1, exact smoke 모두 PASS |
+| Phase 0 Native quality | Werror와 clang-tidy fresh/clean PASS |
+| Phase 1A | Runtime CTest에 pure/loaded contract 포함; Gain Debug/Release validator 47/537 모두 PASS |
+| Studio | Frozen install, lint, format check, typecheck, production build PASS |
+| Studio dependency | Direct 2 runtime + 14 dev = 16; manifest/lock importer 16/16, tracked diff 0 |
 
-### 실패, 수정과 재검증
+Studio build의 첫 sandbox 실행은 Vite child spawn `EPERM`으로 실패했고 같은 명령을 승인된 non-sandbox
+환경에서 재실행해 통과했다. Phase 1B는 Studio source, manifest와 lockfile를 변경하지 않았다.
 
-- 첫 sandboxed CMake Debug configure는 MSVC ABI link 단계에서 교착되어 중단했다. 같은 configure를 승인된 sandbox 외부에서 `--fresh`로 재실행한 뒤 통과했다.
-- 첫 clang-format 검사는 test 조건식 줄바꿈 1건으로 실패했다. 설치된 formatter로 4개 source를 정규화하고 Debug/Release/CTest/Werror를 다시 통과했다.
-- 첫 PE header filter는 PowerShell/cmd 인용 오류로 전체 command exit 1이었다. Smoke 자체 출력은 성공했고 header 검사와 smoke를 각각 재실행해 exit 0을 확인했다.
-- 첫 Studio format check는 CSS 1개에서 실패했다. `pnpm studio:format` 뒤 format check와 lint를 재실행해 통과했다.
-- 첫 Studio build는 sandbox의 child-process `spawn EPERM`으로 실패했다. 같은 build를 승인된 sandbox 외부에서 실행해 통과했다.
-- CommonJS package의 `vite.config.ts`가 향후 Vite config loader 경고를 냈다. Electron output은 CommonJS로 유지하고 config만 `vite.config.mts`로 분리한 뒤 무경고 build를 확인했다.
-- `vite-plugin-electron` 1.1.1의 기본 dev startup이 `--no-sandbox`를 붙이는 사실을 감사에서 발견했다. `startup(['.'])` override 후 lint/typecheck/build/dev를 재검증하고 실제 command line에서 flag 부재를 확인했다.
-- 첫 금지 dependency helper는 PowerShell variable 인용 오류로 대상 검사 전에 실패했다. 수정한 helper를 재실행해 hit 0을 확인했다.
-- 첫 sandboxed VST3 configure는 compiler ABI detection에서 CMake 오류 없이 60초와 180초 timeout이
-  발생했다. Visual Studio x64 Developer 환경의 escalated `--fresh` configure로 재실행해 통과했다.
-- Pure test 첫 compile은 MSVC가 nested-brace `std::array` CTAD를 해석하지 못해 실패했다. Element
-  type과 size를 명시한 뒤 재빌드했다.
-- Contract test 첫 compile은 VST3 string macro를 namespace-qualified해서 실패했다. Pinned SDK가
-  정의한 bare macro 사용으로 수정했다.
-- Contract test 첫 link는 `VST3::Hosting::Module::create` unresolved symbol로 실패했다. Pinned SDK의
-  `module_win32.cpp`를 isolated third-party loader target으로 추가하고 SDK와 같은
-  `/Zc:__cplusplus` mode로 `sdk_hosting`과 연결했다.
-- 첫 CTest graph는 aggregate target의 version test dependency 누락과 nested generator expression의
-  bundle path 미평가 때문에 실패했다. Dependency를 추가하고 `TARGET_GENEX_EVAL`로 package path를
-  평가한 뒤 Debug/Release 3/3을 확인했다.
-- Loaded contract의 첫 processing lifecycle은 SDK `AudioEffect::setProcessing` 기본 구현이
-  `kNotImplemented`를 반환해 실패했다. Stateless spike의 최소 override가 `kResultTrue`를 반환하도록
-  수정한 뒤 contract test와 validator를 재실행했다.
-- 후속 감사에서 prepared `maxSamplesPerBlock` 경계 누락과 non-realtime `setState`가 더 오래된 process
-  snapshot에 덮일 race를 발견했다. Oversized-block reject/test 및 generation/sequence-lock handoff와
-  20,000회 concurrent test를 추가하고 Debug/Release/CTest/validator를 다시 통과했다.
-- Phase 1A 첫 clang-tidy는 `state_codec.hpp`의 `portability-avoid-pragma-once`, `automation.hpp`의
-  `bugprone-easily-swappable-parameters`, exceptions-disabled build에서 `processor.cpp`의 `try` 사용
-  diagnostic 등으로 실패했다. Header guard, parameter API와 exception boundary를 정리한 뒤
-  `vst3-clang-tidy` fresh/clean 및 final incremental build를 모두 exit 0으로 재검증했다.
-- 첫 전체 Phase 1A clang-format check는 새 first-party source의 format 차이로 실패했다. 20개
-  `.cpp`/`.hpp`에 formatter를 적용하고 Debug/Release incremental build와 CTest, Werror/tidy
-  incremental build 및 전체 `--dry-run --Werror`를 다시 실행해 모두 exit 0을 확인했다.
-- Automation traversal 감사에서 host가 임의로 큰 queue/point count를 반환할 때 작업량 상한이
-  없음을 발견했다. Queue count 2와 block-derived point cap을 추가하고 over-cap/throwing host가 data
-  callback이나 state mutation에 도달하지 않는 contract test를 추가했다.
+## 실패, 수정과 재검증
+
+- Sandboxed CMake ABI detection이 C/C++ compiler probe에서 정지했다. VS x64 Developer 환경의 명시적
+  ABI cache 조건으로 fresh configure한 뒤 실제 clean build, tests와 PE x64 검사를 모두 수행했다.
+- 초기 moduleinfo A output은 Windows backslash path 때문에 top-level `Name`이 빈 문자열이었다.
+  Moduleinfotool 입력을 forward-slash absolute path로 정규화하고 exact root/factory/class structural
+  assertions를 추가한 뒤 packaging, CTest, inspector와 validator를 다시 통과했다.
+- A CMake graph가 처음에는 moduleinfo만 output으로 추적해 stale/partial bundle을 놓칠 수 있었다.
+  Inner module/descriptor/moduleinfo 여섯 file을 모델링하고 always-run `-VerifyOnly` inventory/hash/tool
+  validation을 추가했다.
+- Initial coexistence tests는 malformed descriptor 원인을 bundle-name mismatch가 가릴 수 있었고,
+  cross-module state read-all과 full reload identity 검증이 부족했다. Canonical isolated fixtures,
+  five-session interleave/re-read, repeated factory와 exact reload 검증으로 보강했다.
+- Artifact inspector의 overwrite test가 Windows PowerShell에서 null backup의 `File.Replace`를 호출해
+  실패했다. Real temporary backup으로 수정하고 Debug/Release inspector를 다시 통과했다.
+- First clang-tidy는 descriptor-test `main` exception boundary에서 실패했고, catch 안의 C++ stream도
+  throw 가능하다는 두 번째 진단이 있었다. Catch-all과 non-throwing C output으로 정리한 뒤 targeted 및
+  full fresh/clean tidy를 통과했다.
 
 ## 수행하지 않은 검증
 
-다음은 Phase 1A 범위 밖이거나 아직 완료되지 않아 수행한 것으로 간주하지 않는다.
+- macOS Apple Clang/Xcode configure, build, VST3 bundle/resource/loading과 official validator
+- macOS arm64/x86_64/Universal binary, code signing, notarization과 AU
+- Windows/macOS 실제 DAW host의 scan/load/automation/state restore matrix
+- Production `.garak`, compiled runtime data, Product Compiler와 Studio export/IPC
+- Artist asset/custom editor/native renderer와 package signing/installer
+- 대규모 제품 수, incremental export, runtime update와 released-data compatibility/migration
+- Realtime allocation/blocking 계측, CPU/latency/memory와 long-running stress
+- Commercial distribution, full transitive license/notice/trademark/security audit
 
-- macOS Apple Clang configure/build/test와 macOS Electron launch
-- Xcode와 macOS Universal binary
-- macOS VST3/AU SDK integration, plugin build와 validator
-- Windows/macOS 실제 DAW host load, automation, state restore와 compatibility matrix
-- Realtime allocation/blocking 계측, DSP processing와 audio quality test
-- `.garak` parse, schema migration과 preset/DAW state round trip
-- Studio preview와 generated native UI parity
-- Windows/macOS packaging, signing와 notarization
-- VST3 SDK와 npm의 commercial distribution, transitive dependency license, notice, trademark,
-  취약점과 재배포 audit
+이 항목은 PASS로 일반화하지 않는다. Phase 1B validator와 hosting contract test는 실제 DAW 및 macOS
+검증을 대신하지 않는다.
 
-이 항목들은 통과한 것으로 간주하지 않는다. 해당 구현 phase의 ExecPlan에서 재현 명령과 수용 기준을 정한다.
+## 현재 리스크와 남은 미결정
 
-## 남은 미결정 사항
+- Alternative A는 Windows에서 compiler 없는 product packaging을 입증했지만 descriptor parsing,
+  resource integrity, moduleinfo regeneration과 final package signing 경계를 운영해야 한다.
+- Alternative B는 단순한 compile-time identity와 SDK의 일반 module lifecycle을 쓰지만 제품마다
+  wrapper compile/link, executable bytes와 재서명이 필요하다.
+- 동일 module bytes를 다른 macOS bundle에서 load하고 descriptor/resource를 찾는 방식, bundle ID,
+  hardened runtime와 code signing의 관계는 미검증이다.
+- Thin common code는 static reuse이므로 제품 간 binary deduplication이나 shared-runtime update를 보장하지 않는다.
+- Spike descriptor는 production persistence/compatibility 계약이 아니며 real compiled data schema로 승격할 수 없다.
+- Moduleinfo와 factory parity는 product packaging pipeline에서 계속 독립 검증해야 한다.
+- VST3 SDK tutorials license, commercial notices/trademark와 generated Runtime redistribution legal review는 미완료다.
+- `.garak`, compiled data, Studio/Native boundary, DSP graph, UI scene/rendering과 migration 정책은 계속 미결정이다.
 
-- Generated runtime packaging 대안 A/B와 비교 spike의 수용 기준
-- `.garak`과 compiled runtime data의 physical container 및 schema technology
-- Studio와 Native Engine 사이의 process/IPC 및 language binding
-- Built-in DSP node의 최소 목록과 BLOOM의 실제 sound algorithm, range와 macro curve
-- Studio preview와 native renderer/layout backend 및 parity tolerance
-- 지원 OS/DAW matrix, CPU/latency/memory와 audio-quality budget
-- Compiled runtime blob의 migrate/rebuild/reject 정책
-- 상용 product의 VST3/AU identity mapping, macOS Universal packaging, signing와 notarization 절차
-- 저장소 license, Studio license, Runtime redistribution terms와 제품 정책 가설의 법률 문구
-- 외부 후보 8개의 API, 성능, realtime, license와 재배포 적합성
+## 정확한 다음 작업 제안
 
-## 현재 리스크
+Phase 1B는 Windows x64에서 A/B 모두 성립했으므로 다음 제안은 하나뿐이다.
 
-- Native command는 일반 PATH에서 찾을 수 없는 Visual Studio bundled toolchain과 x64 Developer 환경을 전제로 한다.
-- Windows만 검증했으므로 CMake preset과 Electron shell의 macOS 적합성은 Apple Clang/macOS 실행 전까지 미확정이다.
-- Electron 43 desktop binary는 첫 CLI 실행의 cache miss에서 network download가 필요하다. 이는 authoring tool 설치 경로이며 Studio 기능의 network API는 아니다.
-- CSP의 inline style과 loopback connect 허용은 Vite development를 위한 Phase 0B 타협이다. 배포 전 production CSP를 dev CSP와 분리해야 한다.
-- Direct dependency metadata만 검토했으며 npm transitive license, notice와 취약점 audit는 남아 있다.
-- Fixed-metadata VST3 class registration, bundle과 validator 성공만으로 runtime packaging A/B를
-  선택할 수 없다. 두 대안의 product-data binding과 identity/export evidence가 별도로 필요하다.
-- TypeScript authoring model과 C++ runtime contract가 중복된 source of truth가 되면 drift가 발생할 수 있다.
-- Studio preview와 native UI의 scene/layout 의미가 달라질 수 있어 fixture와 tolerance가 필요하다.
-- 출시 ID, node sound version과 persistent state migration은 release 전에 test fixture와 지원 기간을 정해야 한다.
-- White-label, 사용자 창작물 소유, 판매, 기본 무로열티와 Runtime 재배포는 현재 제품 정책 가설이며 법적 권리가 확정되지 않았다.
+`Phase 1C — macOS VST3 Runtime Strategy Portability Spike`
 
-## 정확한 다음 작업
-
-Phase 1A는 PASS / Complete다. Phase 1 전체는 완료하지 않았으며 Phase 1B도 시작하지 않는다.
-
-- ADR 0003 A/B를 계속 Proposed로 유지하고 별도 Phase 1B ExecPlan 전에는 구현 대안을 선택하지 않는다.
-- macOS VST3를 arm64/x86_64와 Universal artifact로 검증한 뒤 AU 순서로 진행한다.
-- 실제 DAW host matrix, commercial distribution과 transitive legal/notice/trademark audit는 별도
-  범위와 근거를 마련한다.
-- DSP graph, `.garak` parser, native IPC, functional Interface Designer와 export pipeline은 이후
-  phase에서만 시작한다.
+이 작업은 아직 시작하지 않는다. 별도 ExecPlan에서 Apple Clang, arm64/x86_64/Universal artifacts,
+macOS bundle/resource lookup, simultaneous load, moduleinfo, validator, signing/notarization 경계를 먼저
+정의해야 한다. ADR 0003은 그 증거 전까지 Proposed로 유지하고 A/B를 선택하지 않는다.

@@ -103,7 +103,10 @@ White-label, 판매와 Garak Runtime 재배포의 법적 권리는 아직 제품
 
 미리 빌드한 범용 native runtime을 target별로 준비하고 export 시 product-specific compiled data와 metadata를 runtime이 읽을 수 있는 위치에 삽입한다.
 
-가능 이점은 제품 export 때 native compile/link 작업을 줄이고, 한 번 검증한 Runtime binary를 재사용하며, 제품별 차이를 data와 resource로 제한할 수 있다는 점이다. 이는 아직 측정되지 않았다.
+가능 이점은 제품 export 때 native compile/link 작업을 줄이고, 한 번 검증한 Runtime binary를 재사용하며,
+제품별 차이를 data와 resource로 제한할 수 있다는 점이다. Phase 1B Windows x64 spike는 동일 inner
+binary를 두 제품에서 재사용하고 product packaging 때 native compile/link가 0인 bounded 사례를
+측정했다. Production data, 여러 target과 대규모 export에 대한 일반 주장은 아직 측정되지 않았다.
 
 검증할 위험:
 
@@ -117,7 +120,10 @@ White-label, 판매와 Garak Runtime 재배포의 법적 권리는 아직 제품
 
 Export가 제품 identity와 target integration을 담은 얇은 native wrapper를 생성하고 공통 Garak Runtime과 link하여 제품별 native binary/package를 만든다.
 
-가능 이점은 class registration과 product metadata를 build input으로 명시하고, 제품별 capability를 줄이며, native signing/notarization pipeline에 맞추기 쉬울 수 있다는 점이다. 이는 아직 측정되지 않았다.
+가능 이점은 class registration과 product metadata를 build input으로 명시하고, 제품별 capability를
+줄이며, native signing/notarization pipeline에 맞추기 쉬울 수 있다는 점이다. Phase 1B Windows x64
+spike는 두 thin factory wrapper의 제품별 compile/link와 artifact delta를 측정했다. macOS,
+signing/notarization과 production scale에 대한 일반 주장은 아직 측정되지 않았다.
 
 검증할 위험:
 
@@ -129,11 +135,17 @@ Export가 제품 identity와 target integration을 담은 얇은 native wrapper�
 
 ### 현재 결정 상태
 
-두 대안은 모두 **미결정**이다. 이 문서의 이점과 위험은 기술 spike에서 검증할 질문이지 측정된 사실이 아니다. 대안 결합, 제3안 또는 표현 조정이 필요하면 [ADR 0003](../adr/0003-generated-plugin-runtime-strategy.md)을 먼저 갱신해야 한다.
+두 대안은 모두 **미결정**이다. Phase 1B에서 측정한 Windows x64 bounded evidence는
+[runtime strategy artifact 상태](../status/phase-1b-runtime-strategy-artifacts.md)와
+[ADR 0003](../adr/0003-generated-plugin-runtime-strategy.md)에 기록한다. 나머지 이점과 위험은 후속
+spike에서 검증할 질문이며, 대안 결합, 제3안 또는 표현 조정이 필요하면 ADR 0003을 먼저 갱신해야 한다.
 
 ## VST3 runtime strategy spike
 
-첫 spike는 Windows x64 VST3에서 최소 stereo Input → Gain → Output shell, one automated parameter, bypass와 state save/load를 사용해 다음을 비교해야 한다. 이는 Phase 0A에서 실행하지 않는다.
+첫 Windows x64 VST3 비교 spike는 Phase 1B에서 Gain/Bypass와 state contract, 제품별 identity,
+same-process coexistence, package/build delta와 official validator를 사용해 완료했다. 이는 production
+runtime 전략을 선택하지 않았으며 다음 항목 중 실제 DAW, installation, version mismatch와
+cross-platform/signing 질문은 계속 미검증이다.
 
 - Stable class ID registration과 product별 identity
 - Official validator 및 실제 host에서 load/process/state round trip

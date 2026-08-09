@@ -1,14 +1,14 @@
 # Dependency and License Policy
 
-- 상태: Phase 1A Windows VST3 dependency admission 반영
+- 상태: Phase 1A Windows VST3 admission과 Phase 1B A/B dependency evidence 반영
 - 권위: dependency 도입, 후보 상태, adapter, third-party source와 license 검토
-- 관련 문서: [v0.1 PRD](../product/v0.1-prd.md), [Realtime and Quality](realtime-and-quality.md), [Interface Designer](interface-designer.md), [VST3 Adapter](vst3-adapter.md), [Phase 1A VST3 Dependency](../status/phase-1a-vst3-dependency.md)
+- 관련 문서: [v0.1 PRD](../product/v0.1-prd.md), [Realtime and Quality](realtime-and-quality.md), [Interface Designer](interface-designer.md), [VST3 Adapter](vst3-adapter.md), [Phase 1A VST3 Dependency](../status/phase-1a-vst3-dependency.md), [Phase 1B Runtime Strategy Artifacts](../status/phase-1b-runtime-strategy-artifacts.md)
 
 ## 목적과 현재 상태
 
-잘 유지되는 library가 전체 복잡성과 위험을 줄이면 활용하되 `.garak`, graph/runtime, parameter/state, scene와 export contract는 Garak이 소유한다. Phase 0A에서는 외부 SDK/library를 다운로드, 설치 또는 통합하지 않았다. Phase 1A에서는 공식 Steinberg VST3 SDK의 exact tag `v3.8.0_build_66`, superproject commit `9fad9770f2ae8542ab1a548a68c1ad1ac690abe0`을 recursive Git submodule로 고정하고 Windows x64의 고정 editorless VST3 adapter 범위에서 checkout, Debug/Release build와 official validator를 검증했다.
+잘 유지되는 library가 전체 복잡성과 위험을 줄이면 활용하되 `.garak`, graph/runtime, parameter/state, scene와 export contract는 Garak이 소유한다. Phase 0A에서는 외부 SDK/library를 다운로드, 설치 또는 통합하지 않았다. Phase 1A에서는 공식 Steinberg VST3 SDK의 exact tag `v3.8.0_build_66`, superproject commit `9fad9770f2ae8542ab1a548a68c1ad1ac690abe0`을 recursive Git submodule로 고정하고 Windows x64의 고정 editorless VST3 adapter 범위에서 checkout, Debug/Release build와 official validator를 검증했다. Phase 1B는 이 exact checkout과 기존 first-party Gain implementation만 사용해 runtime packaging A/B를 비교했으며 dependency를 추가하지 않았다.
 
-이 admission은 Phase 1A 기술 spike에만 한정된다. VSTGUI는 recursive checkout에는 존재하지만 build/link하지 않는다. macOS, generated runtime 포함, commercial distribution, trademark/notice와 전체 transitive legal audit는 승인하거나 완료하지 않았다.
+이 admission과 Phase 1B evidence는 Windows 기술 spike에만 한정된다. VSTGUI는 recursive checkout에는 존재하지만 build/link하지 않는다. macOS, production generated runtime 채택, commercial distribution, trademark/notice와 전체 transitive legal audit는 승인하거나 완료하지 않았다.
 
 상태 용어:
 
@@ -36,7 +36,7 @@ scope는 Phase 1A dependency 상태 문서에 기록한다.
 
 | 후보 | 검토 capability | 현재 상태 |
 | --- | --- | --- |
-| Steinberg VST3 SDK | VST3 format adapter | Phase 1A 한정 admission; exact pin Windows x64 build/validator 검증 |
+| Steinberg VST3 SDK | VST3 format adapter | Phase 1A admission; 같은 exact pin으로 Phase 1B Windows A/B build/validator 검증 |
 | Skia | generated native UI rendering | 미설치·미검증·미승인 |
 | CanvasKit | Studio interface preview rendering | 미설치·미검증·미승인 |
 | Yoga | layout calculation adapter | 미설치·미검증·미승인 |
@@ -63,6 +63,36 @@ wrapper나 fallback 없이 제거한다.
   dependency 승인이나 상용 배포 준비 완료가 아니다.
 - macOS/Apple Clang, Universal VST3, AU, signing/notarization, commercial redistribution와 전체
   transitive legal audit는 미검증·미승인이다.
+
+### Phase 1B dependency delta와 재배포 경계
+
+Phase 1B는 SDK tag, superproject/nested checkout과 license inventory를 변경하지 않았다. Plugin
+module은 계속 pinned SDK의 `sdk`, `sdk_common`, `base`, `pluginterfaces`와 first-party code만 link한다.
+`sdk_hosting`은 official validator와 loaded contract-test host에만 있고 final plugin link에는 없다.
+
+Pinned SDK에 이미 포함된 `moduleinfotool`은 Phase 1B option에서만 build하는 packaging utility다.
+Alternative A staging과 Alternative B Thin target의 `moduleinfo.json` create/validate에 사용한다. Contract
+test의 structured parity check도 같은 pinned source의 `ModuleInfoLib` parser를 격리 target으로
+compile한다. 이는 새 third-party dependency가 아니라 기존 exact SDK checkout의 build/test surface다.
+
+VSTGUI nested checkout은 계속 존재하지만 `SMTG_ENABLE_VSTGUI_SUPPORT=OFF`이며 Phase 1B plugin link
+command의 VSTGUI hit는 0이다. Final bundle에도 editor, snapshot, icon 또는 VSTGUI resource가 없다.
+Electron, Chromium, Node.js와 JavaScript runtime도 PE import/resource inventory에 없다. Studio source,
+manifest와 lockfile의 exact direct dependency 16개는 기능적으로 바뀌지 않았고 native plugin target에
+전이되지 않는다.
+
+Alternative A는 configuration별 prebuilt template binary를 Data Alpha/Beta에 byte-for-byte 복사하고
+first-party descriptor와 generated moduleinfo만 추가한다. Product package-only 단계는 compiler/linker를
+호출하지 않는다. Alternative B는 각 product wrapper와 static common implementation을 same SDK targets에
+link한다. 두 방식 모두 SDK redistribution/legal 의무를 제거하지 않으며 어느 방식도 production
+dependency admission의 선호안 또는 기본값이 아니다.
+
+Repository 자체 license는 계속 미정이며 top-level `LICENSE`를 만들지 않았다. SDK superproject와
+nested license/notice inventory는 [third-party dependency manifest](../../third_party/dependencies.yml)에
+기록하지만 `tutorials` repository에는 standalone license file이 없다는 package-level limitation이
+남아 있다. Commercial redistribution notice, Steinberg trademark, generated product notice 제공 방식과
+전체 transitive legal review는 unresolved다. Phase 1B validator와 binary evidence를 법률 승인으로
+해석하지 않는다.
 
 ## First-party 경계와 Adapter 규칙
 
@@ -159,7 +189,7 @@ vendor 방식, package manager와 공통 SBOM/checksum/signature/scanner 정책�
 
 ## 현재 미결정과 Open Questions
 
-Phase 0A에서는 dependency를 도입하지 않았다. Phase 1A는 위 exact VST3 SDK와 Windows 기술
+Phase 0A에서는 dependency를 도입하지 않았다. Phase 1A/1B는 위 exact VST3 SDK와 Windows 기술
 spike 범위만 해결했으며 다음 질문을 일반화해 결정하지 않았다.
 
 - 후속 native dependency의 공통 acquisition과 update 정책은 무엇인가?

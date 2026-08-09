@@ -1,4 +1,8 @@
-project(GarakGainSpike VERSION 0.1.0 LANGUAGES CXX)
+project(GarakVst3Spikes VERSION 0.1.0 LANGUAGES CXX)
+
+smtg_enable_vst3_sdk()
+
+if(GARAK_BUILD_VST3_GAIN_SPIKE)
 
 set(garak_gain_spike_sources
     gain_spike/controller.cpp
@@ -28,8 +32,6 @@ target_include_directories(
 garak_apply_warnings(garak_gain_spike_vst3_objects)
 garak_apply_clang_tidy(garak_gain_spike_vst3_objects)
 
-smtg_enable_vst3_sdk()
-
 smtg_add_vst3plugin(
   garak_gain_spike_vst3
   PACKAGE_NAME "Garak Gain Spike"
@@ -56,6 +58,13 @@ if(SMTG_WIN AND SMTG_CREATE_BUNDLE_FOR_WINDOWS)
       "${CMAKE_COMMAND}" -E rm -f
       "${garak_gain_spike_package_path}/PlugIn.ico"
       "${garak_gain_spike_package_path}/desktop.ini"
+      "${garak_gain_spike_package_path}/Contents/x86_64-win/Garak Gain Spike.ilk"
     VERBATIM
   )
+endif()
+
+endif()
+
+if(GARAK_BUILD_RUNTIME_STRATEGY_SPIKE)
+  add_subdirectory(runtime_strategy_spike)
 endif()
