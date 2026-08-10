@@ -40,7 +40,7 @@ jobs:
           const fs = require('node:fs');
 
           const sourcePath = 'tools/product-compiler/src/project_persistence.ts';
-          let source = fs.readFileSync(sourcePath, 'utf8');
+          let source = fs.readFileSync(sourcePath, 'utf8').replace(/\r\n/g, '\n');
 
           if (!source.includes('const LOCK_KEYS = Object.freeze([')) {
             const marker = 'const MANIFEST_KEYS = Object.freeze([';
@@ -71,7 +71,7 @@ jobs:
           fs.writeFileSync(sourcePath, source);
 
           const testPath = 'tools/product-compiler/tests/project_persistence.test.ts';
-          let tests = fs.readFileSync(testPath, 'utf8');
+          let tests = fs.readFileSync(testPath, 'utf8').replace(/\r\n/g, '\n');
           if (!tests.includes('  realpath,\n')) {
             tests = tests.replace('  readFile,\n  rename,', '  readFile,\n  realpath,\n  rename,');
           }
