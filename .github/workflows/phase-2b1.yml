@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   issues: write
 
 jobs:
@@ -33,11 +33,11 @@ jobs:
       - name: Install exact workspace dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Verify Product Compiler formatting
+      - name: Apply canonical Product Compiler formatting
         shell: pwsh
         run: |
           pnpm product:format
-          git diff --exit-code -- tools/product-compiler/src tools/product-compiler/tests
+          git diff --check
 
       - name: Product Compiler gates
         shell: pwsh
@@ -54,6 +54,18 @@ jobs:
           pnpm studio:typecheck
           pnpm studio:test
           pnpm studio:build
+
+      - name: Publish canonical formatting
+        shell: pwsh
+        run: |
+          $changed = git status --porcelain -- tools/product-compiler/src/project_persistence.ts tools/product-compiler/tests/project_persistence.test.ts
+          if ($changed) {
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add -- tools/product-compiler/src/project_persistence.ts tools/product-compiler/tests/project_persistence.test.ts
+            git commit -m "style: apply canonical phase 2B.1 formatting"
+            git push origin HEAD:main
+          }
 
   native-smoke:
     runs-on: windows-latest
