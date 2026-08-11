@@ -197,20 +197,15 @@ test('main-owned session keeps Product ID out of editable requests', async () =>
   });
 });
 
-test('legacy open reports canonical memory migration and ordinary save preserves compiler refusal', async () => {
+test('legacy open remains read-only when migration is declined', async () => {
   let saveCalls = 0;
   const productService = service(
-    dialogs(),
+    dialogs({ confirmProjectMigration: async () => false }),
     compiler({
       openProductProject: async () => snapshot('a'.repeat(64), 1),
       saveProductProject: async () => {
         saveCalls += 1;
-        throw new MockCompilerError({
-          code: 'GARAK_PROJECT_MIGRATION_REQUIRED',
-          path: 'project.schemaVersion',
-          message:
-            'Legacy projects must be migrated to a distinct output before they can be saved.',
-        });
+        return mutation();
       },
     }),
   );
@@ -237,10 +232,51 @@ test('legacy open reports canonical memory migration and ordinary save preserves
       code: 'GARAK_PROJECT_MIGRATION_REQUIRED',
       path: 'project.schemaVersion',
       message:
-        'Legacy projects must be migrated to a distinct output before they can be saved. Phase 2A does not rewrite a source project in place.',
+        'This legacy project is open read-only. Reopen it and approve Back Up & Upgrade before saving.',
     },
   });
   assert.equal(saveCalls, 0);
+});
+
+test('legacy open upgrades only after native confirmation and reports the verified backup', async () => {
+  const backup = {
+    transactionId: 'migration-transaction',
+    projectDirectory: 'C:\\Backups\\Artist Gain.garak',
+    manifestPath: 'C:\\Backups\\backup.json',
+    fingerprint: 'd'.repeat(64),
+    productId: PRODUCT_ID,
+    sourceSchemaVersion: 1 as const,
+    operation: 'migrate-in-place' as const,
+  };
+  let migrations = 0;
+  let notice: { readonly projectDirectory: string; readonly fingerprint: string } | undefined;
+  const productService = service(
+    dialogs({
+      confirmProjectMigration: async () => true,
+      notifyProjectMigrationComplete: async (value) => {
+        notice = value;
+      },
+    }),
+    compiler({
+      openProductProject: async () => snapshot('a'.repeat(64), 1),
+      migrateProductProjectInPlace: async () => {
+        migrations += 1;
+        return { ...mutation(), backup };
+      },
+    }),
+  );
+
+  const opened = await productService.openProduct();
+  assert.equal(opened.status, 'ok');
+  assert.equal(migrations, 1);
+  assert.deepEqual(notice, {
+    projectDirectory: backup.projectDirectory,
+    fingerprint: backup.fingerprint,
+  });
+  if (opened.status === 'ok') {
+    assert.equal(opened.value.schemaStatus.migrationRequired, false);
+    assert.equal(opened.value.schemaStatus.sourceSchemaVersion, 2);
+  }
 });
 
 test('future-schema open failure creates no session that can overwrite the source', async () => {
@@ -280,6 +316,64 @@ test('future-schema open failure creates no session that can overwrite the sourc
     'error',
   );
   assert.equal(saveCalls, 0);
+});
+
+test('save conflict notifies the user and preserves the compiler diagnostic', async () => {
+  let notified: ProductDiagnostic | undefined;
+  const conflict: ProductDiagnostic = {
+    code: 'GARAK_PROJECT_REVISION_CONFLICT',
+    path: 'project.persistence.revision',
+    message: 'Project tree changed on disk since this Studio session opened.',
+  };
+  const productService = service(
+    dialogs({
+      notifyProjectConflict: async (diagnostic) => {
+        notified = diagnostic;
+      },
+    }),
+    compiler({
+      saveProductProject: async () => {
+        throw new MockCompilerError(conflict);
+      },
+    }),
+  );
+  const opened = await productService.openProduct();
+  assert.equal(opened.status, 'ok');
+  if (opened.status !== 'ok') return;
+
+  const result = await productService.saveProduct({
+    documentId: opened.value.documentId,
+    draft: DRAFT,
+  });
+  assert.deepEqual(result, { status: 'error', diagnostic: conflict });
+  assert.deepEqual(notified, conflict);
+});
+
+test('ambiguous recovery is surfaced without inventing a writable session', async () => {
+  let notified: ProductDiagnostic | undefined;
+  const recovery: ProductDiagnostic = {
+    code: 'GARAK_PROJECT_RECOVERY_AMBIGUOUS',
+    path: 'project.persistence.recovery',
+    message: 'Multiple valid recovery artifacts require explicit review.',
+  };
+  const productService = service(
+    dialogs({
+      notifyRecoveryRequired: async (diagnostic) => {
+        notified = diagnostic;
+      },
+    }),
+    compiler({
+      openProductProject: async () => {
+        throw new MockCompilerError(recovery);
+      },
+    }),
+  );
+
+  assert.deepEqual(await productService.openProduct(), {
+    status: 'error',
+    diagnostic: recovery,
+  });
+  assert.deepEqual(notified, recovery);
 });
 
 test('export owns output selection, validates, and confirms before replacement', async () => {

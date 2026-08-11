@@ -59,10 +59,59 @@ async function confirmAction(options: MessageBoxOptions): Promise<boolean> {
   return result.response === 1;
 }
 
+async function notify(options: MessageBoxOptions): Promise<void> {
+  await dialog.showMessageBox(requireMainWindow(), options);
+}
+
 const productDialogs: ProductDialogPort = {
   chooseProjectToOpen,
   chooseProjectToCreate,
   chooseExportDirectory,
+  confirmProjectMigration: () =>
+    confirmAction({
+      type: 'warning',
+      title: 'Upgrade This Garak Project?',
+      message: 'This project uses an older editable schema.',
+      detail:
+        'Choose Back Up & Upgrade to retain a verified copy of the original project before Garak publishes schema 2. Product ID, VST3 FUIDs, parameter IDs, and sound defaults remain unchanged. Choose Open Read-Only to leave the source untouched.',
+      buttons: ['Open Read-Only', 'Back Up & Upgrade'],
+      defaultId: 0,
+      cancelId: 0,
+      noLink: true,
+    }),
+  notifyProjectMigrationComplete: (notice) =>
+    notify({
+      type: 'info',
+      title: 'Project Upgrade Complete',
+      message: 'The project was backed up and upgraded safely.',
+      detail: `Verified backup: ${notice.projectDirectory}\nFingerprint: ${notice.fingerprint}`,
+      buttons: ['OK'],
+      defaultId: 0,
+      cancelId: 0,
+      noLink: true,
+    }),
+  notifyProjectConflict: (diagnostic) =>
+    notify({
+      type: 'warning',
+      title: 'Project Changed Outside Garak',
+      message: 'Garak did not overwrite the project.',
+      detail: `${diagnostic.message}\n\nReopen the project to inspect the current disk version. Your in-memory edits remain in this window until you choose another project.`,
+      buttons: ['OK'],
+      defaultId: 0,
+      cancelId: 0,
+      noLink: true,
+    }),
+  notifyRecoveryRequired: (diagnostic) =>
+    notify({
+      type: 'error',
+      title: 'Project Recovery Needs Review',
+      message: 'Garak found an interrupted or ambiguous persistence transaction.',
+      detail: `${diagnostic.message}\n\nNo project, backup, lock, or transaction artifact was deleted automatically.`,
+      buttons: ['OK'],
+      defaultId: 0,
+      cancelId: 0,
+      noLink: true,
+    }),
   confirmExportReplacement: (diagnostic: ProductDiagnostic) =>
     confirmAction({
       type: 'warning',

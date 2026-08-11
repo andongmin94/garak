@@ -6,11 +6,13 @@ import {
   diagnosticFor,
   exportProductProject,
   inspectProductProjectDraft,
+  migrateProductProjectInPlace,
   openProductProject,
   retryOwnedCleanup,
   saveProductProject,
 } from '../../tools/product-compiler/src/api.ts';
 import type {
+  DurableProjectMutationResult,
   OwnedCleanupDiagnostic,
   OwnedCleanupOrphan,
   ProductProjectDraft,
@@ -62,11 +64,16 @@ interface SavedSession {
   readonly documentId: string;
   readonly productId: string;
   readonly projectDirectory: string;
-  readonly sourceSchemaVersion: 1 | 2;
+  sourceSchemaVersion: 1 | 2;
   revision: string;
 }
 
 type ProductSession = DraftSession | SavedSession;
+
+export interface ProductMigrationNotice {
+  readonly projectDirectory: string;
+  readonly fingerprint: string;
+}
 
 export interface ProductDialogPort {
   readonly chooseProjectToOpen: () => Promise<string | null>;
@@ -74,6 +81,10 @@ export interface ProductDialogPort {
   readonly chooseExportDirectory: () => Promise<string | null>;
   readonly confirmExportReplacement: (diagnostic: ProductDiagnostic) => Promise<boolean>;
   readonly confirmOwnedCleanup: (diagnostic: ProductDiagnostic) => Promise<boolean>;
+  readonly confirmProjectMigration?: (diagnostic: ProductDiagnostic) => Promise<boolean>;
+  readonly notifyProjectMigrationComplete?: (notice: ProductMigrationNotice) => Promise<void>;
+  readonly notifyProjectConflict?: (diagnostic: ProductDiagnostic) => Promise<void>;
+  readonly notifyRecoveryRequired?: (diagnostic: ProductDiagnostic) => Promise<void>;
 }
 
 export interface ProductCompilerPort {
@@ -94,6 +105,10 @@ export interface ProductCompilerPort {
     readonly productId: string;
     readonly draft: ProductProjectDraft;
   }) => Promise<ProjectMutationResult>;
+  readonly migrateProductProjectInPlace?: (options: {
+    readonly projectDirectory: string;
+    readonly expectedRevision: string;
+  }) => Promise<DurableProjectMutationResult>;
   readonly exportProductProject: (options: {
     readonly projectPath: string;
     readonly configuration: ExportProductRequest['configuration'];
@@ -113,6 +128,7 @@ const DEFAULT_COMPILER: ProductCompilerPort = {
   inspectProductProjectDraft,
   createProductProject,
   saveProductProject,
+  migrateProductProjectInPlace,
   exportProductProject,
   retryOwnedCleanup,
   diagnosticFor,
@@ -145,6 +161,20 @@ function diagnosticView(diagnostic: ProductDiagnostic): ProductDiagnostic {
     path: diagnostic.path,
     message: diagnostic.message,
   };
+}
+
+function requiresRecoveryReview(code: string): boolean {
+  return code.startsWith('GARAK_PROJECT_RECOVERY_');
+}
+
+function isSaveConflict(code: string): boolean {
+  return (
+    code === 'GARAK_PROJECT_REVISION_CONFLICT' ||
+    code === 'GARAK_PROJECT_VERSION_TOO_NEW' ||
+    code === 'GARAK_PROJECT_ID_IMMUTABLE' ||
+    code === 'GARAK_PROJECT_TRANSACTION_LOCKED' ||
+    requiresRecoveryReview(code)
+  );
 }
 
 export class ProductService {
@@ -187,7 +217,49 @@ export class ProductService {
       if (projectDirectory === null) {
         return CANCELLED;
       }
-      const snapshot = await this.#compiler.openProductProject(projectDirectory);
+
+      let snapshot: ProductProjectSnapshot;
+      try {
+        snapshot = await this.#compiler.openProductProject(projectDirectory);
+      } catch (error: unknown) {
+        const diagnostic = this.#compiler.diagnosticFor(error);
+        if (requiresRecoveryReview(diagnostic.code)) {
+          await this.#dialogs.notifyRecoveryRequired?.(diagnosticView(diagnostic));
+        }
+        throw error;
+      }
+
+      if (snapshot.schemaStatus.migrationRequired) {
+        const migrate = this.#compiler.migrateProductProjectInPlace;
+        const confirm = this.#dialogs.confirmProjectMigration;
+        if (migrate !== undefined && confirm !== undefined) {
+          const approved = await confirm({
+            code: 'GARAK_PROJECT_MIGRATION_CONFIRMATION',
+            path: 'studio.migration',
+            message:
+              'Garak will verify and retain a persistent backup before upgrading this project in place.',
+          });
+          if (approved) {
+            const migrated = await migrate({
+              projectDirectory: snapshot.sourceDirectory,
+              expectedRevision: snapshot.revision,
+            });
+            if (migrated.backup === null) {
+              studioFailure(
+                'GARAK_STUDIO_MIGRATION_BACKUP',
+                'studio.migration.backup',
+                'Migration completed without the required verified backup summary.',
+              );
+            }
+            snapshot = migrated;
+            await this.#dialogs.notifyProjectMigrationComplete?.({
+              projectDirectory: migrated.backup.projectDirectory,
+              fingerprint: migrated.backup.fingerprint,
+            });
+          }
+        }
+      }
+
       const documentId = this.#nextCapabilityId(this.#sessions);
       const session: SavedSession = {
         kind: 'saved',
@@ -225,7 +297,7 @@ export class ProductService {
         studioFailure(
           'GARAK_PROJECT_MIGRATION_REQUIRED',
           'project.schemaVersion',
-          'Legacy projects must be migrated to a distinct output before they can be saved. Phase 2A does not rewrite a source project in place.',
+          'This legacy project is open read-only. Reopen it and approve Back Up & Upgrade before saving.',
         );
       }
       this.#compiler.inspectProductProjectDraft(
@@ -256,12 +328,24 @@ export class ProductService {
         return this.#documentForSnapshot(savedSession, result, result.cleanupDiagnostics);
       }
 
-      const result = await this.#compiler.saveProductProject({
-        projectDirectory: session.projectDirectory,
-        expectedRevision: session.revision,
-        productId: session.productId,
-        draft: request.draft,
-      });
+      let result: ProjectMutationResult;
+      try {
+        result = await this.#compiler.saveProductProject({
+          projectDirectory: session.projectDirectory,
+          expectedRevision: session.revision,
+          productId: session.productId,
+          draft: request.draft,
+        });
+      } catch (error: unknown) {
+        const diagnostic = this.#compiler.diagnosticFor(error);
+        if (requiresRecoveryReview(diagnostic.code)) {
+          await this.#dialogs.notifyRecoveryRequired?.(diagnosticView(diagnostic));
+        } else if (isSaveConflict(diagnostic.code)) {
+          await this.#dialogs.notifyProjectConflict?.(diagnosticView(diagnostic));
+        }
+        throw error;
+      }
+      session.sourceSchemaVersion = result.schemaStatus.sourceSchemaVersion;
       session.revision = result.revision;
       return this.#documentForSnapshot(session, result, result.cleanupDiagnostics);
     });
