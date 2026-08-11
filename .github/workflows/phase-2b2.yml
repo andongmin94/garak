@@ -1,0 +1,369 @@
+name: Phase 2B.2 implementation
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  implement:
+    runs-on: windows-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.19.0
+
+      - name: Activate pnpm
+        shell: pwsh
+        run: |
+          corepack enable
+          corepack prepare pnpm@11.16.0 --activate
+          pnpm install --frozen-lockfile
+
+      - name: Apply Phase 2B.2 bounded implementation
+        shell: bash
+        run: |
+          node --input-type=commonjs <<'NODE'
+          const fs = require('node:fs');
+
+          function read(path) {
+            return fs.readFileSync(path, 'utf8').replace(/\r\n/g, '\n');
+          }
+          function write(path, text) {
+            fs.mkdirSync(require('node:path').dirname(path), { recursive: true });
+            fs.writeFileSync(path, text);
+          }
+          function replaceOnce(text, marker, replacement, label) {
+            if (!text.includes(marker)) throw new Error(`Missing ${label}`);
+            return text.replace(marker, replacement);
+          }
+
+          const sharedPath = 'studio/src/shared/product_api.mts';
+          let shared = read(sharedPath);
+          if (!shared.includes('export interface ProductMigrationResult')) {
+            shared = replaceOnce(
+              shared,
+              `export interface ProductCleanupWarning {\n  readonly cleanupId: string | null;\n  readonly diagnostic: ProductDiagnostic;\n}\n`,
+              `export interface ProductCleanupWarning {\n  readonly cleanupId: string | null;\n  readonly diagnostic: ProductDiagnostic;\n}\n\nexport interface ProductBackupNotice {\n  readonly locationLabel: string;\n  readonly fingerprint: string;\n  readonly sourceSchemaVersion:\n    | typeof LEGACY_PRODUCT_SCHEMA_VERSION\n    | typeof PRODUCT_SCHEMA_VERSION;\n}\n\nexport interface ProductMigrationResult {\n  readonly document: ProductDocument;\n  readonly backup: ProductBackupNotice;\n}\n`,
+              'migration result insertion',
+            );
+            shared = replaceOnce(
+              shared,
+              `export interface CleanupProductArtifactRequest {\n  readonly cleanupId: string;\n}\n`,
+              `export interface DocumentCapabilityRequest {\n  readonly documentId: string;\n}\n\nexport type MigrateProductRequest = DocumentCapabilityRequest;\nexport type ReloadProductRequest = DocumentCapabilityRequest;\n\nexport interface CleanupProductArtifactRequest {\n  readonly cleanupId: string;\n}\n`,
+              'document request insertion',
+            );
+            shared = replaceOnce(
+              shared,
+              `  readonly openProduct: () => Promise<ProductOperationResult<ProductDocument>>;\n`,
+              `  readonly openProduct: () => Promise<ProductOperationResult<ProductDocument>>;\n  readonly reloadProduct: (\n    request: ReloadProductRequest,\n  ) => Promise<ProductOperationResult<ProductDocument>>;\n  readonly migrateProduct: (\n    request: MigrateProductRequest,\n  ) => Promise<ProductOperationResult<ProductMigrationResult>>;\n`,
+              'studio API methods',
+            );
+            shared = replaceOnce(
+              shared,
+              `const SHA256 = /^[0-9A-F]{64}$/u;\n`,
+              `const SHA256 = /^[0-9A-F]{64}$/u;\nconst LOWER_SHA256 = /^[0-9a-f]{64}$/u;\n`,
+              'lowercase hash contract',
+            );
+            shared = replaceOnce(
+              shared,
+              `export function isCleanupProductArtifactRequest(\n  value: unknown,\n): value is CleanupProductArtifactRequest {\n`,
+              `export function isDocumentCapabilityRequest(\n  value: unknown,\n): value is DocumentCapabilityRequest {\n  return (\n    isRecord(value) &&\n    hasExactKeys(value, ['documentId']) &&\n    isOpaqueCapability(value.documentId)\n  );\n}\n\nexport function isMigrateProductRequest(\n  value: unknown,\n): value is MigrateProductRequest {\n  return isDocumentCapabilityRequest(value);\n}\n\nexport function isReloadProductRequest(\n  value: unknown,\n): value is ReloadProductRequest {\n  return isDocumentCapabilityRequest(value);\n}\n\nexport function isCleanupProductArtifactRequest(\n  value: unknown,\n): value is CleanupProductArtifactRequest {\n`,
+              'request guards',
+            );
+            shared = replaceOnce(
+              shared,
+              `function isCleanedResult(value: unknown): value is { readonly cleaned: true } {\n`,
+              `function isProductBackupNotice(value: unknown): value is ProductBackupNotice {\n  return (\n    isRecord(value) &&\n    hasExactKeys(value, ['locationLabel', 'fingerprint', 'sourceSchemaVersion']) &&\n    typeof value.locationLabel === 'string' &&\n    value.locationLabel.length > 0 &&\n    typeof value.fingerprint === 'string' &&\n    LOWER_SHA256.test(value.fingerprint) &&\n    (value.sourceSchemaVersion === LEGACY_PRODUCT_SCHEMA_VERSION ||\n      value.sourceSchemaVersion === PRODUCT_SCHEMA_VERSION)\n  );\n}\n\nfunction isProductMigrationResult(value: unknown): value is ProductMigrationResult {\n  return (\n    isRecord(value) &&\n    hasExactKeys(value, ['document', 'backup']) &&\n    isProductDocument(value.document) &&\n    isProductBackupNotice(value.backup)\n  );\n}\n\nfunction isCleanedResult(value: unknown): value is { readonly cleaned: true } {\n`,
+              'migration response guard',
+            );
+            shared = replaceOnce(
+              shared,
+              `export function isProductInspectionResult(\n`,
+              `export function isProductMigrationOperationResult(\n  value: unknown,\n): value is ProductOperationResult<ProductMigrationResult> {\n  return isProductOperationResultWith(value, isProductMigrationResult);\n}\n\nexport function isProductInspectionResult(\n`,
+              'migration operation guard',
+            );
+            shared = replaceOnce(
+              shared,
+              `  openProduct: 'garak:product:open',\n`,
+              `  openProduct: 'garak:product:open',\n  reloadProduct: 'garak:product:reload',\n  migrateProduct: 'garak:product:migrate',\n`,
+              'IPC channels',
+            );
+          }
+          write(sharedPath, shared);
+
+          const servicePath = 'studio/electron/product_service.mts';
+          let service = read(servicePath);
+          if (!service.includes('async migrateProduct(')) {
+            service = replaceOnce(
+              service,
+              `  inspectProductProjectDraft,\n  openProductProject,\n`,
+              `  inspectProductProjectDraft,\n  migrateProductProjectInPlace,\n  openProductProject,\n`,
+              'compiler migration import',
+            );
+            service = replaceOnce(
+              service,
+              `  OwnedCleanupDiagnostic,\n  OwnedCleanupOrphan,\n`,
+              `  DurableProjectMutationResult,\n  OwnedCleanupDiagnostic,\n  OwnedCleanupOrphan,\n`,
+              'durable mutation type import',
+            );
+            service = replaceOnce(
+              service,
+              `  ExportProductRequest,\n`,
+              `  ExportProductRequest,\n  MigrateProductRequest,\n`,
+              'migrate request type',
+            );
+            service = replaceOnce(
+              service,
+              `  ProductInspection,\n`,
+              `  ProductInspection,\n  ProductMigrationResult,\n`,
+              'migration result type',
+            );
+            service = replaceOnce(
+              service,
+              `  ProductSchemaStatus,\n`,
+              `  ProductSchemaStatus,\n  ReloadProductRequest,\n`,
+              'reload request type',
+            );
+            service = replaceOnce(
+              service,
+              `  readonly sourceSchemaVersion: 1 | 2;\n`,
+              `  sourceSchemaVersion: 1 | 2;\n`,
+              'mutable source schema session',
+            );
+            service = replaceOnce(
+              service,
+              `  readonly confirmExportReplacement: (diagnostic: ProductDiagnostic) => Promise<boolean>;\n`,
+              `  readonly confirmExportReplacement: (diagnostic: ProductDiagnostic) => Promise<boolean>;\n  readonly confirmProjectMigration?: (diagnostic: ProductDiagnostic) => Promise<boolean>;\n`,
+              'migration confirmation port',
+            );
+            service = replaceOnce(
+              service,
+              `  readonly exportProductProject: (options: {\n`,
+              `  readonly migrateProductProjectInPlace?: (options: {\n    readonly projectDirectory: string;\n    readonly expectedRevision: string;\n  }) => Promise<DurableProjectMutationResult>;\n  readonly exportProductProject: (options: {\n`,
+              'migration compiler port',
+            );
+            service = replaceOnce(
+              service,
+              `  saveProductProject,\n  exportProductProject,\n`,
+              `  saveProductProject,\n  migrateProductProjectInPlace,\n  exportProductProject,\n`,
+              'default migration compiler',
+            );
+            const exportMarker = `  async exportProduct(\n    request: ExportProductRequest,\n  ): Promise<ProductOperationResult<ProductExportResult>> {\n`;
+            const methods = `  async reloadProduct(\n    request: ReloadProductRequest,\n  ): Promise<ProductOperationResult<ProductDocument>> {\n    return this.#run(async () => {\n      const session = this.#requireSavedSession(request.documentId);\n      const current = await this.#compiler.openProductProject(\n        session.projectDirectory,\n      );\n      if (current.document.productId !== session.productId) {\n        studioFailure(\n          'GARAK_STUDIO_PROJECT_ID_REBOUND',\n          'studio.reload.productId',\n          'The project path now points to a different Product ID. Open it as a separate project instead.',\n        );\n      }\n      session.sourceSchemaVersion =\n        current.schemaStatus.sourceSchemaVersion;\n      session.revision = current.revision;\n      return this.#documentForSnapshot(session, current, []);\n    });\n  }\n\n  async migrateProduct(\n    request: MigrateProductRequest,\n  ): Promise<ProductOperationResult<ProductMigrationResult>> {\n    return this.#run(async () => {\n      const session = this.#requireSavedSession(request.documentId);\n      if (session.sourceSchemaVersion !== 1) {\n        studioFailure(\n          'GARAK_MIGRATION_NOT_REQUIRED',\n          'studio.migration',\n          'This project already uses the current editable schema.',\n        );\n      }\n      const migrate = this.#compiler.migrateProductProjectInPlace;\n      const confirm = this.#dialogs.confirmProjectMigration;\n      if (migrate === undefined || confirm === undefined) {\n        studioFailure(\n          'GARAK_STUDIO_MIGRATION_UNAVAILABLE',\n          'studio.migration',\n          'The installed Studio cannot perform an in-place project migration.',\n        );\n      }\n      const approved = await confirm({\n        code: 'GARAK_PROJECT_MIGRATION_CONFIRMATION',\n        path: 'studio.migration',\n        message:\n          'Garak will create and verify a persistent backup before upgrading this project in place.',\n      });\n      if (!approved) return CANCELLED;\n      const result = await migrate({\n        projectDirectory: session.projectDirectory,\n        expectedRevision: session.revision,\n      });\n      if (result.backup === null) {\n        studioFailure(\n          'GARAK_STUDIO_MIGRATION_BACKUP',\n          'studio.migration.backup',\n          'Migration completed without the required verified backup summary.',\n        );\n      }\n      session.sourceSchemaVersion = 2;\n      session.revision = result.revision;\n      return {\n        document: this.#documentForSnapshot(\n          session,\n          result,\n          result.cleanupDiagnostics,\n        ),\n        backup: {\n          locationLabel: result.backup.projectDirectory,\n          fingerprint: result.backup.fingerprint,\n          sourceSchemaVersion: result.backup.sourceSchemaVersion,\n        },\n      };\n    });\n  }\n\n`;
+            service = replaceOnce(service, exportMarker, methods + exportMarker, 'service methods');
+            service = replaceOnce(
+              service,
+              `  #requireSession(documentId: string): ProductSession {\n`,
+              `  #requireSavedSession(documentId: string): SavedSession {\n    const session = this.#requireSession(documentId);\n    if (session.kind !== 'saved') {\n      studioFailure(\n        'GARAK_STUDIO_PROJECT_UNSAVED',\n        'studio.project',\n        'Save the project before using this operation.',\n      );\n    }\n    return session;\n  }\n\n  #requireSession(documentId: string): ProductSession {\n`,
+              'saved session helper',
+            );
+          }
+          write(servicePath, service);
+
+          const mainPath = 'studio/electron/main.ts';
+          let main = read(mainPath);
+          if (!main.includes('PRODUCT_IPC_CHANNELS.migrateProduct')) {
+            main = replaceOnce(
+              main,
+              `  isExportProductRequest,\n`,
+              `  isExportProductRequest,\n  isMigrateProductRequest,\n  isReloadProductRequest,\n`,
+              'main request guards',
+            );
+            main = replaceOnce(
+              main,
+              `  confirmExportReplacement: (diagnostic: ProductDiagnostic) =>\n`,
+              `  confirmProjectMigration: () =>\n    confirmAction({\n      type: 'warning',\n      title: 'Upgrade This Garak Project?',\n      message: 'Upgrade the legacy project to the current schema?',\n      detail:\n        'Garak will verify a persistent backup first. Product ID, VST3 FUIDs, parameter IDs, and sound defaults remain unchanged.',\n      buttons: ['Cancel', 'Back Up & Upgrade'],\n      defaultId: 0,\n      cancelId: 0,\n      noLink: true,\n    }),\n  confirmExportReplacement: (diagnostic: ProductDiagnostic) =>\n`,
+              'migration dialog',
+            );
+            const exportHandler = `ipcMain.handle(\n  PRODUCT_IPC_CHANNELS.exportProduct,\n`;
+            const handlers = `ipcMain.handle(\n  PRODUCT_IPC_CHANNELS.reloadProduct,\n  (event: IpcMainInvokeEvent, ...arguments_: unknown[]) => {\n    const request = trustedRequest(\n      event,\n      'reloadProduct',\n      arguments_,\n      isReloadProductRequest,\n    );\n    return isBoundaryResult(request)\n      ? request\n      : productService.reloadProduct(request);\n  },\n);\n\nipcMain.handle(\n  PRODUCT_IPC_CHANNELS.migrateProduct,\n  (event: IpcMainInvokeEvent, ...arguments_: unknown[]) => {\n    const request = trustedRequest(\n      event,\n      'migrateProduct',\n      arguments_,\n      isMigrateProductRequest,\n    );\n    return isBoundaryResult(request)\n      ? request\n      : productService.migrateProduct(request);\n  },\n);\n\n`;
+            main = replaceOnce(main, exportHandler, handlers + exportHandler, 'main IPC handlers');
+          }
+          write(mainPath, main);
+
+          const preloadPath = 'studio/electron/preload.ts';
+          let preload = read(preloadPath);
+          if (!preload.includes('migrateProduct: (request: MigrateProductRequest)')) {
+            preload = replaceOnce(
+              preload,
+              `  isProductInspectionResult,\n`,
+              `  isProductInspectionResult,\n  isProductMigrationOperationResult,\n`,
+              'preload migration result guard',
+            );
+            preload = replaceOnce(
+              preload,
+              `  isSaveProductRequest,\n`,
+              `  isMigrateProductRequest,\n  isReloadProductRequest,\n  isSaveProductRequest,\n`,
+              'preload request guards',
+            );
+            preload = replaceOnce(
+              preload,
+              `  ExportProductRequest,\n`,
+              `  ExportProductRequest,\n  MigrateProductRequest,\n`,
+              'preload migrate type',
+            );
+            preload = replaceOnce(
+              preload,
+              `  ProductOperationResult,\n`,
+              `  ProductOperationResult,\n  ReloadProductRequest,\n`,
+              'preload reload type',
+            );
+            preload = replaceOnce(
+              preload,
+              `  openProduct: () =>\n    invokeProduct('openProduct', PRODUCT_IPC_CHANNELS.openProduct, isProductDocumentResult),\n`,
+              `  openProduct: () =>\n    invokeProduct('openProduct', PRODUCT_IPC_CHANNELS.openProduct, isProductDocumentResult),\n  reloadProduct: (request: ReloadProductRequest) =>\n    isReloadProductRequest(request)\n      ? invokeProduct(\n          'reloadProduct',\n          PRODUCT_IPC_CHANNELS.reloadProduct,\n          isProductDocumentResult,\n          request,\n        )\n      : rejectInvalidRequest('reloadProduct'),\n  migrateProduct: (request: MigrateProductRequest) =>\n    isMigrateProductRequest(request)\n      ? invokeProduct(\n          'migrateProduct',\n          PRODUCT_IPC_CHANNELS.migrateProduct,\n          isProductMigrationOperationResult,\n          request,\n        )\n      : rejectInvalidRequest('migrateProduct'),\n`,
+              'preload methods',
+            );
+          }
+          write(preloadPath, preload);
+
+          const workspacePath = 'studio/src/features/product/ProductWorkspace.tsx';
+          let workspace = read(workspacePath);
+          if (!workspace.includes('ProductEvolutionPanel')) {
+            workspace = replaceOnce(
+              workspace,
+              `import { useState, type FormEvent } from 'react';\n`,
+              `import { useState, type FormEvent } from 'react';\n\nimport { ProductEvolutionPanel } from './ProductEvolutionPanel.mjs';\n`,
+              'workspace component import',
+            );
+            workspace = replaceOnce(
+              workspace,
+              `type ProductOperation = 'new' | 'open' | 'validate' | 'save' | 'export' | 'cleanup';\n`,
+              `type ProductOperation =\n  | 'new'\n  | 'open'\n  | 'reload'\n  | 'migrate'\n  | 'validate'\n  | 'save'\n  | 'export'\n  | 'cleanup';\n`,
+              'workspace operation type',
+            );
+            workspace = replaceOnce(
+              workspace,
+              `  open: 'Opening a product…',\n`,
+              `  open: 'Opening a product…',\n  reload: 'Reloading the project from disk…',\n  migrate: 'Backing up and upgrading the project…',\n`,
+              'workspace operation labels',
+            );
+            const stripEnd = `          </section>\n\n          <CleanupWarnings\n`;
+            workspace = replaceOnce(
+              workspace,
+              stripEnd,
+              `          </section>\n\n          <ProductEvolutionPanel\n            document={document}\n            diagnostic={diagnostic}\n            busy={isBusy}\n            hasUnsavedWork={hasUnsavedWork}\n            onDocument={(value) => {\n              installDocument(value, false);\n            }}\n            onDiagnostic={setDiagnostic}\n            onStatus={setStatusMessage}\n            onBusyChange={setBusy}\n          />\n\n          <CleanupWarnings\n`,
+              'workspace evolution panel',
+            );
+          }
+          write(workspacePath, workspace);
+
+          write(
+            'studio/src/features/product/ProductEvolutionPanel.tsx',
+            `import { useState } from 'react';\n\nimport type {\n  ProductDiagnostic,\n  ProductDocument,\n  ProductMigrationResult,\n} from '../../shared/product_api.mjs';\n\ntype EvolutionOperation = 'reload' | 'migrate';\n\ninterface ProductEvolutionPanelProps {\n  readonly document: ProductDocument;\n  readonly diagnostic: ProductDiagnostic | null;\n  readonly busy: boolean;\n  readonly hasUnsavedWork: boolean;\n  readonly onDocument: (document: ProductDocument) => void;\n  readonly onDiagnostic: (diagnostic: ProductDiagnostic | null) => void;\n  readonly onStatus: (message: string) => void;\n  readonly onBusyChange: (operation: EvolutionOperation | null) => void;\n}\n\nconst reloadableDiagnostics = new Set([\n  'GARAK_PROJECT_REVISION_CONFLICT',\n  'GARAK_STUDIO_PROJECT_CHANGED',\n]);\n\nexport function ProductEvolutionPanel({\n  document,\n  diagnostic,\n  busy,\n  hasUnsavedWork,\n  onDocument,\n  onDiagnostic,\n  onStatus,\n  onBusyChange,\n}: ProductEvolutionPanelProps) {\n  const [migration, setMigration] = useState<ProductMigrationResult | null>(null);\n  const reloadable =\n    document.saved &&\n    diagnostic !== null &&\n    reloadableDiagnostics.has(diagnostic.code);\n\n  async function migrate(): Promise<void> {\n    if (hasUnsavedWork) {\n      onStatus('Save or discard unsaved edits before upgrading the project.');\n      return;\n    }\n    onBusyChange('migrate');\n    onDiagnostic(null);\n    try {\n      const result = await window.garakStudio.migrateProduct({\n        documentId: document.documentId,\n      });\n      if (result.status === 'ok') {\n        setMigration(result.value);\n        onDocument(result.value.document);\n        onStatus('Project backup verified and schema upgrade completed.');\n      } else if (result.status === 'cancelled') {\n        onStatus('Project upgrade cancelled; the source project was not changed.');\n      } else {\n        onDiagnostic(result.diagnostic);\n        onStatus('Project upgrade failed. Review the diagnostic.');\n      }\n    } catch {\n      onDiagnostic({\n        code: 'GARAK_STUDIO_UNEXPECTED_FAILURE',\n        path: 'studio.migration',\n        message: 'Studio could not complete the project upgrade request.',\n      });\n    } finally {\n      onBusyChange(null);\n    }\n  }\n\n  async function reload(): Promise<void> {\n    if (hasUnsavedWork && !window.confirm('Discard local edits and reload the saved project from disk?')) {\n      return;\n    }\n    onBusyChange('reload');\n    onDiagnostic(null);\n    try {\n      const result = await window.garakStudio.reloadProduct({\n        documentId: document.documentId,\n      });\n      if (result.status === 'ok') {\n        onDocument(result.value);\n        onStatus('Reloaded the current project from disk.');\n      } else if (result.status === 'cancelled') {\n        onStatus('Reload cancelled.');\n      } else {\n        onDiagnostic(result.diagnostic);\n        onStatus('Reload failed. Review the diagnostic.');\n      }\n    } catch {\n      onDiagnostic({\n        code: 'GARAK_STUDIO_UNEXPECTED_FAILURE',\n        path: 'studio.reload',\n        message: 'Studio could not reload the project.',\n      });\n    } finally {\n      onBusyChange(null);\n    }\n  }\n\n  if (!document.schemaStatus.migrationRequired && !reloadable && migration === null) {\n    return null;\n  }\n\n  return (\n    <div className=\"product-evolution-stack\">\n      {document.schemaStatus.migrationRequired ? (\n        <aside className=\"diagnostic-panel\" aria-labelledby=\"migration-title\">\n          <div>\n            <p className=\"result-label\">Project upgrade available</p>\n            <h3 id=\"migration-title\">Schema 1 → 2</h3>\n          </div>\n          <p>\n            Garak will retain the Product ID and plug-in identity, create a verified persistent\n            backup, then publish the canonical schema 2 project.\n          </p>\n          <button\n            className=\"button button-primary\"\n            type=\"button\"\n            onClick={() => void migrate()}\n            disabled={busy}\n          >\n            Back up &amp; upgrade…\n          </button>\n        </aside>\n      ) : null}\n\n      {reloadable ? (\n        <aside className=\"diagnostic-panel\" aria-labelledby=\"reload-title\">\n          <div>\n            <p className=\"result-label\">External change detected</p>\n            <h3 id=\"reload-title\">Reload the saved source</h3>\n          </div>\n          <p>Garak did not overwrite the project. Reload to adopt the latest verified disk revision.</p>\n          <button\n            className=\"button button-secondary\"\n            type=\"button\"\n            onClick={() => void reload()}\n            disabled={busy}\n          >\n            Reload from disk\n          </button>\n        </aside>\n      ) : null}\n\n      {migration !== null ? (\n        <aside className=\"result-card\" aria-labelledby=\"backup-title\">\n          <p className=\"result-label\">Verified backup retained</p>\n          <h3 id=\"backup-title\">Legacy source preserved</h3>\n          <code>{migration.backup.locationLabel}</code>\n          <p>Fingerprint: {migration.backup.fingerprint}</p>\n        </aside>\n      ) : null}\n    </div>\n  );\n}\n`,
+          );
+
+          const mainTestPath = 'studio/tests/product_service.test.mts';
+          let mainTests = read(mainTestPath);
+          if (!mainTests.includes("legacy migration requires confirmation")) {
+            mainTests += `\n\ntest('legacy migration requires confirmation, preserves backup, and updates the session', async () => {\n  const backup = {\n    transactionId: 'migration-transaction',\n    projectDirectory: 'C:\\\\Backups\\\\Artist Gain.garak',\n    manifestPath: 'C:\\\\Backups\\\\backup.json',\n    fingerprint: 'd'.repeat(64),\n    productId: PRODUCT_ID,\n    sourceSchemaVersion: 1 as const,\n    operation: 'migrate-in-place' as const,\n  };\n  let migrations = 0;\n  const productService = service(\n    dialogs({ confirmProjectMigration: async () => true }),\n    compiler({\n      openProductProject: async () => snapshot('a'.repeat(64), 1),\n      migrateProductProjectInPlace: async () => {\n        migrations += 1;\n        return { ...mutation(), backup };\n      },\n    }),\n  );\n  const opened = await productService.openProduct();\n  assert.equal(opened.status, 'ok');\n  if (opened.status !== 'ok') return;\n  const migrated = await productService.migrateProduct({\n    documentId: opened.value.documentId,\n  });\n  assert.equal(migrated.status, 'ok');\n  assert.equal(migrations, 1);\n  if (migrated.status === 'ok') {\n    assert.equal(migrated.value.document.schemaStatus.migrationRequired, false);\n    assert.equal(migrated.value.backup.locationLabel, backup.projectDirectory);\n    assert.equal(migrated.value.backup.fingerprint, backup.fingerprint);\n  }\n});\n\ntest('reload adopts an external revision but refuses a different Product ID', async () => {\n  let opens = 0;\n  const productService = service(\n    dialogs(),\n    compiler({\n      openProductProject: async () => {\n        opens += 1;\n        return snapshot(opens === 1 ? 'a'.repeat(64) : 'b'.repeat(64));\n      },\n    }),\n  );\n  const opened = await productService.openProduct();\n  assert.equal(opened.status, 'ok');\n  if (opened.status !== 'ok') return;\n  const reloaded = await productService.reloadProduct({\n    documentId: opened.value.documentId,\n  });\n  assert.equal(reloaded.status, 'ok');\n  if (reloaded.status === 'ok') {\n    assert.equal(reloaded.value.productId, PRODUCT_ID);\n  }\n\n  const reboundService = service(\n    dialogs(),\n    compiler({\n      openProductProject: async () => {\n        const value = snapshot();\n        return opens++ === 2\n          ? value\n          : {\n              ...value,\n              document: {\n                ...value.document,\n                productId: '11111111-2222-4333-8444-555555555555',\n              },\n            };\n      },\n    }),\n  );\n  const reboundOpened = await reboundService.openProduct();\n  assert.equal(reboundOpened.status, 'ok');\n  if (reboundOpened.status !== 'ok') return;\n  const rejected = await reboundService.reloadProduct({\n    documentId: reboundOpened.value.documentId,\n  });\n  assert.equal(rejected.status, 'error');\n  if (rejected.status === 'error') {\n    assert.equal(rejected.diagnostic.code, 'GARAK_STUDIO_PROJECT_ID_REBOUND');\n  }\n});\n`;
+          }
+          write(mainTestPath, mainTests);
+
+          const apiTestPath = 'studio/tests/product_api.test.mts';
+          let apiTests = read(apiTestPath);
+          if (!apiTests.includes('isMigrateProductRequest')) {
+            apiTests = replaceOnce(
+              apiTests,
+              `  isExportProductRequest,\n`,
+              `  isExportProductRequest,\n  isMigrateProductRequest,\n`,
+              'API test migrate import',
+            );
+            apiTests = replaceOnce(
+              apiTests,
+              `  isProductInspectionResult,\n`,
+              `  isProductInspectionResult,\n  isProductMigrationOperationResult,\n  isReloadProductRequest,\n`,
+              'API test migration guards',
+            );
+            apiTests += `\n\ntest('migration and reload IPC contracts remain capability-only', () => {\n  assert.equal(isMigrateProductRequest({ documentId: 'document-1' }), true);\n  assert.equal(isReloadProductRequest({ documentId: 'document-1' }), true);\n  assert.equal(\n    isMigrateProductRequest({ documentId: 'document-1', projectPath: 'C:/forged.garak' }),\n    false,\n  );\n  const document = {\n    documentId: 'document-1',\n    locationLabel: 'C:/Products/Gain.garak',\n    saved: true,\n    schemaVersion: 2,\n    schemaStatus: {\n      sourceSchemaVersion: 2,\n      currentSchemaVersion: 2,\n      migrationRequired: false,\n      steps: [],\n    },\n    productId: '6f0e50f1-a2d4-4b37-8c9e-1f2a3b4c5d6e',\n    category: 'Fx',\n    template: { id: 'garak.gain', version: 1 },\n    draft: { vendor: 'Artist', name: 'Gain', version: '0.1.0', gainDb: -6 },\n    cleanupWarnings: [],\n  };\n  const migration = {\n    document,\n    backup: {\n      locationLabel: 'C:/Backups/Gain.garak',\n      fingerprint: 'd'.repeat(64),\n      sourceSchemaVersion: 1,\n    },\n  };\n  assert.equal(\n    isProductMigrationOperationResult({ status: 'ok', value: migration }),\n    true,\n  );\n  assert.equal(\n    isProductMigrationOperationResult({\n      status: 'ok',\n      value: { ...migration, backup: { ...migration.backup, targetPath: 'forged' } },\n    }),\n    false,\n  );\n});\n`;
+          }
+          write(apiTestPath, apiTests);
+
+          write(
+            'plans/0009-phase-2b2-studio-evolution-ux.md',
+            `# ExecPlan 0009 — Phase 2B.2 Studio Migration, Conflict and Recovery UX\n\n## Purpose\n\nConnect the verified Phase 2B.1 persistence core to explicit Studio user decisions without exposing filesystem authority to the renderer.\n\n## Scope\n\n- legacy schema migration confirmation;\n- verified backup notice after migration;\n- reload of externally changed same-Product-ID projects;\n- typed conflict and ambiguous-recovery guidance;\n- fixed preload/IPC capabilities and regression tests.\n\n## Non-scope\n\nNo backup deletion, autosave, manual ambiguous-recovery artifact selection, DSP graph, custom editor, macOS/AU, installer, or new dependency.\n\n## Acceptance\n\nMigration requires native confirmation, returns a verified backup summary, preserves Product ID, and updates the Studio session. Reload accepts only the same Product ID. Renderer authority remains capability-only. Product Compiler and Studio gates must pass.\n`,
+          );
+          write(
+            'docs/adr/0009-studio-project-evolution-ux-boundary.md',
+            `# ADR 0009 — Studio Project Evolution UX Boundary\n\n- Status: Accepted\n- Date: 2026-08-22\n\n## Decision\n\nStudio exposes fixed migrate and reload capabilities backed by main-owned sessions. Legacy migration requires a native confirmation and the durable service's verified persistent backup. External same-identity revisions may be reloaded explicitly. A path rebound to a different Product ID fails closed.\n\nThe renderer receives display-only diagnostics and backup summaries, never transaction paths as writable authority, raw IPC, filesystem primitives, locks, or recovery manifests. Ambiguous recovery remains fail-closed; manual artifact arbitration is deferred.\n`,
+          );
+          write(
+            'docs/status/phase-2b2-studio-evolution-validation.md',
+            `# Phase 2B.2 Studio Evolution Validation\n\nThis document is completed by the authoritative Windows CI run. Required gates are Product Compiler format/lint/typecheck/test and Studio format/lint/typecheck/test/build with no dependency change. Phase 2B.2 adds explicit migration confirmation, backup notice, same-identity reload, and Product-ID rebound rejection.\n`,
+          );
+          NODE
+
+      - name: Format and validate TypeScript
+        shell: pwsh
+        run: |
+          pnpm product:format
+          pnpm studio:format
+          git diff --check
+          pnpm product:lint
+          pnpm product:typecheck
+          pnpm product:test
+          pnpm studio:lint
+          pnpm studio:typecheck
+          pnpm studio:test
+          pnpm studio:build
+
+      - name: Commit validated Phase 2B.2 to main
+        shell: pwsh
+        run: |
+          $paths = @(
+            'studio/src/shared/product_api.mts',
+            'studio/electron/product_service.mts',
+            'studio/electron/main.ts',
+            'studio/electron/preload.ts',
+            'studio/src/features/product/ProductWorkspace.tsx',
+            'studio/src/features/product/ProductEvolutionPanel.tsx',
+            'studio/tests/product_service.test.mts',
+            'studio/tests/product_api.test.mts',
+            'plans/0009-phase-2b2-studio-evolution-ux.md',
+            'docs/adr/0009-studio-project-evolution-ux-boundary.md',
+            'docs/status/phase-2b2-studio-evolution-validation.md'
+          )
+          $changed = git status --porcelain -- $paths
+          if ($changed) {
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add -- $paths
+            git commit -m "feat: complete Garak phase 2B.2 Studio evolution UX"
+            git push origin HEAD:main
+          }
+
+      - name: Report success
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `[CI] Phase 2B.2 passed ${context.sha}`,
+              body: `Run: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}\nProduct Compiler and Studio gates passed.`,
+            });
+
+      - name: Report failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `[CI] Phase 2B.2 failed ${context.sha}`,
+              body: `Run: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+            });
