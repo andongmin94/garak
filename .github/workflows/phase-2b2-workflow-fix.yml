@@ -21,14 +21,18 @@ jobs:
         run: |
           python - <<'PY'
           from pathlib import Path
+
           path = Path('.github/workflows/phase-2b2.yml')
           text = path.read_text(encoding='utf-8')
-          corrected = text.replace(
-              "import { ProductEvolutionPanel } from './ProductEvolutionPanel.mjs';",
-              "import { ProductEvolutionPanel } from './ProductEvolutionPanel.js';",
-          )
+          old = "import { ProductEvolutionPanel } from './ProductEvolutionPanel.mjs';"
+          new = "import { ProductEvolutionPanel } from './ProductEvolutionPanel.js';"
+
+          if old not in text and new not in text:
+              raise SystemExit('Phase 2B.2 component import marker is missing')
+
+          corrected = text.replace(old, new)
           if corrected != text:
-              path.write_text(corrected, encoding='utf-8')
+              path.write_text(corrected, encoding='utf-8', newline='\n')
           PY
 
       - name: Commit correction to main
@@ -38,6 +42,6 @@ jobs:
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git add -- .github/workflows/phase-2b2.yml
-            git commit -m "ci: correct Phase 2B.2 component module path"
+            git commit -m "ci: correct Phase 2B.2 component module import"
             git push origin HEAD:main
           fi
