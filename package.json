@@ -9,6 +9,7 @@
     "product:migrate": "node tools/product-compiler/src/cli.ts migrate",
     "product:compile": "node tools/product-compiler/src/cli.ts compile",
     "product:export": "node tools/product-compiler/src/cli.ts export",
+    "product:compatibility": "node tools/product-compiler/src/compatibility_cli.ts",
     "product:lint": "pnpm --dir tools/product-compiler lint",
     "product:format": "pnpm --dir tools/product-compiler format",
     "product:format:check": "pnpm --dir tools/product-compiler format:check",

@@ -1,6 +1,7 @@
 add_library(
   garak_product_contract_v1
   STATIC
+  src/compatibility.cpp
   src/compiled_product.cpp
   src/product_state.cpp
 )

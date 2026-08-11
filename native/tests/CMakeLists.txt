@@ -20,6 +20,22 @@ if(GARAK_BUILD_PRODUCT_RUNTIME_V1)
   garak_apply_warnings(garak_product_v1_contract_tests)
   garak_apply_clang_tidy(garak_product_v1_contract_tests)
   add_test(NAME garak_product_v1_contract_tests COMMAND garak_product_v1_contract_tests)
+
+  add_executable(
+    garak_product_compatibility_tests
+    product_compatibility_tests.cpp
+    product_v1_test_fixtures.hpp
+  )
+  target_link_libraries(
+    garak_product_compatibility_tests
+    PRIVATE garak::product_contract_v1
+  )
+  garak_apply_warnings(garak_product_compatibility_tests)
+  garak_apply_clang_tidy(garak_product_compatibility_tests)
+  add_test(
+    NAME garak_product_compatibility_tests
+    COMMAND garak_product_compatibility_tests
+  )
 endif()
 
 if(GARAK_BUILD_VST3_GAIN_SPIKE)
