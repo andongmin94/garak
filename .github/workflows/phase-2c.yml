@@ -14,14 +14,21 @@ on:
       - "package.json"
       - "pnpm-lock.yaml"
       - ".github/workflows/phase-2c.yml"
+  issues:
+    types:
+      - opened
   workflow_dispatch:
 
 permissions:
   contents: read
   issues: write
 
+env:
+  PHASE_2C_TRIGGER_TITLE: "[trigger] Phase 2C compatibility gates"
+
 jobs:
   product-compiler:
+    if: github.event_name != 'issues' || github.event.issue.title == '[trigger] Phase 2C compatibility gates'
     runs-on: windows-latest
     steps:
       - name: Check out source
@@ -59,6 +66,7 @@ jobs:
           pnpm studio:build
 
   native:
+    if: github.event_name != 'issues' || github.event.issue.title == '[trigger] Phase 2C compatibility gates'
     runs-on: windows-latest
     steps:
       - name: Check out source
@@ -98,7 +106,7 @@ jobs:
           cmake --build --preset product-runtime-clang-tidy-build
 
   report:
-    if: always()
+    if: always() && (github.event_name != 'issues' || github.event.issue.title == '[trigger] Phase 2C compatibility gates')
     needs:
       - product-compiler
       - native
