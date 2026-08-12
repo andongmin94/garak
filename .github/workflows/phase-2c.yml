@@ -74,6 +74,18 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.19.0
+
+      - name: Activate pnpm
+        shell: pwsh
+        run: |
+          corepack enable
+          corepack prepare pnpm@11.16.0 --activate
+          pnpm install --frozen-lockfile
+
       - name: Configure MSVC environment
         uses: ilammy/msvc-dev-cmd@v1
         with:
@@ -84,6 +96,8 @@ jobs:
         run: |
           cmake --preset product-runtime-debug
           cmake --build --preset product-runtime-debug-build
+          pnpm product:export --project examples/products/artist-gain-warm.garak --configuration Debug --output out/exports/phase-1c1/debug --force --validate
+          pnpm product:export --project examples/products/artist-gain-bright.garak --configuration Debug --output out/exports/phase-1c1/debug --force --validate
           ctest --preset product-runtime-debug-test --no-tests=error
 
       - name: Release Product Runtime
@@ -91,6 +105,8 @@ jobs:
         run: |
           cmake --preset product-runtime-release
           cmake --build --preset product-runtime-release-build
+          pnpm product:export --project examples/products/artist-gain-warm.garak --configuration Release --output out/exports/phase-1c1/release --force --validate
+          pnpm product:export --project examples/products/artist-gain-bright.garak --configuration Release --output out/exports/phase-1c1/release --force --validate
           ctest --preset product-runtime-release-test --no-tests=error
 
       - name: First-party warnings as errors
