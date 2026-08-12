@@ -45,7 +45,11 @@ if(GARAK_BUILD_PRODUCT_RUNTIME_V1)
       garak_product_inspector
   )
   if(GARAK_BUILD_TESTS)
-    add_dependencies(garak_product_runtime_v1_quality garak_product_v1_contract_tests)
+    add_dependencies(
+      garak_product_runtime_v1_quality
+      garak_product_v1_contract_tests
+      garak_product_compatibility_tests
+    )
     if(GARAK_BUILD_RUNTIME_STRATEGY_SPIKE)
       add_dependencies(
         garak_product_runtime_v1_quality
