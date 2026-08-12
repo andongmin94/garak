@@ -5,3 +5,4 @@
 .gitattributes text eol=lf
 .gitignore text eol=lf
 examples/products/**/product.json text eol=lf
+native/adapters/vst3/runtime_strategy_spike/descriptors/*.txt text eol=lf
