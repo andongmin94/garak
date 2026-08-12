@@ -13,7 +13,7 @@ set(beta_bundle "${CMAKE_ARGV9}")
 foreach(product IN ITEMS alpha beta)
   execute_process(
     COMMAND
-      powershell -NoProfile -ExecutionPolicy Bypass -File "${package_script}"
+      pwsh -NoProfile -File "${package_script}"
       -TemplateBundlePath "${template_bundle}"
       -DescriptorPath "${${product}_descriptor}"
       -OutputBundlePath "${${product}_bundle}"
