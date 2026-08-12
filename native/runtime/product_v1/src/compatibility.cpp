@@ -68,8 +68,7 @@ CompatibilityReport classify_compiled_product_compatibility(
     return version_report;
   }
 
-  CompiledProduct product{};
-  return parse_compiled_product(bytes, product) == CompiledProductError::none
+  return parse_compiled_product(bytes).has_value()
              ? CompatibilityReport{CompatibilityDisposition::current, version}
              : CompatibilityReport{CompatibilityDisposition::reject_invalid, version};
 }
