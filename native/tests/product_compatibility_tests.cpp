@@ -5,6 +5,8 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <cstdio>
+#include <exception>
 #include <iostream>
 #include <string_view>
 
@@ -103,12 +105,20 @@ void test_product_state_policy() {
 } // namespace
 
 int main() {
-  test_compiled_product_policy();
-  test_product_state_policy();
-  if (failures != 0) {
-    std::cerr << failures << " compatibility assertion(s) failed.\n";
+  try {
+    test_compiled_product_policy();
+    test_product_state_policy();
+    if (failures != 0) {
+      std::cerr << failures << " compatibility assertion(s) failed.\n";
+      return 1;
+    }
+    std::cout << "Garak compiled-product and state compatibility policy passed.\n";
+    return 0;
+  } catch (const std::exception& error) {
+    std::fprintf(stderr, "UNCAUGHT: %s\n", error.what());
+    return 1;
+  } catch (...) {
+    std::fputs("UNCAUGHT: unknown compatibility test exception.\n", stderr);
     return 1;
   }
-  std::cout << "Garak compiled-product and state compatibility policy passed.\n";
-  return 0;
 }
