@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: read
+  issues: write
 
 jobs:
   diagnose:
@@ -37,10 +38,45 @@ jobs:
             $exitCode = $LASTEXITCODE
           }
 
+          Set-Content -Path out/diagnostics/exit-code.txt -Value $exitCode -NoNewline
           Write-Host '=== Phase 2C clang-tidy relevant diagnostics ==='
           Select-String -Path $log -Pattern 'error:|warning:|FAILED:|clang-tidy|ninja: build stopped' -Context 3,3 |
             Select-Object -Last 100 |
             ForEach-Object { $_.ToString() }
           Write-Host '=== Phase 2C clang-tidy final 220 lines ==='
           Get-Content $log -Tail 220
+
+      - name: Publish diagnostic excerpt
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const logPath = 'out/diagnostics/phase2c-clang-tidy.log';
+            const codePath = 'out/diagnostics/exit-code.txt';
+            const log = fs.existsSync(logPath) ? fs.readFileSync(logPath, 'utf8') : 'Diagnostic log was not created.';
+            const exitCode = fs.existsSync(codePath) ? fs.readFileSync(codePath, 'utf8') : 'unavailable';
+            const excerpt = log.slice(-18000);
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `[diagnostic] Phase 2C clang-tidy ${context.sha}`,
+              body: [
+                `Exit code: ${exitCode}`,
+                `Run: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+                '',
+                '```text',
+                excerpt,
+                '```',
+              ].join('\n'),
+            });
+
+      - name: Preserve clang-tidy failure result
+        if: always()
+        shell: pwsh
+        run: |
+          if (-not (Test-Path out/diagnostics/exit-code.txt)) {
+            exit 1
+          }
+          $exitCode = [int](Get-Content out/diagnostics/exit-code.txt -Raw)
           exit $exitCode
