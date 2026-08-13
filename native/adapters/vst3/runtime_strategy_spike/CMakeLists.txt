@@ -191,7 +191,7 @@ add_custom_command(
 add_custom_target(
   garak_data_runtime_products
   COMMAND
-    powershell -NoProfile -ExecutionPolicy Bypass -File
+    pwsh -NoProfile -File
     "${CMAKE_SOURCE_DIR}/tools/vst3/package_data_runtime_variant.ps1"
     -TemplateBundlePath "${garak_data_template_package_path}"
     -DescriptorPath "${CMAKE_CURRENT_SOURCE_DIR}/descriptors/data-alpha.txt"
@@ -199,7 +199,7 @@ add_custom_target(
     -ModuleInfoToolPath "$<TARGET_FILE:moduleinfotool>"
     -VerifyOnly
   COMMAND
-    powershell -NoProfile -ExecutionPolicy Bypass -File
+    pwsh -NoProfile -File
     "${CMAKE_SOURCE_DIR}/tools/vst3/package_data_runtime_variant.ps1"
     -TemplateBundlePath "${garak_data_template_package_path}"
     -DescriptorPath "${CMAKE_CURRENT_SOURCE_DIR}/descriptors/data-beta.txt"
