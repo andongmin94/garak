@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: read
+  statuses: write
 
 concurrency:
   group: garak-windows-foundation-${{ github.ref }}
@@ -204,3 +205,35 @@ jobs:
             $changes | ForEach-Object { Write-Error $_ }
             throw 'Native gates modified tracked source.'
           }
+
+  report:
+    name: Authoritative commit status
+    if: always()
+    needs:
+      - typescript
+      - native
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Publish the final commit status
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const passed =
+              '${{ needs.typescript.result }}' === 'success' &&
+              '${{ needs.native.result }}' === 'success';
+            await github.rest.repos.createCommitStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sha: context.sha,
+              state: passed ? 'success' : 'failure',
+              context: 'garak/windows-foundation',
+              description: passed
+                ? 'Authoritative Windows foundation gates passed'
+                : 'One or more authoritative Windows foundation gates failed',
+              target_url:
+                `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+            });
+            if (!passed) {
+              core.setFailed('The authoritative Windows foundation gates did not all pass.');
+            }
