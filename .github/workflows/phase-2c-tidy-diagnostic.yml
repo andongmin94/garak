@@ -1,0 +1,46 @@
+name: Phase 2C clang-tidy diagnostic
+
+on:
+  issues:
+    types:
+      - opened
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    if: github.event.issue.title == '[trigger] Phase 2C clang-tidy diagnostic'
+    runs-on: windows-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Configure MSVC environment
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Capture bounded clang-tidy diagnostics
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Continue'
+          New-Item -ItemType Directory -Force out/diagnostics | Out-Null
+          $log = 'out/diagnostics/phase2c-clang-tidy.log'
+
+          cmake --preset product-runtime-clang-tidy *> $log
+          $exitCode = $LASTEXITCODE
+          if ($exitCode -eq 0) {
+            cmake --build --preset product-runtime-clang-tidy-build *>> $log
+            $exitCode = $LASTEXITCODE
+          }
+
+          Write-Host '=== Phase 2C clang-tidy relevant diagnostics ==='
+          Select-String -Path $log -Pattern 'error:|warning:|FAILED:|clang-tidy|ninja: build stopped' -Context 3,3 |
+            Select-Object -Last 100 |
+            ForEach-Object { $_.ToString() }
+          Write-Host '=== Phase 2C clang-tidy final 220 lines ==='
+          Get-Content $log -Tail 220
+          exit $exitCode
