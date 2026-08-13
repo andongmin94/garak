@@ -34,7 +34,7 @@ jobs:
           cmake --preset product-runtime-clang-tidy *> $log
           $exitCode = $LASTEXITCODE
           if ($exitCode -eq 0) {
-            cmake --build --preset product-runtime-clang-tidy-build *>> $log
+            cmake --build out/build/product-runtime-clang-tidy --target garak_product_compatibility_tests --verbose *>> $log
             $exitCode = $LASTEXITCODE
           }
 
