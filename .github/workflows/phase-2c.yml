@@ -1,75 +1,97 @@
-name: Phase 2C compatibility gates
+name: Windows foundation gates
 
 on:
   push:
     branches:
       - main
-    paths:
-      - "tools/product-compiler/**"
-      - "native/runtime/product_v1/**"
-      - "native/tests/**"
-      - "CMakeLists.txt"
-      - "CMakePresets.json"
-      - "cmake/**"
-      - "package.json"
-      - "pnpm-lock.yaml"
-      - ".github/workflows/phase-2c.yml"
-  issues:
-    types:
-      - opened
   workflow_dispatch:
 
 permissions:
   contents: read
-  issues: write
 
-env:
-  PHASE_2C_TRIGGER_TITLE: "[trigger] Phase 2C compatibility gates"
+concurrency:
+  group: garak-windows-foundation-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  product-compiler:
-    if: github.event_name != 'issues' || github.event.issue.title == '[trigger] Phase 2C compatibility gates'
+  typescript:
+    name: Product Compiler and Studio
     runs-on: windows-latest
+    timeout-minutes: 20
     steps:
       - name: Check out source
         uses: actions/checkout@v4
-        with:
-          submodules: recursive
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 24.19.0
 
-      - name: Activate pnpm
+      - name: Install exact workspace dependencies
         shell: pwsh
         run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
           corepack enable
           corepack prepare pnpm@11.16.0 --activate
           pnpm install --frozen-lockfile
 
-      - name: Product Compiler gates
+      - name: Verify repository text and whitespace
         shell: pwsh
         run: |
-          pnpm product:format:check
-          pnpm product:lint
-          pnpm product:typecheck
-          pnpm product:test
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          git diff --check
+          $badEol = @(git ls-files --eol | Select-String 'w/(crlf|mixed)')
+          if ($badEol.Count -ne 0) {
+            $badEol | ForEach-Object { Write-Error $_.Line }
+            throw 'Tracked first-party text must use LF working-tree line endings.'
+          }
 
-      - name: Studio regression gates
+      - name: Check Product Compiler formatting
+        run: pnpm product:format:check
+
+      - name: Lint Product Compiler
+        run: pnpm product:lint
+
+      - name: Type-check Product Compiler
+        run: pnpm product:typecheck
+
+      - name: Test Product Compiler
+        run: pnpm product:test
+
+      - name: Check Studio formatting
+        run: pnpm studio:format:check
+
+      - name: Lint Studio
+        run: pnpm studio:lint
+
+      - name: Type-check Studio
+        run: pnpm studio:typecheck
+
+      - name: Test Studio
+        run: pnpm studio:test
+
+      - name: Build Studio production outputs
+        run: pnpm studio:build
+
+      - name: Verify tests and builds did not rewrite tracked source
         shell: pwsh
         run: |
-          pnpm studio:format:check
-          pnpm studio:lint
-          pnpm studio:typecheck
-          pnpm studio:test
-          pnpm studio:build
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          $changes = @(git status --porcelain --untracked-files=no)
+          if ($changes.Count -ne 0) {
+            $changes | ForEach-Object { Write-Error $_ }
+            throw 'Quality gates modified tracked source.'
+          }
 
   native:
-    if: github.event_name != 'issues' || github.event.issue.title == '[trigger] Phase 2C compatibility gates'
+    name: Native Product Runtime and real export path
     runs-on: windows-latest
+    timeout-minutes: 60
     steps:
-      - name: Check out source
+      - name: Check out source and exact SDK graph
         uses: actions/checkout@v4
         with:
           submodules: recursive
@@ -79,9 +101,11 @@ jobs:
         with:
           node-version: 24.19.0
 
-      - name: Activate pnpm
+      - name: Install exact workspace dependencies
         shell: pwsh
         run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
           corepack enable
           corepack prepare pnpm@11.16.0 --activate
           pnpm install --frozen-lockfile
@@ -91,58 +115,92 @@ jobs:
         with:
           arch: x64
 
-      - name: Debug Product Runtime
+      - name: Verify recursive SDK pins
         shell: pwsh
         run: |
-          cmake --preset product-runtime-debug
-          cmake --build --preset product-runtime-debug-build
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          $status = @(git submodule status --recursive)
+          $status | ForEach-Object { Write-Host $_ }
+          $invalid = @($status | Where-Object { $_ -match '^[+-U]' })
+          if ($invalid.Count -ne 0) {
+            $invalid | ForEach-Object { Write-Error $_ }
+            throw 'A recursive submodule is missing or not at its recorded gitlink.'
+          }
+
+      - name: Check first-party C++ formatting
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          $files = @(
+            git ls-files -- '*.c' '*.cc' '*.cpp' '*.cxx' '*.h' '*.hh' '*.hpp' '*.hxx' |
+              Where-Object { $_ -notlike 'third_party/*' }
+          )
+          if ($files.Count -eq 0) {
+            throw 'No first-party C/C++ files were found for clang-format.'
+          }
+          & clang-format --dry-run --Werror --style=file @files
+
+      - name: Configure Debug Product Runtime
+        run: cmake --preset product-runtime-debug --fresh
+
+      - name: Build Debug Product Runtime
+        run: cmake --build --preset product-runtime-debug-build --clean-first
+
+      - name: Export and officially validate Debug products
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
           pnpm product:export --project examples/products/artist-gain-warm.garak --configuration Debug --output out/exports/phase-1c1/debug --force --validate
           pnpm product:export --project examples/products/artist-gain-bright.garak --configuration Debug --output out/exports/phase-1c1/debug --force --validate
-          ctest --preset product-runtime-debug-test --no-tests=error
 
-      - name: Release Product Runtime
+      - name: Test Debug Product Runtime
+        run: ctest --preset product-runtime-debug-test --no-tests=error
+
+      - name: Exercise the real Studio Debug product workflow
+        run: pnpm --dir studio verify:product-workflow --configuration Debug
+
+      - name: Configure Release Product Runtime
+        run: cmake --preset product-runtime-release --fresh
+
+      - name: Build Release Product Runtime
+        run: cmake --build --preset product-runtime-release-build --clean-first
+
+      - name: Export and officially validate Release products
         shell: pwsh
         run: |
-          cmake --preset product-runtime-release
-          cmake --build --preset product-runtime-release-build
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
           pnpm product:export --project examples/products/artist-gain-warm.garak --configuration Release --output out/exports/phase-1c1/release --force --validate
           pnpm product:export --project examples/products/artist-gain-bright.garak --configuration Release --output out/exports/phase-1c1/release --force --validate
-          ctest --preset product-runtime-release-test --no-tests=error
 
-      - name: First-party warnings as errors
+      - name: Test Release Product Runtime
+        run: ctest --preset product-runtime-release-test --no-tests=error
+
+      - name: Exercise the real Studio Release product workflow
+        run: pnpm --dir studio verify:product-workflow --configuration Release
+
+      - name: Configure warnings-as-errors build
+        run: cmake --preset product-runtime-werror --fresh
+
+      - name: Build with first-party warnings as errors
+        run: cmake --build --preset product-runtime-werror-build --clean-first
+
+      - name: Configure clang-tidy build
+        run: cmake --preset product-runtime-clang-tidy --fresh
+
+      - name: Build with first-party clang-tidy
+        run: cmake --build --preset product-runtime-clang-tidy-build --clean-first
+
+      - name: Verify native gates did not rewrite tracked source
         shell: pwsh
         run: |
-          cmake --preset product-runtime-werror
-          cmake --build --preset product-runtime-werror-build
-
-      - name: First-party clang-tidy
-        shell: pwsh
-        run: |
-          cmake --preset product-runtime-clang-tidy
-          cmake --build --preset product-runtime-clang-tidy-build
-
-  report:
-    if: always() && (github.event_name != 'issues' || github.event.issue.title == '[trigger] Phase 2C compatibility gates')
-    needs:
-      - product-compiler
-      - native
-    runs-on: ubuntu-latest
-    steps:
-      - name: Publish Phase 2C gate result
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const passed =
-              '${{ needs.product-compiler.result }}' === 'success' &&
-              '${{ needs.native.result }}' === 'success';
-            await github.rest.issues.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              title: `[CI] Phase 2C ${passed ? 'passed' : 'failed'} ${context.sha}`,
-              body: [
-                `Commit: ${context.sha}`,
-                `Run: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
-                `Product Compiler and Studio: ${{ needs.product-compiler.result }}`,
-                `Native Product Runtime: ${{ needs.native.result }}`,
-              ].join('\n'),
-            });
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          $changes = @(git status --porcelain --untracked-files=no)
+          if ($changes.Count -ne 0) {
+            $changes | ForEach-Object { Write-Error $_ }
+            throw 'Native gates modified tracked source.'
+          }
