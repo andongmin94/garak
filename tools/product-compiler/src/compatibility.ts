@@ -21,10 +21,7 @@ export interface ArtifactVersion {
 }
 
 export type CompiledProductDisposition =
-  | "load-current"
-  | "rebuild-from-project"
-  | "reject-too-new"
-  | "reject-invalid";
+  "load-current" | "rebuild-from-project" | "reject-too-new" | "reject-invalid";
 
 export interface CompiledProductCompatibility {
   readonly artifact: "compiled-product";
@@ -106,7 +103,8 @@ function invalidCompiled(
     version,
     productId: null,
     diagnosticCode,
-    action: "Reject the artifact and preserve the source project for diagnosis.",
+    action:
+      "Reject the artifact and preserve the source project for diagnosis.",
   };
 }
 
@@ -285,7 +283,9 @@ export function classifyProductState(
 export async function inspectCompatibilityFiles(
   options: InspectCompatibilityFilesOptions,
 ): Promise<CompatibilityInspection> {
-  const compiled = classifyCompiledProduct(await readFile(options.compiledFile));
+  const compiled = classifyCompiledProduct(
+    await readFile(options.compiledFile),
+  );
   let state: ProductStateCompatibility | null = null;
   if (options.stateFile !== undefined) {
     state = classifyProductState(

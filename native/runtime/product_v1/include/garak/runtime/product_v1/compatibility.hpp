@@ -32,8 +32,9 @@ struct CompatibilityReport {
 [[nodiscard]] CompatibilityReport
 classify_compiled_product_compatibility(std::span<const std::uint8_t> bytes) noexcept;
 
-[[nodiscard]] CompatibilityReport classify_product_state_compatibility(
-    std::span<const std::uint8_t> bytes, const Identifier& expected_product_id) noexcept;
+[[nodiscard]] CompatibilityReport
+classify_product_state_compatibility(std::span<const std::uint8_t> bytes,
+                                     const Identifier& expected_product_id) noexcept;
 
 } // namespace garak::runtime::product_v1
 

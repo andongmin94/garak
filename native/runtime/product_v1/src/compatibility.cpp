@@ -15,8 +15,7 @@ constexpr std::uint16_t kCurrentMinor = 0;
 
 [[nodiscard]] bool has_magic(const std::span<const std::uint8_t> bytes,
                              const std::span<const std::uint8_t> magic) noexcept {
-  return bytes.size() >= magic.size() &&
-         std::equal(magic.begin(), magic.end(), bytes.begin());
+  return bytes.size() >= magic.size() && std::equal(magic.begin(), magic.end(), bytes.begin());
 }
 
 [[nodiscard]] std::uint16_t read_u16(const std::span<const std::uint8_t> bytes,
@@ -25,8 +24,7 @@ constexpr std::uint16_t kCurrentMinor = 0;
          static_cast<std::uint16_t>(static_cast<std::uint16_t>(bytes[offset + 1]) << 8U);
 }
 
-[[nodiscard]] ArtifactVersion read_version(
-    const std::span<const std::uint8_t> bytes) noexcept {
+[[nodiscard]] ArtifactVersion read_version(const std::span<const std::uint8_t> bytes) noexcept {
   if (bytes.size() < 12) {
     return {};
   }
@@ -38,8 +36,8 @@ constexpr std::uint16_t kCurrentMinor = 0;
                      [](const std::uint8_t value) { return value == 0; });
 }
 
-[[nodiscard]] CompatibilityReport version_decision(
-    const ArtifactVersion version, const bool compiled) noexcept {
+[[nodiscard]] CompatibilityReport version_decision(const ArtifactVersion version,
+                                                   const bool compiled) noexcept {
   if (!version.available) {
     return {CompatibilityDisposition::reject_invalid, version};
   }
@@ -57,8 +55,8 @@ constexpr std::uint16_t kCurrentMinor = 0;
 
 } // namespace
 
-CompatibilityReport classify_compiled_product_compatibility(
-    const std::span<const std::uint8_t> bytes) noexcept {
+CompatibilityReport
+classify_compiled_product_compatibility(const std::span<const std::uint8_t> bytes) noexcept {
   if (!has_magic(bytes, kCompiledMagic)) {
     return {CompatibilityDisposition::reject_invalid, {}};
   }
@@ -73,9 +71,9 @@ CompatibilityReport classify_compiled_product_compatibility(
              : CompatibilityReport{CompatibilityDisposition::reject_invalid, version};
 }
 
-CompatibilityReport classify_product_state_compatibility(
-    const std::span<const std::uint8_t> bytes,
-    const Identifier& expected_product_id) noexcept {
+CompatibilityReport
+classify_product_state_compatibility(const std::span<const std::uint8_t> bytes,
+                                     const Identifier& expected_product_id) noexcept {
   if (!has_magic(bytes, kStateMagic)) {
     return {CompatibilityDisposition::reject_invalid, {}};
   }
@@ -89,8 +87,7 @@ CompatibilityReport classify_product_state_compatibility(
   }
 
   Identifier embedded_product_id{};
-  std::copy_n(bytes.begin() + 24, embedded_product_id.size(),
-              embedded_product_id.begin());
+  std::copy_n(bytes.begin() + 24, embedded_product_id.size(), embedded_product_id.begin());
   if (all_zero(embedded_product_id)) {
     return {CompatibilityDisposition::reject_invalid, version};
   }

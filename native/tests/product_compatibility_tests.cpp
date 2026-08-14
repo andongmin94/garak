@@ -12,9 +12,9 @@
 
 namespace {
 
-using garak::runtime::product_v1::CompatibilityDisposition;
 using garak::runtime::product_v1::classify_compiled_product_compatibility;
 using garak::runtime::product_v1::classify_product_state_compatibility;
+using garak::runtime::product_v1::CompatibilityDisposition;
 using garak::test::product_v1::kBrightProductId;
 using garak::test::product_v1::kWarmCompiledProduct;
 using garak::test::product_v1::kWarmDefaultState;
@@ -30,9 +30,8 @@ void expect(const bool condition, const std::string_view message) {
 }
 
 template <std::size_t Size>
-std::array<std::uint8_t, Size> with_u16(
-    const std::array<std::uint8_t, Size>& source, const std::size_t offset,
-    const std::uint16_t value) {
+std::array<std::uint8_t, Size> with_u16(const std::array<std::uint8_t, Size>& source,
+                                        const std::size_t offset, const std::uint16_t value) {
   auto result = source;
   result[offset] = static_cast<std::uint8_t>(value);
   result[offset + 1] = static_cast<std::uint8_t>(value >> 8U);
@@ -41,10 +40,8 @@ std::array<std::uint8_t, Size> with_u16(
 
 void test_compiled_product_policy() {
   const auto current = classify_compiled_product_compatibility(kWarmCompiledProduct);
-  expect(current.disposition == CompatibilityDisposition::current,
-         "current GARAKCPD must load");
-  expect(current.version.available && current.version.major == 1 &&
-             current.version.minor == 0,
+  expect(current.disposition == CompatibilityDisposition::current, "current GARAKCPD must load");
+  expect(current.version.available && current.version.major == 1 && current.version.minor == 0,
          "current GARAKCPD version must be 1.0");
 
   const auto old_bytes = with_u16(kWarmCompiledProduct, 8, 0);
@@ -69,27 +66,25 @@ void test_compiled_product_policy() {
 }
 
 void test_product_state_policy() {
-  const auto current =
-      classify_product_state_compatibility(kWarmDefaultState, kWarmProductId);
+  const auto current = classify_product_state_compatibility(kWarmDefaultState, kWarmProductId);
   expect(current.disposition == CompatibilityDisposition::current,
          "current same-product GARAKPST must restore");
 
-  expect(classify_product_state_compatibility(kWarmDefaultState,
-                                               kBrightProductId)
-             .disposition == CompatibilityDisposition::reject_foreign_product,
+  expect(classify_product_state_compatibility(kWarmDefaultState, kBrightProductId).disposition ==
+             CompatibilityDisposition::reject_foreign_product,
          "state from another Product ID must be rejected");
 
   const auto old_bytes = with_u16(kWarmDefaultState, 8, 0);
-  expect(classify_product_state_compatibility(old_bytes, kWarmProductId)
-             .disposition == CompatibilityDisposition::reject_unsupported_old,
+  expect(classify_product_state_compatibility(old_bytes, kWarmProductId).disposition ==
+             CompatibilityDisposition::reject_unsupported_old,
          "older state without an explicit migration must be rejected");
   const auto future_major = with_u16(kWarmDefaultState, 8, 2);
-  expect(classify_product_state_compatibility(future_major, kWarmProductId)
-             .disposition == CompatibilityDisposition::reject_too_new,
+  expect(classify_product_state_compatibility(future_major, kWarmProductId).disposition ==
+             CompatibilityDisposition::reject_too_new,
          "future state major must be rejected");
   const auto future_minor = with_u16(kWarmDefaultState, 10, 1);
-  expect(classify_product_state_compatibility(future_minor, kWarmProductId)
-             .disposition == CompatibilityDisposition::reject_too_new,
+  expect(classify_product_state_compatibility(future_minor, kWarmProductId).disposition ==
+             CompatibilityDisposition::reject_too_new,
          "future state minor must be rejected");
 
   auto malformed = kWarmDefaultState;
@@ -97,8 +92,8 @@ void test_product_state_policy() {
   malformed[65] = 0;
   malformed[66] = 0;
   malformed[67] = 0;
-  expect(classify_product_state_compatibility(malformed, kWarmProductId)
-             .disposition == CompatibilityDisposition::reject_invalid,
+  expect(classify_product_state_compatibility(malformed, kWarmProductId).disposition ==
+             CompatibilityDisposition::reject_invalid,
          "malformed current state must be rejected");
 }
 

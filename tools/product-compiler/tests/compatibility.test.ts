@@ -9,10 +9,7 @@ import {
   inspectCompatibilityFiles,
 } from "../src/compatibility.ts";
 import { encodeCompiledProduct } from "../src/compiled_product.ts";
-import {
-  loadTemporaryWarmProject,
-  withTemporaryDirectory,
-} from "./helpers.ts";
+import { loadTemporaryWarmProject, withTemporaryDirectory } from "./helpers.ts";
 
 const WARM_PRODUCT_ID = "6f0e50f1-a2d4-4b37-8c9e-1f2a3b4c5d6e";
 const BRIGHT_PRODUCT_ID = "c8a56d90-7e4b-4af1-91d3-2b6c8e0f1357";
@@ -48,14 +45,17 @@ test("current compiled product and same-product state are loadable together", as
       diagnosticCode: null,
       action: "Load the compiled product with the current Runtime v1 contract.",
     });
-    assert.deepEqual(classifyProductState(WARM_DEFAULT_STATE, WARM_PRODUCT_ID), {
-      artifact: "product-state",
-      disposition: "restore-current",
-      version: { major: 1, minor: 0 },
-      productId: WARM_PRODUCT_ID,
-      diagnosticCode: null,
-      action: "Restore the exact current Product State v1 contract.",
-    });
+    assert.deepEqual(
+      classifyProductState(WARM_DEFAULT_STATE, WARM_PRODUCT_ID),
+      {
+        artifact: "product-state",
+        disposition: "restore-current",
+        version: { major: 1, minor: 0 },
+        productId: WARM_PRODUCT_ID,
+        diagnosticCode: null,
+        action: "Restore the exact current Product State v1 contract.",
+      },
+    );
   });
 });
 
