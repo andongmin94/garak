@@ -49,78 +49,10 @@
       }
     },
     {
-      "name": "vst3-debug",
-      "displayName": "VST3 Gain Spike Debug",
-      "inherits": "debug",
-      "cacheVariables": {
-        "GARAK_BUILD_VST3_GAIN_SPIKE": true
-      }
-    },
-    {
-      "name": "vst3-release",
-      "displayName": "VST3 Gain Spike Release",
-      "inherits": "release",
-      "cacheVariables": {
-        "GARAK_BUILD_VST3_GAIN_SPIKE": true
-      }
-    },
-    {
-      "name": "vst3-werror",
-      "displayName": "VST3 Gain Spike Debug with warnings as errors",
-      "inherits": "vst3-debug",
-      "cacheVariables": {
-        "GARAK_WARNINGS_AS_ERRORS": true
-      }
-    },
-    {
-      "name": "vst3-clang-tidy",
-      "displayName": "VST3 Gain Spike Debug with clang-tidy",
-      "inherits": "vst3-debug",
-      "cacheVariables": {
-        "GARAK_ENABLE_CLANG_TIDY": true
-      }
-    },
-    {
-      "name": "runtime-strategy-debug",
-      "displayName": "Runtime Strategy Spike Debug",
-      "inherits": "debug",
-      "cacheVariables": {
-        "GARAK_BUILD_VST3_GAIN_SPIKE": true,
-        "GARAK_BUILD_RUNTIME_STRATEGY_SPIKE": true
-      }
-    },
-    {
-      "name": "runtime-strategy-release",
-      "displayName": "Runtime Strategy Spike Release",
-      "inherits": "release",
-      "cacheVariables": {
-        "GARAK_BUILD_VST3_GAIN_SPIKE": true,
-        "GARAK_BUILD_RUNTIME_STRATEGY_SPIKE": true
-      }
-    },
-    {
-      "name": "runtime-strategy-werror",
-      "displayName": "Runtime Strategy Spike Debug with warnings as errors",
-      "inherits": "runtime-strategy-debug",
-      "cacheVariables": {
-        "GARAK_WARNINGS_AS_ERRORS": true
-      }
-    },
-    {
-      "name": "runtime-strategy-clang-tidy",
-      "displayName": "Runtime Strategy Spike Debug with clang-tidy",
-      "inherits": "runtime-strategy-debug",
-      "cacheVariables": {
-        "GARAK_ENABLE_CLANG_TIDY": true
-      }
-    },
-    {
       "name": "product-runtime-debug",
       "displayName": "Product Runtime v1 Debug",
       "inherits": "debug",
       "cacheVariables": {
-        "GARAK_BUILD_VST3_GAIN_SPIKE": true,
-        "GARAK_BUILD_RUNTIME_STRATEGY_SPIKE": true,
         "GARAK_BUILD_PRODUCT_RUNTIME_V1": true
       }
     },
@@ -129,8 +61,6 @@
       "displayName": "Product Runtime v1 Release",
       "inherits": "release",
       "cacheVariables": {
-        "GARAK_BUILD_VST3_GAIN_SPIKE": true,
-        "GARAK_BUILD_RUNTIME_STRATEGY_SPIKE": true,
         "GARAK_BUILD_PRODUCT_RUNTIME_V1": true
       }
     },
@@ -167,46 +97,6 @@
     {
       "name": "clang-tidy-build",
       "configurePreset": "debug-clang-tidy"
-    },
-    {
-      "name": "vst3-debug-build",
-      "configurePreset": "vst3-debug",
-      "targets": ["garak_vst3_gain_spike_all"]
-    },
-    {
-      "name": "vst3-release-build",
-      "configurePreset": "vst3-release",
-      "targets": ["garak_vst3_gain_spike_all"]
-    },
-    {
-      "name": "vst3-werror-build",
-      "configurePreset": "vst3-werror",
-      "targets": ["garak_vst3_gain_spike_all"]
-    },
-    {
-      "name": "vst3-clang-tidy-build",
-      "configurePreset": "vst3-clang-tidy",
-      "targets": ["garak_vst3_gain_spike_all"]
-    },
-    {
-      "name": "runtime-strategy-debug-build",
-      "configurePreset": "runtime-strategy-debug",
-      "targets": ["garak_runtime_strategy_spike_all"]
-    },
-    {
-      "name": "runtime-strategy-release-build",
-      "configurePreset": "runtime-strategy-release",
-      "targets": ["garak_runtime_strategy_spike_all"]
-    },
-    {
-      "name": "runtime-strategy-werror-build",
-      "configurePreset": "runtime-strategy-werror",
-      "targets": ["garak_runtime_strategy_spike_all"]
-    },
-    {
-      "name": "runtime-strategy-clang-tidy-build",
-      "configurePreset": "runtime-strategy-clang-tidy",
-      "targets": ["garak_runtime_strategy_spike_all"]
     },
     {
       "name": "product-runtime-debug-build",
@@ -251,46 +141,6 @@
       }
     },
     {
-      "name": "vst3-debug-test",
-      "configurePreset": "vst3-debug",
-      "output": {
-        "outputOnFailure": true
-      },
-      "execution": {
-        "noTestsAction": "error"
-      }
-    },
-    {
-      "name": "vst3-release-test",
-      "configurePreset": "vst3-release",
-      "output": {
-        "outputOnFailure": true
-      },
-      "execution": {
-        "noTestsAction": "error"
-      }
-    },
-    {
-      "name": "runtime-strategy-debug-test",
-      "configurePreset": "runtime-strategy-debug",
-      "output": {
-        "outputOnFailure": true
-      },
-      "execution": {
-        "noTestsAction": "error"
-      }
-    },
-    {
-      "name": "runtime-strategy-release-test",
-      "configurePreset": "runtime-strategy-release",
-      "output": {
-        "outputOnFailure": true
-      },
-      "execution": {
-        "noTestsAction": "error"
-      }
-    },
-    {
       "name": "product-runtime-debug-test",
       "configurePreset": "product-runtime-debug",
       "output": {
@@ -307,7 +157,7 @@
         "outputOnFailure": true
       },
       "execution": {
-        "noTestsAction": "error"
+          "noTestsAction": "error"
       }
     }
   ]
