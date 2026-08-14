@@ -52,6 +52,14 @@ jobs:
       - name: Check Product Compiler formatting
         run: pnpm product:format:check
 
+      - name: Show Product Compiler formatting diff
+        if: failure()
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Continue'
+          pnpm product:format
+          git diff -- tools/product-compiler
+
       - name: Lint Product Compiler
         run: pnpm product:lint
 
@@ -142,6 +150,18 @@ jobs:
             throw 'No first-party C/C++ files were found for clang-format.'
           }
           & clang-format --dry-run --Werror --style=file @files
+
+      - name: Show first-party C++ formatting diff
+        if: failure()
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Continue'
+          $files = @(
+            git ls-files -- '*.c' '*.cc' '*.cpp' '*.cxx' '*.h' '*.hh' '*.hpp' '*.hxx' |
+              Where-Object { $_ -notlike 'third_party/*' }
+          )
+          & clang-format -i --style=file @files
+          git diff -- native
 
       - name: Configure Debug Product Runtime
         run: cmake --preset product-runtime-debug --fresh
