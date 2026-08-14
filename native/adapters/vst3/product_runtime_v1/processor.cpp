@@ -1,8 +1,7 @@
 #include "processor.hpp"
 
-#include "automation.hpp"
 #include "factory_support.hpp"
-#include "gain_kernel.hpp"
+#include "garak/dsp/gain/gain.hpp"
 #include "garak/runtime/product_v1/product_state.hpp"
 #include "state_stream.hpp"
 
@@ -27,7 +26,7 @@ public:
   }
 
   [[nodiscard]] bool point(const Steinberg::int32 index,
-                           garak::spike::gain::AutomationPoint& point) const {
+                           garak::dsp::gain::AutomationPoint& point) const {
     if (queue_ == nullptr) {
       return false;
     }
@@ -122,8 +121,8 @@ process_audio(Steinberg::Vst::ProcessData& data, QueuePointSource& gain_source,
   }
 
   std::uint64_t output_silence = 0;
-  garak::spike::gain::process_block(
-      garak::spike::gain::ProcessBlockContext<Sample, QueuePointSource, QueuePointSource>{
+  garak::dsp::gain::process_block(
+      garak::dsp::gain::ProcessBlockContext<Sample, QueuePointSource, QueuePointSource>{
           input_channels.data(), output_channels.data(), channel_count, data.numSamples,
           input.silenceFlags, output_silence, gain_source, bypass_source, current_gain,
           current_bypass});
@@ -265,9 +264,9 @@ Steinberg::tresult PLUGIN_API GainProcessor::process(Steinberg::Vst::ProcessData
       std::uint64_t unused_silence = 0;
       std::array<Steinberg::Vst::Sample32*, 1> unused_input{};
       std::array<Steinberg::Vst::Sample32*, 1> unused_output{};
-      garak::spike::gain::process_block(
-          garak::spike::gain::ProcessBlockContext<Steinberg::Vst::Sample32, QueuePointSource,
-                                                  QueuePointSource>{
+      garak::dsp::gain::process_block(
+          garak::dsp::gain::ProcessBlockContext<Steinberg::Vst::Sample32, QueuePointSource,
+                                                QueuePointSource>{
               unused_input.data(), unused_output.data(), 0, 0, 0, unused_silence, gain_source,
               bypass_source, current_gain_normalized_, current_bypass_});
       publish_processed_state(processing_generation);

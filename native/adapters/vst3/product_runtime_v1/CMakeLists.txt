@@ -18,14 +18,12 @@ set(
 add_library(garak_product_runtime_v1_objects OBJECT ${garak_product_runtime_v1_sources})
 target_link_libraries(
   garak_product_runtime_v1_objects
-  PRIVATE garak::product_contract_v1 garak_gain_spike_support
+  PRIVATE garak::product_contract_v1 garak::dsp_gain
 )
 target_compile_features(garak_product_runtime_v1_objects PRIVATE cxx_std_20)
 target_include_directories(
   garak_product_runtime_v1_objects
-  PRIVATE
-    "${CMAKE_CURRENT_SOURCE_DIR}"
-    "${CMAKE_SOURCE_DIR}/native/spikes/gain"
+  PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}"
 )
 target_include_directories(
   garak_product_runtime_v1_objects
@@ -39,8 +37,6 @@ target_compile_features(garak_product_host_utf8_locale PRIVATE cxx_std_20)
 garak_apply_warnings(garak_product_host_utf8_locale)
 garak_apply_clang_tidy(garak_product_host_utf8_locale)
 
-# Keep the exact SDK checkout clean while correcting its bounded host-side
-# supplementary-Unicode conversion at the first-party adapter boundary.
 add_library(garak_vst3_utf8_string_convert OBJECT utf8_string_convert_win.cpp)
 target_compile_features(garak_vst3_utf8_string_convert PRIVATE cxx_std_20)
 target_include_directories(
@@ -50,9 +46,6 @@ target_include_directories(
 garak_apply_warnings(garak_vst3_utf8_string_convert)
 garak_apply_clang_tidy(garak_vst3_utf8_string_convert)
 
-# The pinned SDK keeps its Windows module loader and JSON5 moduleinfo parser
-# outside sdk_hosting. Compile those unmodified sources in an isolated target;
-# Garak warnings and clang-tidy do not apply to third-party code.
 add_library(
   vst3_sdk_product_runtime_host_support
   STATIC
@@ -81,7 +74,7 @@ smtg_add_vst3plugin(
 set(SMTG_CREATE_MODULE_INFO "${garak_previous_create_module_info}")
 target_link_libraries(
   garak_product_runtime_v1_vst3
-  PRIVATE sdk garak::product_contract_v1 garak_gain_spike_support
+  PRIVATE sdk garak::product_contract_v1 garak::dsp_gain
 )
 target_compile_features(garak_product_runtime_v1_vst3 PRIVATE cxx_std_20)
 

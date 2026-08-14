@@ -1,12 +1,12 @@
-#ifndef GARAK_SPIKES_GAIN_AUTOMATION_HPP_INCLUDED
-#define GARAK_SPIKES_GAIN_AUTOMATION_HPP_INCLUDED
+#ifndef GARAK_DSP_GAIN_AUTOMATION_HPP_INCLUDED
+#define GARAK_DSP_GAIN_AUTOMATION_HPP_INCLUDED
 
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <limits>
 
-namespace garak::spike::gain {
+namespace garak::dsp::gain {
 
 struct AutomationPoint final {
   std::int32_t sample_offset;
@@ -145,6 +145,6 @@ private:
   AutomationPoint next_{};
 };
 
-} // namespace garak::spike::gain
+} // namespace garak::dsp::gain
 
 #endif

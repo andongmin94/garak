@@ -1,6 +1,6 @@
 #include "controller.hpp"
 
-#include "gain_kernel.hpp"
+#include "garak/dsp/gain/gain.hpp"
 #include "state_stream.hpp"
 
 #include "public.sdk/source/vst/vstparameters.h"
@@ -32,8 +32,8 @@ Steinberg::tresult PLUGIN_API GainController::initialize(Steinberg::FUnknown* co
   }
   auto* const gain = new Steinberg::Vst::RangeParameter(
       STR16("Gain"), garak::runtime::product_v1::kGainParameterId, STR16("dB"),
-      garak::spike::gain::kMinimumDecibels, garak::spike::gain::kMaximumDecibels,
-      garak::spike::gain::normalized_to_decibels(default_gain_normalized_), 0,
+      garak::dsp::gain::kMinimumDecibels, garak::dsp::gain::kMaximumDecibels,
+      garak::dsp::gain::normalized_to_decibels(default_gain_normalized_), 0,
       Steinberg::Vst::ParameterInfo::kCanAutomate);
   gain->setPrecision(2);
   parameters.addParameter(gain);

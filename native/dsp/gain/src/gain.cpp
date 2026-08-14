@@ -1,9 +1,9 @@
-#include "gain_kernel.hpp"
+#include "garak/dsp/gain/gain.hpp"
 
 #include <algorithm>
 #include <cmath>
 
-namespace garak::spike::gain {
+namespace garak::dsp::gain {
 
 double normalized_to_decibels(const double normalized) noexcept {
   return kMinimumDecibels + (kMaximumDecibels - kMinimumDecibels) * clamp_normalized(normalized);
@@ -25,4 +25,4 @@ double decibels_to_linear(const double decibels) noexcept {
 
 double default_normalized_gain() noexcept { return decibels_to_normalized(kDefaultDecibels); }
 
-} // namespace garak::spike::gain
+} // namespace garak::dsp::gain

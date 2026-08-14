@@ -1,13 +1,13 @@
-#ifndef GARAK_SPIKES_GAIN_GAIN_KERNEL_HPP_INCLUDED
-#define GARAK_SPIKES_GAIN_GAIN_KERNEL_HPP_INCLUDED
+#ifndef GARAK_DSP_GAIN_GAIN_HPP_INCLUDED
+#define GARAK_DSP_GAIN_GAIN_HPP_INCLUDED
 
-#include "automation.hpp"
+#include "garak/dsp/gain/automation.hpp"
 
 #include <cmath>
 #include <cstdint>
 #include <limits>
 
-namespace garak::spike::gain {
+namespace garak::dsp::gain {
 
 inline constexpr double kMinimumDecibels = -60.0;
 inline constexpr double kMaximumDecibels = 12.0;
@@ -77,7 +77,8 @@ void process_block(const ProcessBlockContext<Sample, GainSource, BypassSource>& 
     const auto linear_gain = decibels_to_linear(normalized_to_decibels(gain_normalized));
 
     for (std::int32_t channel = 0; channel < context.channel_count; ++channel) {
-      const auto silent = (context.input_silence_flags & (std::uint64_t{1} << channel)) != 0;
+      const auto silent =
+          (context.input_silence_flags & (std::uint64_t{1} << channel)) != 0;
       if (silent) {
         context.outputs[channel][sample] = static_cast<Sample>(0);
       } else if (bypass) {
@@ -95,6 +96,6 @@ void process_block(const ProcessBlockContext<Sample, GainSource, BypassSource>& 
   context.current_bypass = bypass_timeline.current_value() >= 0.5;
 }
 
-} // namespace garak::spike::gain
+} // namespace garak::dsp::gain
 
 #endif
