@@ -1,9 +1,9 @@
 #include "garak/dsp/gain/gain.hpp"
 
 #include <array>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
-#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <limits>
@@ -23,9 +23,7 @@ public:
     }
   }
 
-  [[nodiscard]] int result() const noexcept {
-    return failures_ == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
-  }
+  [[nodiscard]] int result() const noexcept { return failures_ == 0 ? EXIT_SUCCESS : EXIT_FAILURE; }
 
 private:
   int failures_{};
@@ -67,11 +65,9 @@ void test_conversion_contract(TestContext& test) {
               "normalized one maps to the maximum decibels");
   test.expect(decibels_to_normalized(kDefaultDecibels) == default_normalized_gain(),
               "default gain round-trips through the normalized domain");
-  test.expect(decibels_to_normalized(-100.0) == 0.0 &&
-                  decibels_to_normalized(100.0) == 1.0,
+  test.expect(decibels_to_normalized(-100.0) == 0.0 && decibels_to_normalized(100.0) == 1.0,
               "decibel conversion clamps to the supported range");
-  test.expect(decibels_to_linear(0.0) == 1.0,
-              "zero decibels maps to unity linear gain");
+  test.expect(decibels_to_linear(0.0) == 1.0, "zero decibels maps to unity linear gain");
   test.expect(processed_sample(std::numeric_limits<double>::quiet_NaN(), 1.0) == 0.0,
               "non-finite input is contained at the DSP boundary");
 }
@@ -158,8 +154,7 @@ void test_zero_sample_and_silence_contract(TestContext& test) {
   process_block(ProcessBlockContext<float, PointSource, PointSource>{
       unused_inputs.data(), unused_outputs.data(), 0, 0, 0, silence, gain_source, bypass_source,
       gain, bypass});
-  test.expect(gain == 0.25 && bypass,
-              "a zero-sample block consumes offset-zero parameter changes");
+  test.expect(gain == 0.25 && bypass, "a zero-sample block consumes offset-zero parameter changes");
 
   PointSource no_gain_points(std::span<const AutomationPoint>{});
   PointSource no_bypass_points(std::span<const AutomationPoint>{});

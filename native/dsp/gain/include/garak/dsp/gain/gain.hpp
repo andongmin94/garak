@@ -77,8 +77,7 @@ void process_block(const ProcessBlockContext<Sample, GainSource, BypassSource>& 
     const auto linear_gain = decibels_to_linear(normalized_to_decibels(gain_normalized));
 
     for (std::int32_t channel = 0; channel < context.channel_count; ++channel) {
-      const auto silent =
-          (context.input_silence_flags & (std::uint64_t{1} << channel)) != 0;
+      const auto silent = (context.input_silence_flags & (std::uint64_t{1} << channel)) != 0;
       if (silent) {
         context.outputs[channel][sample] = static_cast<Sample>(0);
       } else if (bypass) {
