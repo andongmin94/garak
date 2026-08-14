@@ -43,6 +43,25 @@ if(GARAK_BUILD_PRODUCT_RUNTIME_V1)
     COMMAND garak_product_compatibility_tests
   )
 
+  add_executable(
+    garak_product_runtime_v1_smoke_tests
+    product_runtime_v1_smoke_tests.cpp
+    product_v1_test_fixtures.hpp
+  )
+  target_link_libraries(
+    garak_product_runtime_v1_smoke_tests
+    PRIVATE
+      garak::product_contract_v1
+      vst3_sdk_product_runtime_host_support
+      sdk_hosting
+  )
+  target_include_directories(
+    garak_product_runtime_v1_smoke_tests
+    SYSTEM PRIVATE "${GARAK_VST3_SDK_DIR}"
+  )
+  garak_apply_warnings(garak_product_runtime_v1_smoke_tests)
+  garak_apply_clang_tidy(garak_product_runtime_v1_smoke_tests)
+
   string(TOLOWER "${CMAKE_BUILD_TYPE}" garak_product_runtime_configuration_slug)
   set(
     garak_product_export_root
@@ -57,6 +76,13 @@ if(GARAK_BUILD_PRODUCT_RUNTIME_V1)
     "${garak_product_export_root}/Artist Gain Bright.vst3"
   )
 
+  add_test(
+    NAME garak_product_runtime_v1_smoke_tests
+    COMMAND
+      garak_product_runtime_v1_smoke_tests
+      "${garak_warm_bundle}"
+      "${garak_bright_bundle}"
+  )
   add_test(
     NAME garak_product_runtime_v1_warm_inspection
     COMMAND
