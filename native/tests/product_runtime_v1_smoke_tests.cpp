@@ -199,8 +199,9 @@ struct Session final {
       session->component->initialize(nullptr) == Steinberg::kResultTrue;
   Steinberg::TUID controller_id{};
   if (session->component->getControllerClassId(controller_id) == Steinberg::kResultTrue) {
-    session->controller = session->module->getFactory().createInstance<Steinberg::Vst::IEditController>(
-        VST3::UID(controller_id));
+    session->controller =
+        session->module->getFactory().createInstance<Steinberg::Vst::IEditController>(
+            VST3::UID(controller_id));
   }
   session->controller_initialized =
       session->controller && session->controller->initialize(nullptr) == Steinberg::kResultTrue;
@@ -262,9 +263,9 @@ void stop(TestContext& test, Session& session) {
 [[nodiscard]] garak::runtime::product_v1::EncodedProductState
 encode_state(TestContext& test, const Product& product, const double gain) {
   garak::runtime::product_v1::EncodedProductState encoded{};
-  test.expect(garak::runtime::product_v1::encode_product_state(product.product_id, {gain, false},
-                                                               encoded),
-              "product state encodes");
+  test.expect(
+      garak::runtime::product_v1::encode_product_state(product.product_id, {gain, false}, encoded),
+      "product state encodes");
   return encoded;
 }
 
@@ -272,7 +273,8 @@ encode_state(TestContext& test, const Product& product, const double gain) {
                               garak::runtime::product_v1::ProductState& state) {
   MemoryStream output;
   return session.component->getState(&output) == Steinberg::kResultTrue &&
-         garak::runtime::product_v1::decode_product_state(output.bytes(), product.product_id, state);
+         garak::runtime::product_v1::decode_product_state(output.bytes(), product.product_id,
+                                                          state);
 }
 
 void set_state(TestContext& test, Session& session, const Product& product, const double gain) {
