@@ -60,6 +60,17 @@ jobs:
           pnpm product:format
           git diff -- tools/product-compiler
 
+      - name: Upload Product Compiler formatter output
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: product-compiler-format-${{ github.sha }}
+          path: |
+            tools/product-compiler/src/static_graph.ts
+            tools/product-compiler/tests/static_graph.test.ts
+          if-no-files-found: error
+          retention-days: 1
+
       - name: Lint Product Compiler
         run: pnpm product:lint
 
