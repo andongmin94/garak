@@ -1,9 +1,11 @@
 # Garak Roadmap
 
-- 기준일: 2026-08-22
+- 기준일: 2026-08-23
 - Branch: `main`
-- 완료 판정 권위: 정확한 current commit의 `garak/windows-foundation` status
-- 현재 작업: obsolete Phase 1A/1B implementation 제거와 current Product Runtime 기준선 재확립
+- Current Windows foundation: **PASS**
+- Verified implementation/documentation commit: `edf4ddb561edd317f001418c9d2935bbb35fc666`
+- Authoritative run: `32580085187`
+- 다음 milestone: **Phase 3A — Minimal Static DSP Graph and Compiled Execution Plan**
 
 이 roadmap은 기능 목록을 미리 쌓는 문서가 아니다. 각 milestone은 직전의 실제 end-to-end 제품 경로가 clean checkout에서 통과한 뒤에만 시작한다.
 
@@ -74,18 +76,16 @@ Windows x64에서 same-binary data-driven Runtime과 product-specific thin wrapp
 - exact same-product plug-in state restore와 prior-state preservation on failure
 - removed Parameter ID tombstone policy
 
-## Current baseline cleanup — ExecPlan 0011
+### Current baseline cleanup — Complete
 
-Phase 3 전에 current product 경로를 과거 기술 spike에서 분리한다.
+[ExecPlan 0011](plans/0011-remove-obsolete-runtime-spikes.md)에 따라 Phase 3 전에 current product 경로를 과거 기술 spike에서 분리했다.
 
 - Product Runtime preset/target에서 Phase 1A/1B dependency 제거
 - reusable Gain DSP를 `native/dsp/gain` production module로 승격
 - obsolete Gain/Data/Thin adapter, tests와 packaging tools 제거
 - Warm/Bright actual export/validator/loaded-module gate만 current build graph에 유지
 - active README/AGENTS/architecture/status를 current commands로 동기화
-- exact current commit의 Windows foundation gate 성공
-
-이 cleanup이 green이 되기 전 Phase 3를 시작하지 않는다.
+- exact commit `edf4ddb561edd317f001418c9d2935bbb35fc666`의 `garak/windows-foundation` success
 
 ## Phase 3 — Static DSP Graph Runtime
 
@@ -93,9 +93,9 @@ Phase 3 전에 current product 경로를 과거 기술 spike에서 분리한다.
 
 진입 조건:
 
-- ExecPlan 0011 완료
-- exact current `main`의 Windows foundation status 성공
-- Warm/Bright current path가 spike implementation 없이 통과
+- ExecPlan 0011 Complete
+- exact current Windows foundation status success
+- Warm/Bright current path가 obsolete spike implementation 없이 통과
 
 핵심 산출물:
 
@@ -114,7 +114,7 @@ Phase 3 전에 current product 경로를 과거 기술 spike에서 분리한다.
 - missing node/version, invalid port, cycle와 channel mismatch를 export 전에 거부
 - 같은 logical graph가 같은 execution plan bytes를 생성
 - callback 중 allocation, lock, I/O와 graph mutation 0
-- old fixed Gain semantic fixture와 output/state parity 또는 명시적 version transition
+- fixed Gain semantic fixture와 output/state parity 또는 명시적 version transition
 - current Windows foundation gate 전체 통과
 
 비범위:

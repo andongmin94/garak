@@ -1,9 +1,12 @@
 # Garak Current Status
 
-- 기준일: 2026-08-22
+- 기준일: 2026-08-23
 - Branch: `main`
-- 현재 작업: **ExecPlan 0011 — obsolete runtime spike 제거와 current Product Runtime 기준선 재확립**
-- 판정: **HOLD — exact current-commit Windows gate 검증 중**
+- 기준선 cleanup: **PASS / Complete**
+- Verified implementation/documentation commit: `edf4ddb561edd317f001418c9d2935bbb35fc666`
+- Authoritative Windows run: `32580085187`
+- Status context: `garak/windows-foundation` — **success**
+- 다음 milestone: **Phase 3A — Minimal Static DSP Graph and Compiled Execution Plan**
 
 ## 실제 current product path
 
@@ -21,7 +24,7 @@ Studio는 current/legacy project 생성·열기·검증·저장·migration·conf
 
 ## 구현된 persistent contract
 
-- editable project schema v2, strict legacy v1 migration
+- editable project schema v2와 strict legacy v1 migration
 - immutable Product ID
 - deterministic processor/controller FUID
 - Gain ID `1001`, Bypass ID `1002`
@@ -31,35 +34,49 @@ Studio는 current/legacy project 생성·열기·검증·저장·migration·conf
 - compiled artifact `use-existing` / `rebuild` / `reject` policy
 - future/foreign/corrupt data fail-closed behavior
 
-## 기준선 cleanup
+## 완료된 기준선 cleanup
 
-현재 source tree에서 다음 pre-release implementation을 제거했다.
+다음 pre-release implementation을 current source tree와 build graph에서 제거했다.
 
-- Phase 1A fixed Gain VST3 adapter와 build presets
+- Phase 1A fixed Gain VST3 adapter와 presets
 - Phase 1B Data Runtime / Thin Runtime A/B modules
 - runtime-strategy descriptor, tests와 packaging tools
-- current Product Runtime build graph의 Phase 1A/1B dependency
-- obsolete spike namespace/path를 사용하던 dead Product Runtime test
+- Product Runtime의 Phase 1A/1B dependency
+- 삭제된 spike header를 참조하던 dead Product Runtime test
 
 Reusable Gain processing은 `native/dsp/gain`, persistent contract는 `native/runtime/product_v1`, current VST3 integration은 `native/adapters/vst3/product_runtime_v1`에 있다.
 
 Phase 1A/1B의 ADR, ExecPlan과 status report는 당시 판단의 역사적 증거로 남는다. 그 문서에 기록된 삭제된 command, preset, target, script와 bundle은 현재 실행 경로가 아니다.
 
-## 완료 판정 규칙
+## Authoritative gate 결과
 
-정확한 current `main` commit의 `garak/windows-foundation` status만 권위 있는 완료 증거다. Gate는 clean Windows checkout에서 다음을 모두 수행한다.
+Run `32580085187`에서 다음 job과 모든 하위 step이 성공했다.
 
-- Product Compiler와 Studio quality/test/build
-- exact recursive SDK checkout
-- first-party C++ format
-- Debug/Release Product Runtime clean build
-- Warm/Bright actual export와 official standard/extensive validation
-- current loaded-module/inspector CTest
-- actual Studio ProductService Debug/Release workflow
-- warnings-as-errors와 clang-tidy
+### Product Compiler and Studio
+
+- frozen dependency install
+- repository LF/whitespace
+- Product Compiler format/lint/typecheck/test
+- Studio format/lint/typecheck/test/production build
 - tracked source mutation 0
 
-현재 cleanup commit의 gate가 green이 되기 전에는 Phase 3를 시작하지 않는다.
+### Native Product Runtime and real export path
+
+- exact recursive SDK pins
+- first-party C++ format
+- Debug Product Runtime clean build
+- Warm/Bright Debug actual export와 official validation
+- Debug CTest
+- actual Studio Debug product workflow
+- Release Product Runtime clean build
+- Warm/Bright Release actual export와 official validation
+- Release CTest
+- actual Studio Release product workflow
+- warnings-as-errors
+- clang-tidy
+- tracked source mutation 0
+
+완료 판정은 앞으로도 문서상의 과거 test 수가 아니라 정확한 current commit의 `garak/windows-foundation` status를 따른다.
 
 ## Source of truth
 
@@ -75,7 +92,6 @@ Phase 1A/1B의 ADR, ExecPlan과 status report는 당시 판단의 역사적 증�
 
 ## Open product and release gates
 
-- exact current cleanup commit의 Windows foundation success
 - static DSP graph와 node library
 - macro system와 functional Sound/Control workspace
 - native interface designer
@@ -86,4 +102,4 @@ Phase 1A/1B의 ADR, ExecPlan과 status report는 당시 판단의 역사적 증�
 - macOS Universal VST3, AU, signing과 notarization
 - legal/trademark/security review와 repository license decision
 
-정확한 다음 product capability milestone은 cleanup gate가 green인 경우에만 시작하는 **Phase 3A — Minimal Static DSP Graph and Compiled Execution Plan**이다.
+Phase 3A는 아직 구현하지 않았다. Windows cleanup 기준선이 green이므로 별도 ExecPlan으로 시작할 수 있다.
