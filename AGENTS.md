@@ -1,218 +1,186 @@
 # Garak Repository Constitution
 
-이 문서는 이 저장소에서 작업하는 모든 사람과 Codex agent가 따라야 하는 지속 규칙이다. 세부 제품 범위는 [v0.1 PRD](docs/product/v0.1-prd.md), 전체 구조는 [System Overview](docs/architecture/system-overview.md), 현재 상태는 [Current Status](docs/status/current.md)를 기준으로 한다.
+이 문서는 Garak 저장소에서 작업하는 사람과 agent가 따르는 지속 규칙이다. 상세 제품 범위는 [`docs/product/v0.1-prd.md`](docs/product/v0.1-prd.md), 현재 사실은 [`docs/status/current.md`](docs/status/current.md), 단계 계획은 [`ROADMAP.md`](ROADMAP.md)를 따른다.
 
 ## 제품 미션
 
-Garak(가락)은 음악가, 프로듀서와 사운드 디자이너가 자신의 사운드 컬러, 음향적 판단, control language, interface와 브랜드를 설계해 자신의 이름을 건 독립적인 오디오 플러그인 제품으로 출시할 수 있게 하는 오디오 제품 제작 플랫폼이다. Garak은 단순한 no-code VST builder가 아니라 아티스트의 의도를 제품 계약으로 만들며, 생성 플러그인은 Studio가 없는 컴퓨터에서도 독립적으로 오프라인 동작하고 white-label identity를 보존해야 한다.
+Garak(가락)은 음악가, 프로듀서와 사운드 디자이너가 자신의 사운드 컬러, control language, interface와 브랜드를 독립적인 native audio plug-in 제품으로 만들 수 있게 하는 제작 플랫폼이다. 생성 플러그인은 Studio와 network 없이 오프라인 동작하고 white-label identity를 보존해야 한다.
 
-## 문서 권위와 충돌 처리
-
-결정의 우선순위는 다음과 같다.
+## 권위 순서
 
 1. 현재 사용자 지시
 2. 이 `AGENTS.md`
-3. Accepted 상태의 ADR
-4. `docs/product/`와 `docs/architecture/` 문서
-5. 현재 작업의 ExecPlan
+3. Accepted ADR
+4. `docs/product/`와 `docs/architecture/`
+5. 현재 ExecPlan
 6. 코드와 테스트
-7. `README.md` 및 기타 설명
+7. README 및 기타 설명
 
-Proposed ADR은 검증할 제안이지 승인된 결정이 아니다. 문서, 코드 또는 테스트가 서로 충돌하면 임의로 한쪽을 숨기거나 조용히 우회하지 말고 충돌, 영향과 해결 근거를 작업 계획과 결과에 명시한다.
+충돌을 발견하면 숨기지 말고 계획과 결과에 기록한다. Proposed ADR은 승인된 결정이 아니다.
 
 ## 확정 기술 방향
 
-- Garak Studio: Electron, React, TypeScript strict mode, Windows/macOS
-- Native Engine과 generated plugin runtime: C++20
-- Native build: CMake, Ninja, Windows의 MSVC, macOS의 Apple Clang
-- Build definition은 IDE에 종속되지 않는다.
-- JUCE를 사용하지 않는다.
-- Plugin 검증 순서: Windows x64 VST3, macOS arm64/x86_64 VST3, 이후 macOS AU
+- Studio: Electron, React, TypeScript strict mode
+- Native engine와 generated plug-in runtime: C++20
+- Build: CMake + Ninja
+- Windows: MSVC
+- macOS 목표: Apple Clang
+- JUCE 사용 금지
+- IDE-independent build definition
 - 첫 상용 format 목표: Windows VST3, macOS Universal VST3, macOS AU
 
-언어와 toolchain 결정은 특정 serialization, renderer, layout engine, graph library 또는 runtime packaging 전략의 채택을 의미하지 않는다. 관련 근거는 [ADR 0001](docs/adr/0001-typescript-studio-and-cpp20-engine.md), [ADR 0002](docs/adr/0002-no-juce-and-adapter-boundaries.md), [ADR 0004](docs/adr/0004-windows-macos-and-plugin-formats.md)를 따른다.
+macOS/AU 결과를 Windows 결과로 일반화하지 않는다.
+
+## 현재 canonical product path
+
+현재 실행 가능한 Windows x64 제품 경로는 다음 하나다.
+
+```text
+unpacked .garak project
+→ Product Compiler
+→ deterministic product.garakbin
+→ prebuilt Garak Product Runtime v1
+→ moduleinfo.json + VST3 bundle
+→ inspector + official validator + loaded-module tests
+```
+
+Current reference products는 `Artist Gain Warm`과 `Artist Gain Bright`다.
+
+Phase 1A fixed Gain plug-in과 Phase 1B Data/Thin runtime-strategy A/B 구현은 삭제됐다. 당시 ADR, ExecPlan과 status 문서는 역사적 증거다. 삭제된 source, CMake option, preset, script 또는 test를 compatibility path나 fallback으로 복원하지 않는다.
+
+Current reusable Gain processing은 `native/dsp/gain`, persistent compiled/state contract는 `native/runtime/product_v1`, VST3 ABI integration은 `native/adapters/vst3/product_runtime_v1`에 둔다.
 
 ## First-party 경계
 
-Garak이 다음 모델과 계약을 직접 소유한다.
+Garak이 직접 소유한다.
 
-- `.garak` project model
-- DSP node contract와 DSP graph model
-- graph compiler, execution schedule와 audio buffer planning
-- parameter와 macro mapping system
-- state와 preset migration
-- interface scene model
-- product compiler와 generated plugin runtime contract
-- validation과 export pipeline
+- `.garak` project model과 migration
+- Product ID, plug-in class ID와 Parameter ID lifecycle
+- compiled product와 state contract
+- DSP node/graph/compiler/execution plan
+- parameter와 macro mapping
+- interface scene
+- product compiler, validation과 export
 
-외부 SDK와 library는 기능별 adapter 뒤에 격리한다. Garak public API와 persistent model에는 `garak::AudioBlock`, `garak::Parameter`, `garak::Graph`, `garak::NodeDescriptor`, `garak::ui::Scene` 같은 first-party 타입만 노출한다. `Steinberg::Vst::ProcessData`, `SkCanvas`, `YGNode` 같은 외부 타입을 adapter 밖에 노출하지 않는다.
+Third-party SDK type을 first-party public API나 persistent model에 노출하지 않는다. Steinberg type은 VST3 adapter 또는 VST3-only test 안에 격리한다.
 
-Third-party 원본은 가능한 한 수정하지 않는다. 필요한 변경만 작고 검토 가능한 patch set으로 관리하고, 이름 변경이나 Garak style 적용을 위한 광범위한 fork 또는 재포맷을 하지 않는다. 자세한 경계는 [Module Boundaries](docs/architecture/module-boundaries.md)를 따른다.
+## 영속 계약
 
-## Generated plugin 불변식
+- Product ID는 제품 생성 후 변경하지 않는다.
+- Processor/Controller FUID는 versioned deterministic derivation을 사용한다.
+- 출시된 Parameter numeric ID는 변경하거나 재사용하지 않는다.
+- 삭제 ID는 tombstone으로 남긴다.
+- Sound-changing node behavior는 기존 version을 덮어쓰지 않는다.
+- `.garak`, compiled data, preset과 DAW/plug-in state는 명시적 version 경계를 가진다.
+- 지원하지 않는 future data를 추측해 읽거나 overwrite하지 않는다.
+- Obsolete 내부 API와 pre-release implementation은 shim으로 보존하지 않는다.
 
-- Garak Studio나 network 연결 없이 기본 audio processing, UI, preset과 state restore가 동작해야 한다.
-- Electron, Chromium, Node.js 또는 임의의 JavaScript runtime을 포함하지 않는다.
-- 제품 화면에 “Made with Garak” 표시를 강제하지 않는다.
-- Product별 영구 product ID와 plugin class ID를 유지한다.
-- 출시된 parameter numeric ID를 변경하지 않고 삭제된 ID를 재사용하지 않는다.
-- Sound가 달라지는 node implementation은 기존 version을 덮어쓰지 않고 새 version으로 추가한다.
-- `.garak`, preset과 DAW state에는 schema version과 명시적 migration 경계를 둔다. Compiled runtime data는 compatibility를 판정할 contract version을 가지되, 이전 blob을 migrate, rebuild 또는 reject할지는 runtime/export 정책으로 결정한다.
-
-Cross-platform generated runtime 결합 방식은 아직 결정되지 않았다. [ADR 0003](docs/adr/0003-generated-plugin-runtime-strategy.md)은 계속 Proposed이며 Windows 결과를 macOS/AU의 기본값이나 최종안으로 일반화하지 않는다. 단, [ADR 0005](docs/adr/0005-windows-v0x-prebuilt-product-runtime.md)는 Windows x64 VST3와 Garak v0.x에 한정해 prebuilt Product Runtime plus compiled product data 방식을 Accepted로 정한다.
-
-Phase 1A의 `Garak Gain Spike`는 fixed-metadata editorless VST3 adapter spike일 뿐이다. Compiled product data를 prebuilt runtime에 삽입하거나 product별 wrapper를 생성하지 않으므로 ADR 0003의 어느 대안도 구현·선호·채택한 증거로 사용하지 않는다.
-
-Phase 1B는 Windows x64에서만 Alternative A의 same-binary/module-relative-descriptor package와 Alternative B의 product별 thin factory wrapper compile/link를 비교한 private experimental fixture다. A/B 각각 두 제품과 Phase 1A Gain baseline의 five-module coexistence를 검증했지만 이는 product compiler, production compiled data contract 또는 runtime 전략 선택이 아니다. [ADR 0003](docs/adr/0003-generated-plugin-runtime-strategy.md)은 계속 Proposed이며 A/B 어느 쪽도 채택·선호·기본값이 아니다.
-
-Phase 1C.1의 canonical Windows product path는 minimal directory `.garak` project를 headless Product Compiler로 strict validation·inspection·compilation한 뒤 configuration별 prebuilt `Garak Product Runtime v1`과 deterministic `product.garakbin`, product별 `moduleinfo.json`을 결합하는 local-only export다. 이 경로는 product-specific C++ compile/link를 수행하지 않으며 Phase 1B descriptor나 thin-wrapper fixture를 compatibility fallback으로 읽지 않는다. 상세 계약은 [Minimal Garak Product Project](docs/architecture/minimal-garak-product-project.md), [Product Identity Derivation](docs/architecture/product-identity-derivation.md), [Compiled Product Data v1](docs/architecture/compiled-product-data-v1.md)과 [Product State v1](docs/architecture/product-state-v1.md)을 따른다.
-
-Phase 1C.2의 canonical Studio product path는 Electron main이 side-effect-free Product Compiler facade를 직접 호출하는 repository-local workflow다. Main은 native dialog, trusted sender와 opaque document/output/cleanup capability를 소유하고 preload는 new/open/validate/save/export/cleanup의 fixed typed API만 renderer에 노출한다. Renderer에는 filesystem, shell, process, raw IPC 또는 arbitrary path mutation 권한을 주지 않는다. Studio와 CLI는 같은 validation, canonical serialization, atomic project transaction과 export 구현을 사용한다. 이 bounded process/security 결정은 [ADR 0006](docs/adr/0006-studio-product-workflow-boundary.md)을 따른다.
-
-Phase 2A의 current editable project schema는 v2이며 template identity와 version을
-`{ "id": "garak.gain", "version": 1 }`로 분리한다. Schema v1은 exact supported legacy persistent input이고
-Product Compiler input boundary에서 pure `project-schema-1-to-2` step으로 current v2 model에 변환한다.
-Version detection은 version-specific unknown-field validation보다 먼저 수행해 supported-legacy, current,
-too-old, too-new와 invalid를 구분한다. `schemaVersion`은 fraction/exponent 없는 lexical integer JSON
-token이어야 하며 `2.0`, `2e0`와 precision-loss token을 exact current version으로 받지 않는다.
-Validate/inspect/compile/export/open은 legacy source를 자동으로
-덮어쓰지 않으며 headless migration은 explicit distinct output만 허용한다. Studio legacy ordinary save는
-Phase 2B 전까지 migration-required로 거부한다. 상세 계약은 [ADR 0007](docs/adr/0007-editable-project-schema-migration-policy.md),
-[Editable Project Schema v2](docs/architecture/editable-project-schema-v2.md)와
-[Project Migration Engine](docs/architecture/project-migration-engine.md)을 따른다.
+현재 `GARAKCPD` v1과 `GARAKPST` v1의 compatibility 정책은 [`docs/adr/0010-compiled-product-and-state-compatibility.md`](docs/adr/0010-compiled-product-and-state-compatibility.md)를 따른다.
 
 ## Realtime audio 규칙
 
-Audio process callback과 그 하위 경로에서는 다음을 금지한다.
+Audio callback과 동기 하위 경로에서 금지한다.
 
-- 동적 메모리 할당 또는 해제
-- mutex, blocking lock, sleep, wait 또는 thread join
-- 파일 I/O와 네트워크 I/O
-- JSON parsing, state parsing 또는 migration
-- GUI 또는 message-loop 호출
-- 로그 파일 기록
-- callback 경계 밖으로의 예외 전파
-- graph의 node, connection 또는 실행 구조 변경
-- 실행 시간 상한을 예측할 수 없는 blocking operation
+- allocation/deallocation
+- mutex, blocking lock, wait, sleep, thread join
+- file/network I/O
+- JSON/state/migration parsing
+- GUI/message-loop 호출
+- logging과 string formatting
+- graph 구조 변경
+- callback 밖으로 exception 전파
 
-필요한 memory, buffer, execution schedule, latency, converter, mapping과 communication storage는 compile/prepare 단계에서 마련한다. 특정 lock-free 구현을 미리 가정하지 말고 bounded non-blocking behavior를 측정해 입증한다. [Realtime and Quality](docs/architecture/realtime-and-quality.md)가 상세 계약의 권위 문서다.
+Memory, buffer, schedule, latency와 mapping은 prepare/compile 단계에서 확정한다. Realtime 변경은 allocation, blocking과 bounded-work 검증을 같은 작업에 포함한다.
 
-## Coding policy
+## C++ 규칙
 
-### C++
+- C++20, RAII와 value semantics
+- raw owning pointer와 직접 `new`/`delete` 금지
+- 단, Steinberg reference-count ownership transfer 지점은 하위 AGENTS 규칙을 따른다.
+- first-party target마다 warnings와 clang-tidy 적용
+- public header는 모듈의 `include/garak/` 아래
+- platform/SDK detail은 adapter로 격리
+- test는 `assert`가 아니라 명시적 failure와 non-zero exit 사용
+- public behavior에는 test가 필요
 
-- C++20을 사용한다.
-- Ownership과 lifetime을 타입과 RAII로 명시하고 raw owning pointer를 만들지 않는다.
-- Core public API를 작게 유지하고 platform, format과 third-party 세부 사항을 adapter로 밀어낸다.
-- Realtime path의 capacity와 작업량을 prepare 단계에서 고정하며 암묵적 allocation이나 blocking을 허용하지 않는다.
-- Exception이 audio callback 경계를 통과하지 않게 한다. Error를 숨기지 말고 non-realtime 경계에서 설명 가능한 결과로 변환한다.
-- Sound-changing behavior, persistent identity 또는 serialization을 바꿀 때 version 및 migration 영향을 먼저 기록한다.
+## TypeScript와 Electron 규칙
+
+- strict mode와 explicit boundary type
+- `any`, unchecked cast와 untyped IPC를 기본 해법으로 사용하지 않음
+- external input은 runtime validation
+- renderer에서 Node.js, filesystem, shell, process와 raw IPC 접근 금지
+- preload는 fixed typed capability만 노출
+- generic `send(channel)` 또는 `invoke(channel)` wrapper 금지
+- Product Compiler와 Studio는 같은 first-party project/serialization/export 구현 사용
+
+## Persistence 규칙
+
+- open만으로 legacy source를 rewrite하지 않는다.
+- external modification, future schema와 Product ID replacement를 overwrite하지 않는다.
+- destructive save/migration은 verified backup과 transaction/recovery contract를 따른다.
+- ambiguous recovery에서 artifact를 임의 삭제하지 않는다.
+- process-crash consistency와 hardware power-loss guarantee를 구분한다.
+
+## Dependency와 license
+
+먼저 현재 dependency의 문서와 타입을 확인한다. 필요성·유지보수·transitive cost·platform·realtime 적합성·generated runtime 포함 여부·재배포 license를 검토하지 않고 새 dependency를 추가하지 않는다.
+
+- 기본 검토 후보: MIT, MIT-0, BSD, ISC, zlib, Apache-2.0
+- 별도 검토: MPL-2.0, LGPL
+- generated runtime에서 원칙적으로 제외: GPL, AGPL, 불명확하거나 상업적 재배포를 제한하는 code
+
+Steinberg VST3 SDK는 exact Git pin을 유지한다. SDK source를 수정·재포맷·first-party tidy 대상으로 만들지 않는다. VSTGUI는 checkout에 존재해도 build/link하지 않는다. 저장소 자체 license는 미정이며 지시 없이 `LICENSE`를 만들지 않는다.
+
+## 작업 방식
+
+- 큰 작업은 구현 전에 `PLANS.md` 형식의 ExecPlan을 작성한다.
+- 가장 작은 end-to-end working increment부터 만든다.
+- 기존 working path를 깨뜨린 채 미래 abstraction을 쌓지 않는다.
+- 사용자 변경을 삭제하거나 되돌리지 않는다.
+- `git reset --hard`, `git clean -fd`, force push와 임의 rebase 금지
+- 실행하지 않은 검증을 PASS라고 쓰지 않는다.
+- 실패한 gate를 test 삭제, warning 완화, fallback 또는 문서상 완료로 우회하지 않는다.
+- 작업 종료 시 영향을 받은 architecture/status/roadmap/plan을 실제 상태에 맞춘다.
+
+## 권위 있는 검증
+
+문서의 과거 test 수가 아니라 정확한 current commit의 `garak/windows-foundation` status가 기준이다. Workflow는 read-only verifier여야 하며 source를 포맷·commit·push하거나 issue를 자동 생성해서는 안 된다.
 
 ### TypeScript
 
-- TypeScript strict mode를 유지한다. `any`, unchecked cast와 untyped IPC/persistence boundary를 기본 해결책으로 사용하지 않는다.
-- External input, project data와 native boundary는 명시적인 type과 runtime validation으로 다룬다.
-- React/Electron 타입과 editor-only state를 language-neutral product model에 누출하지 않는다.
-- UI component, domain model, persistence와 native integration의 책임을 분리한다.
-- 생성 플러그인 runtime에 Studio code나 JavaScript runtime이 전이되지 않게 한다.
-
-### 호환성 범위
-
-Obsolete 내부 API, pre-release draft, unused adapter와 낡은 실행 경로를 compatibility shim, fallback 또는 migration이라는 이름으로 보존하지 않는다. 현재 canonical path로 제거·통합한다. 반면 이미 출시된 product/plugin/parameter identity와 문서화된 project, preset, DAW state 계약은 사용자 영속 데이터이므로 명시적인 version migration으로 보존한다. Migration은 폐기된 내부 구현을 계속 실행하는 compatibility layer가 아니다.
-
-## Dependency와 license policy
-
-- 먼저 저장소에 이미 승인된 dependency의 문서와 타입을 확인하고 기능을 재구현하거나 새 package를 추가하지 않는다.
-- 새 dependency는 현재 요구 능력, 유지보수성, platform/toolchain, transitive cost, realtime 적합성, generated runtime 포함 여부와 재배포 license를 검증한 뒤 도입한다.
-- 기본 허용 검토 후보: MIT, MIT-0, BSD, ISC, zlib, Apache-2.0
-- 격리 및 별도 검토: MPL-2.0, LGPL
-- Generated runtime에서 원칙적으로 제외: GPL, AGPL, 출처·license가 불명확한 코드, 상업적 재배포를 제한하는 source-available 코드
-- 허용 목록은 자동 승인이 아니다. 실제 license text, notice, transitive dependency와 배포 방식을 검토한다.
-- 저장소 자체의 license는 미정이다. 지시와 법률 검토 없이 `LICENSE`를 만들거나 license를 선택하지 않는다.
-
-Steinberg VST3 SDK만 exact Git pin으로 도입했다. Phase 1A adapter, Phase 1B A/B fixture와 ADR 0005의 Phase 1C.1 Windows x64 v0.x Product Runtime 경계에서 build·validator를 검증했으며 [Phase 1A dependency 상태](docs/status/phase-1a-vst3-dependency.md)에 pin과 license 경계를 기록한다. 이 검증은 macOS/AU, 상용 재배포 또는 전체 legal audit의 승인이 아니다. Recursive checkout에 포함된 VSTGUI도 build/link하지 않는다. 그 밖의 audio/plugin/graphics 후보는 계속 미설치·미검증·미승인 상태다.
-
-Phase 0B에서 확정한 Studio exact direct dependency 16개는 Phase 2A에서도 유지하며 [Phase 0B dependency 상태](docs/status/phase-0b-dependencies.md)에 기준선을 기록한다. Product Compiler의 runtime third-party dependency는 0이며 development dependency는 저장소의 exact TypeScript quality toolchain을 재사용한다. Studio와 compiler dependency는 generated plugin에 전이되지 않는다. 모든 추가 도입은 [Dependency and License Policy](docs/architecture/dependency-policy.md)를 따른다.
-
-## 대표 검증 명령
-
-Windows Native 명령은 Visual Studio x64 Developer Command 환경에서 실행한다. 세부 warning, formatter와 static-analysis 명령은 [native/AGENTS.md](native/AGENTS.md)를 따른다.
-
-```text
-cmake --preset debug
-cmake --build --preset debug-build
-ctest --preset debug-test --no-tests=error
-out\build\debug\native\apps\garak_smoke\garak_smoke.exe
-```
-
-Studio의 대표 재현 명령은 다음과 같다. Electron 개발 실행과 세부 경계는 [studio/AGENTS.md](studio/AGENTS.md)를 따른다.
-
-```text
+```powershell
 pnpm install --frozen-lockfile
-pnpm studio:lint
+pnpm product:format:check
+pnpm product:lint
+pnpm product:typecheck
+pnpm product:test
 pnpm studio:format:check
+pnpm studio:lint
 pnpm studio:typecheck
 pnpm studio:test
 pnpm studio:build
 ```
 
-Windows 검증 결과를 macOS, Apple Clang 또는 macOS Electron 통과로 일반화하지 않는다.
+### Current Product Runtime
 
-Phase 1A VST3 검증은 recursive SDK checkout 뒤 다음 Debug/Release 흐름을 사용한다. 세부 artifact와 validator 계약은 [VST3 Adapter](docs/architecture/vst3-adapter.md)를 따른다.
+Visual Studio x64 Developer Command 환경에서 실행한다.
 
-```text
+```powershell
 git submodule update --init --recursive third_party/vst3sdk
-cmake --preset vst3-debug
-cmake --build --preset vst3-debug-build --clean-first
-ctest --preset vst3-debug-test --no-tests=error
-tools\vst3\validate.ps1 -Configuration Debug
-
-cmake --preset vst3-release
-cmake --build --preset vst3-release-build --clean-first
-ctest --preset vst3-release-test --no-tests=error
-tools\vst3\validate.ps1 -Configuration Release
-```
-
-Phase 1B runtime-strategy preset은 Windows x64 전용 experimental target이며 global tool/package install이나 system/user VST3 directory write를 허용하지 않는다. Full mandatory validator/inspection parameter와 artifact path는 [native instructions](native/AGENTS.md)를 따른다.
-
-```text
-cmake --preset runtime-strategy-debug --fresh
-cmake --build --preset runtime-strategy-debug-build --clean-first
-ctest --preset runtime-strategy-debug-test --no-tests=error
-
-cmake --preset runtime-strategy-release --fresh
-cmake --build --preset runtime-strategy-release-build --clean-first
-ctest --preset runtime-strategy-release-test --no-tests=error
-
-cmake --preset runtime-strategy-werror --fresh
-cmake --build --preset runtime-strategy-werror-build --clean-first
-cmake --preset runtime-strategy-clang-tidy --fresh
-cmake --build --preset runtime-strategy-clang-tidy-build --clean-first
-```
-
-Alternative A product output은 `out/build/runtime-strategy-{debug|release}/runtime-products/`에 두고, Data Runtime template, Alternative B thin products와 Gain baseline은 같은 build root의 `VST3/{Debug|Release}/`에 둔다. 이 경로 구분이나 Windows PASS를 macOS, AU, DAW, signing/notarization, installer 또는 product compiler 완료로 일반화하지 않는다.
-
-Phase 1C.1의 headless Product Compiler와 Windows Product Runtime v1 대표 재현 명령은 다음과 같다. Native 명령은 Visual Studio x64 Developer Command 환경에서 실행하고 no-native-build evidence script는 미리 build된 tree를 소비하는 일반 PowerShell에서 실행한다. 세부 artifact와 validator 계약은 [VST3 Adapter](docs/architecture/vst3-adapter.md)를 따른다.
-
-```text
-pnpm product:lint
-pnpm product:format:check
-pnpm product:typecheck
-pnpm product:test
-pnpm product:validate --project examples/products/artist-gain-warm.garak
-pnpm product:inspect --project examples/products/artist-gain-bright.garak
-pnpm product:compile --project examples/products/artist-gain-warm.garak --output out/compiled/artist-gain-warm/product.garakbin
 
 cmake --preset product-runtime-debug --fresh
 cmake --build --preset product-runtime-debug-build --clean-first
 pnpm product:export --project examples/products/artist-gain-warm.garak --configuration Debug --output out/exports/phase-1c1/debug --force --validate
-tools\product-compiler\scripts\verify_headless_export_no_build.ps1 -Configuration Debug
+pnpm product:export --project examples/products/artist-gain-bright.garak --configuration Debug --output out/exports/phase-1c1/debug --force --validate
 ctest --preset product-runtime-debug-test --no-tests=error
+pnpm --dir studio verify:product-workflow --configuration Debug
 
 cmake --preset product-runtime-release --fresh
 cmake --build --preset product-runtime-release-build --clean-first
-tools\product-compiler\scripts\verify_headless_export_no_build.ps1 -Configuration Release
+pnpm product:export --project examples/products/artist-gain-warm.garak --configuration Release --output out/exports/phase-1c1/release --force --validate
+pnpm product:export --project examples/products/artist-gain-bright.garak --configuration Release --output out/exports/phase-1c1/release --force --validate
 ctest --preset product-runtime-release-test --no-tests=error
+pnpm --dir studio verify:product-workflow --configuration Release
 
 cmake --preset product-runtime-werror --fresh
 cmake --build --preset product-runtime-werror-build --clean-first
@@ -220,44 +188,4 @@ cmake --preset product-runtime-clang-tidy --fresh
 cmake --build --preset product-runtime-clang-tidy-build --clean-first
 ```
 
-Phase 1C.2 repository-local Studio ProductService smoke는 해당 configuration의 Product Runtime을 위 명령으로 먼저 build한 뒤 실행한다. Temp physical project의 new→validate→save→reopen parity와 immutable Product ID를 확인한 후 reference project를 실제 export한다. 이는 packaged Studio나 installer 검증이 아니다.
-
-```text
-pnpm --dir studio verify:product-workflow --configuration Debug
-pnpm --dir studio verify:product-workflow --configuration Release
-```
-
-Phase 2A editable project migration 대표 명령은 다음과 같다. Status와 dry-run은 source를 수정하지 않고,
-actual migration은 source와 겹치지 않는 explicit `.garak` output을 요구한다.
-
-```text
-pnpm product:migration-status --project examples/products/legacy/v1/artist-gain-warm.garak --json
-pnpm product:migrate --project examples/products/legacy/v1/artist-gain-warm.garak --to latest --dry-run --json
-New-Item -ItemType Directory -Force out\migration | Out-Null
-pnpm product:migrate --project examples/products/legacy/v1/artist-gain-warm.garak --to latest --output out/migration/artist-gain-warm.garak --force --json
-tools\product-compiler\scripts\verify_project_migration_export_parity.ps1 -Configuration Debug
-tools\product-compiler\scripts\verify_project_migration_export_parity.ps1 -Configuration Release
-```
-
-Phase 2A PASS는 Phase 2 전체 완료가 아니다. 정확한 다음 milestone은 Phase 2B Studio migration
-confirmation, backup/recovery와 durable persistence UX이며 Phase 2C compiled/state compatibility는 pending이다.
-macOS VST3/Universal과 AU는 첫 상용 배포 전 cross-platform release gate에 남는다.
-
-`tools/product-compiler/**`에는 이 root `AGENTS.md`만 적용한다. `native/**`에는 [native instructions](native/AGENTS.md)가 추가 적용되고, `native/adapters/vst3/**`에는 [VST3 adapter instructions](native/adapters/vst3/AGENTS.md)도 적용된다. `studio/**`에는 [Studio instructions](studio/AGENTS.md)가 추가 적용된다.
-
-## 작업 방식과 저장소 안전
-
-- 작업 전에 현재 디렉터리, `git status`, 관련 파일과 사용자 변경사항을 조사한다.
-- 기존 사용자 변경을 보존한다. 관련 없는 파일을 수정하거나, 사용자의 작업을 무단으로 덮어쓰거나 삭제하지 않는다.
-- `git reset --hard`, `git clean -fd`, 강제 checkout과 그에 준하는 파괴적 Git 작업을 사용하지 않는다.
-- 현재 요구를 충족하는 가장 작은 end-to-end 변경을 만든다. 범위 밖 기능, speculative abstraction, compatibility fallback 또는 placeholder framework를 임의로 추가하지 않는다.
-- 큰 작업을 시작하기 전에 [PLANS.md](PLANS.md) 형식의 ExecPlan을 `plans/`에 작성한다.
-- 작업 중 실제 상태, 발견과 결정이 달라지면 ExecPlan, 관련 product/architecture 문서와 ADR을 같은 작업에서 갱신한다.
-- 실패, 제한, 미검증 항목과 문서 충돌을 숨기지 않는다.
-- 실행하지 않은 test, build, validator 또는 platform 검증을 통과했다고 보고하지 않는다.
-- 실제 수용 기준과 검증이 완료되기 전에 phase나 기능을 완료로 표시하지 않는다.
-- 작업 완료 시 [docs/status/current.md](docs/status/current.md)를 현재 사실, 검증 결과, 미결정 사항과 정확한 다음 단계에 맞춰 갱신한다.
-
-## 완료 기준
-
-작업은 요청된 산출물이 존재하는 것만으로 끝나지 않는다. 관련 수용 기준을 확인하고 가능한 검증을 실행하며, 명령과 결과를 ExecPlan 또는 status에 기록해야 한다. 수행할 수 없는 검증은 이유와 향후 재현 명령을 남긴다. 실패가 있으면 PASS로 표현하지 않는다.
+Current build에 Phase 1A/1B option, preset, target 또는 package script를 다시 추가하지 않는다.

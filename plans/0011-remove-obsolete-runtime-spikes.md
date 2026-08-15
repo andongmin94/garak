@@ -7,98 +7,142 @@
 
 ## 목적
 
-현재 제품 경로인 `.garak` → Product Compiler → prebuilt Product Runtime v1 → Warm/Bright VST3만 active build와 regression gate에 남긴다. Phase 1A/1B의 fixed Gain, Data Runtime, Thin Runtime A/B 비교 구현은 검증 증거와 문서만 보존하고 production build graph에서는 제거핀다.
+현재 제품 경로인 `.garak` → Product Compiler → prebuilt Product Runtime v1 → Warm/Bright VST3만 active build와 regression gate에 남긴다. Phase 1A/1B의 fixed Gain, Data Runtime와 Thin Runtime A/B 구현은 제거하고 당시 검증 문서만 역사적 evidence로 보존한다.
 
 ## 사용자 가치
 
-새 기능을 추가할 때 과거 기술 spike 다섯 module을 함께 compile, package, load, test하지 않아도 된다. 현재 제품 경로의 실패가 역사적 실험 경로의 실패와 섞이지 않으며, Phase 3 static DSP graph를 production namespace와 작은 build graph 위에서 시작할 수 있다.
+새 기능을 추가할 때 과거 기술 spike 다섯 module을 함께 compile, package, load와 test하지 않는다. 현재 제품 실패가 역사적 실험 실패와 섞이지 않으며 Phase 3 static graph를 production namespace와 작은 build graph 위에서 시작할 수 있다.
 
 ## 현재 저장소 상태
 
 - Branch: `main`
-- Baseline: `6646c60e5ee4105245d1a1ea9c7f5d28433ffaa9`
-- Baseline authoritative status: `garak/windows-foundation` success
-- Product Runtime presets가 Phase 1A Gain Spike와 Phase 1B Runtime Strategy Spike를 모두 활성화한다.
-- Product Runtime loaded-module contract test가 Gain/Data/Thin/Warm/Bright 일곱 module을 전제로 하므로 현재 Warm/Bright 제품 경로를 독립적으로 검증할 수 없다.
-- Product Runtime이 `native/spikes/gain`의 implementation target을 production dependency로 사용한다.
-- Phase 1B A/B 비교 자체는 Windows x64에서 완료된 역사적 evidence이며 runtime 전략 재평가를 위해 소스 구현을 계속 active graph에 둘 필요는 없다.
+- 시작 authoritative baseline: `6646c60e5ee4105245d1a1ea9c7f5d28433ffaa9`
+- 시작 baseline status: `garak/windows-foundation` success
+- Current Product Runtime은 Warm/Bright editorless Gain product를 실제 export한다.
+- Phase 1A/1B code와 current Product Runtime build/test가 결합돼 있었다.
+- README, root AGENTS와 VST3 architecture가 삭제된 preset, target, script와 source path를 active command처럼 안내했다.
 
 ## 범위
 
-- Warm/Bright export를 직접 검사하고 official validator로 load하는 current-path CTest 추가
-- Product Runtime CMake preset과 quality target에서 Phase 1B build/test dependency 제거
-- reusable Gain processing곰 Product Runtime만의 private helper가 아니라 Phase 3에서 재사용할 production DSP leaf module로 승격한다.
-4. 제거는 두 단계로 진행한다. 먼저 current path를 spike fixtures에서 분리해 green baseline을 만들고, 그 다음 unreachable spike implementation을 삭제한다.
+- Warm/Bright current product를 직접 load/process/state-test하는 current-path CTest
+- Product Runtime CMake preset/target에서 Phase 1A/1B dependency 제거
+- reusable Gain DSP를 production module로 승격
+- obsolete Phase 1A/1B adapter, tests, CMake option/preset과 packaging tools 삭제
+- dead Product Runtime test 삭제
+- current README/AGENTS/ROADMAP/status/VST3 architecture 동기화
+- exact current commit의 clean Windows foundation gate
+
+## 비범위
+
+- historical ADR, ExecPlan와 status report 삭제
+- Phase 3 graph 구현
+- compiled product/state v2
+- new compatibility shim 또는 fallback
+- macOS/AU, installer, signing와 DAW matrix
+- 새 dependency
 
 ## 구현 단계
 
-- [x] Product Runtime 전용 Warm/Bright inspector/official-validator CTest를 추가한다.
-- [x] Product Runtime presets와 quality target에서 Phase 1B dependency를 제거한다.
-- [ ] 첨 분리 commit의 exact Windows foundation gate를 통과한다.
-- [ ] Gain implementation을 `native/dsp/gain` production module로 이동하고 namespace/target을 갱신한다.
-- [ ] Phase 1A/1B adapter, test, packager, option, preset과 obsolete source를 삭제한다.
-- [ ] active documentation과 roadmap을 동기화한다.
-- [ ] 최종 exact Windows foundation gate를 통과하고 plan을 Complete로 갱신한다.
+- [x] Product Runtime preset과 target에서 Phase 1A/1B dependency를 제거한다.
+- [x] Gain implementation을 `native/dsp/gain` production module로 이동한다.
+- [x] Phase 1A/1B adapter, test, packager, option, preset와 obsolete source를 삭제한다.
+- [x] Warm/Bright direct smoke, inspector와 official validator CTest를 current build graph에 둔다.
+- [x] current source에 연결되지 않고 삭제된 spike header를 참조하던 dead contract test를 제거한다.
+- [x] active README, root AGENTS, roadmap, current status와 VST3 architecture를 동기화한다.
+- [ ] documentation sync commit의 exact `garak/windows-foundation` gate를 통과한다.
+- [ ] 최종 검증 결과를 plan과 current status에 기록하고 Status를 Complete로 바꾼다.
 
-## 변경 대상 파일
+## 실제 변경 대상
 
-예상 변경:
+### Current build와 code
 
+- `CMakeLists.txt`
 - `CMakePresets.json`
 - `cmake/GarakOptions.cmake`
-- `CMakeLists.txt`
 - `native/CMakeLists.txt`
 - `native/adapters/vst3/CMakeLists.txt`
 - `native/adapters/vst3/product_runtime_v1/*`
 - `native/dsp/gain/*`
 - `native/tests/CMakeLists.txt`
-- Phase 1A/1B obsolete source/test/tool paths
-- `README.md`, `ROADMAP.md`, `docs/status/current.md`와 관련 ADR/architecture 문서
+- `native/tests/gain_dsp_tests.cpp`
+- `native/tests/product_runtime_v1_smoke_tests.cpp`
 
-실제 삭제 목록은 tree inventory와 reference search 결과에 맞춰 완료 기록에서 확정한다.
+### 제거한 implementation
+
+- `native/spikes/gain`
+- `native/adapters/vst3/gain_spike`
+- `native/adapters/vst3/runtime_strategy_spike`
+- Phase 1A/1B loaded tests와 descriptor tests
+- `tools/vst3`
+- obsolete Product Runtime contract test
+
+### Active documentation
+
+- `README.md`
+- `AGENTS.md`
+- `ROADMAP.md`
+- `native/AGENTS.md`
+- `native/adapters/vst3/AGENTS.md`
+- `docs/status/current.md`
+- `docs/architecture/vst3-adapter.md`
+- 본 ExecPlan
 
 ## 검증 계획
 
-- repository LF/whitespace와 clang-format gate
+Authoritative `.github/workflows/phase-2c.yml` gate를 exact commit에서 실행한다.
+
+- repository LF/whitespace
 - Product Compiler format/lint/typecheck/test
 - Studio format/lint/typecheck/test/build
-- Debug/Release Product Runtime fresh configure, clean build
+- exact recursive VST3 SDK pin
+- first-party clang-format
+- Debug/Release Product Runtime fresh configure와 clean build
 - Warm/Bright actual export와 official standard/extensive validator
-- Debug/Release CTest의 current Product Runtime smoke, compiled/state compatibility
-- Studio ProductService Debug/Release workflow
-- first-party warnings-as-errors와 clang-tidy
+- current Product Runtime CTest와 inspector parity
+- actual Studio ProductService Debug/Release workflow
+- warnings-as-errors
+- clang-tidy
 - tracked source mutation 0
-- active code/CMake에서 obsolete spike symbol과 path reference 0
 
 ## 수용 기준
 
-- Product Runtime configure/build/test에 Phase 1A/1B option이나 target이 필요하지 않다.
-- Warm/Bright export가 exact identity 검사와 official standard/extensive validator를 통과하고 compiled/state compatibility test가 함께 유지된다.
-- current Product Runtime이 `spike` namespace/path/target에 의존하지 않는다.
-- obsolete Phase 1A/1B executable implementation과 packaging tool이 repository에서 제거된다.
-- historical plans/status documents는 당시 evidence로 남고 current docs는 제거된 command를 실행 경로로 안내하지 않는다.
-- 최종 `main` commit의 `garak/windows-foundation` status가 success다.
+- Product Runtime configure/build/test가 Phase 1A/1B option, target, bundle 또는 tool에 의존하지 않는다.
+- Warm/Bright actual export가 exact identity inspection과 official standard/extensive validation을 통과한다.
+- current Runtime이 `spike` namespace/path/target에 의존하지 않는다.
+- obsolete executable implementation과 packaging tools가 source tree에서 제거된다.
+- active docs가 삭제된 command를 current workflow로 안내하지 않는다.
+- historical evidence docs는 보존되고 historical label이 명확하다.
+- exact current `main` commit의 `garak/windows-foundation` status가 success다.
 
 ## 리스크
 
-- 기존 일곱-module test에만 있던 current-path regression을 잃을 수 있다. Warm/Bright direct smoke와 official validator를 먼저 만든 뒤 삭제한다.
-- CMake target 삭제가 export tool의 prebuilt path discovery를 깨뜨릴 수 있다. Debug/Release actual export를 수용 gate로 둔다.
-- Gain namespace 이동 중 realtime behavior가 변할 수 있다. 구현을 byte-for-byte equivalent하게 이동하고 processing tests를 유지한다.
+- 일곱-module coexistence test 제거로 current-path regression이 줄 수 있다. Warm/Bright actual output, foreign state rejection, instance isolation, unload/reload, inspector와 official validator를 current tests에 직접 둔다.
+- CMake simplification이 export tool discovery를 깨뜨릴 수 있다. Debug/Release actual Product Compiler export와 Studio workflow를 gate에 둔다.
+- Gain namespace 이동 중 realtime behavior가 변할 수 있다. SDK-independent DSP test와 actual module output test를 유지한다.
+- active docs를 크게 줄이면서 persistent contract를 누락할 수 있다. ADR와 architecture source-of-truth에 link하고 root documents에는 current commands와 invariants만 둔다.
 
 ## 발견 사항
 
-- 2026-08-22: authoritative Windows gate는 baseline commit에서 성공행지만 Product Runtime preset이 여전히 Phase 1B 전체를 활성화하고 있었다.
-- 2026-08-22: `garak_product_runtime_v1_contract_tests`는 `GARAK_BUILD_RUNTIME_STRATEGY_SPIKE`가 true일 때만 존재하여 current product path의 독립 regression이 아니었다.
+- 2026-08-22: 기존 Product Runtime preset이 Phase 1B 전체를 활성화해 current product와 historical spike를 독립적으로 검증할 수 없었다.
+- 2026-08-22: compatibility implementation은 당시 current parser signature와 불일치해 clean native build에서 compile failure가 발생했다. Current parser contract로 수정했다.
+- 2026-08-22: Windows checkout의 CRLF 변환이 strict descriptor를 깨뜨렸다. First-party text checkout을 LF로 고정했다.
+- 2026-08-22: 과거 CI가 source formatting/commit/push와 issue 생성까지 수행해 verifier와 writer 책임이 섞였다. Workflow를 read-only authoritative gate로 바꿨다.
+- 2026-08-22: first cleanup increment의 CI는 새 Gain DSP/test의 canonical formatting 차이를 탐지했고 수정했다.
+- 2026-08-22: `product_runtime_v1_contract_tests.cpp`는 CMake target이 없고 이미 삭제된 spike header를 참조하는 dead code였다. 삭제했다.
+- 2026-08-22: implementation 제거 후 README, root AGENTS와 VST3 architecture에 삭제된 command/path가 남아 있었다.
 
 ## 의사결정 로그
 
-- 2026-08-22: Phase 3를 바로 시작하지 않고 obsolete spike 분리를 선행한다. 이유는 새 graph capability를 역사적 A/B build graph 위에 추가하지 않기 위해서다.
-- 2026-08-22: 과거 evidence 문서는 삭제하지 않는다. 실행 코드 보존과 검증 기록 보존은 별개다.
+- 2026-08-22: Phase 3보다 obsolete spike removal을 우선한다.
+- 2026-08-22: historical evidence 문서는 보존하되 runnable implementation은 제거한다.
+- 2026-08-22: current gate는 Warm/Bright 실제 product만 검증하며 Phase 1A/1B bundle을 compatibility baseline으로 두지 않는다.
+- 2026-08-22: CI는 read-only verifier이고 source mutation을 failure로 취급한다.
+- 2026-08-22: active root docs는 current workflow만 설명하고 historical commands는 historical plans/status로 이동한다.
 
 ## 완료 기록
 
-진행 중. 첫 increment는 Product Runtime 전용 Warm/Bright inspector/validator CTest와 spike-free product presets를 추가한다. 최종 gate 전에는 완료로 판정하지 않는다.
+Code와 active documentation cleanup은 반영됐다. 최종 exact current-commit Windows foundation gate가 성공하기 전에는 이 plan을 Complete로 판정하지 않는다.
 
 ## 다음 단계
 
-이 plan이 Complete가 된 뒤 `Phase 3A — Minimal Static DSP Graph and Compiled Execution Plan` ExecPlan을 작성한다.
+이 plan이 Complete이고 current `main` status가 success인 뒤에만 `Phase 3A — Minimal Static DSP Graph and Compiled Execution Plan` ExecPlan을 시작한다.
