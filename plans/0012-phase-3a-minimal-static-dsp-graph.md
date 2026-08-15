@@ -127,6 +127,7 @@ Graph parsing occurs at module load and never in `process`. The processor receiv
 
 ## 발견 사항
 
+- 2026-08-23: 첫 TypeScript graph contract increment는 Native baseline을 유지했고, formatter output을 CI artifact로 회수해 exact repository style을 적용한다.
 - Current `product.garakbin`은 identity/metadata/parameter contract이며 graph bytes를 추가할 reserved extension area가 없다. v1을 변경하지 않고 별도 resource를 두는 것이 compatibility 경계에 맞다.
 - Current Runtime은 module load 시 product resource를 한 번 읽고 immutable factory context를 만든다. 같은 시점에 graph를 읽어 묶는 것이 realtime 규칙과 기존 architecture에 가장 작게 맞는다.
 
