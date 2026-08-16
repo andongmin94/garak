@@ -18,8 +18,7 @@ namespace {
 
 constexpr Steinberg::int32 kMaximumParameterQueueCount = 2;
 constexpr auto kExecutionPlan = garak::runtime::static_graph::make_gain_execution_plan(
-    garak::runtime::product_v1::kGainParameterId,
-    garak::runtime::product_v1::kBypassParameterId);
+    garak::runtime::product_v1::kGainParameterId, garak::runtime::product_v1::kBypassParameterId);
 static_assert(garak::runtime::static_graph::is_supported_gain_execution_plan(
     kExecutionPlan, garak::runtime::product_v1::kGainParameterId,
     garak::runtime::product_v1::kBypassParameterId));
