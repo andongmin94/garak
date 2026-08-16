@@ -2,11 +2,7 @@ import assert from "node:assert/strict";
 import path from "node:path";
 import test from "node:test";
 
-import {
-  deriveFuid,
-  deriveProductIdentity,
-  PHASE_1A_1B_FUIDS,
-} from "../src/identity.ts";
+import { deriveFuid, deriveProductIdentity } from "../src/identity.ts";
 import { validateProjectValue } from "../src/validation.ts";
 import { mutableWarmProduct } from "./helpers.ts";
 
@@ -68,16 +64,4 @@ test("identity depends only on productId and role", () => {
     expected,
     deriveProductIdentity(IDENTITY_VECTORS[1]?.productId ?? ""),
   );
-});
-
-test("reference identities do not collide with Phase 1A or Phase 1B fixtures", () => {
-  const all = new Set(PHASE_1A_1B_FUIDS);
-  assert.equal(all.size, 10);
-  for (const vector of IDENTITY_VECTORS) {
-    assert.equal(all.has(vector.processor), false);
-    assert.equal(all.has(vector.controller), false);
-    all.add(vector.processor);
-    all.add(vector.controller);
-  }
-  assert.equal(all.size, 16);
 });

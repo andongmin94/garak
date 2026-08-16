@@ -7,7 +7,7 @@ import type {
   TransactionFileSystem,
 } from "./export_windows.ts";
 import { fail } from "./errors.ts";
-import { deriveProductIdentity, PHASE_1A_1B_FUIDS } from "./identity.ts";
+import { deriveProductIdentity } from "./identity.ts";
 import { inspectionFor } from "./project_model.ts";
 import type {
   ProductInspection,
@@ -147,19 +147,6 @@ export async function validateProductProjects(
     batchRecord(project, undefined, sourceDirectory),
   );
   assertNoBatchCollisions(records);
-  for (const record of records) {
-    const reservedCollision = [
-      record.identity.processorFuid,
-      record.identity.controllerFuid,
-    ].find((fuid) => PHASE_1A_1B_FUIDS.includes(fuid));
-    if (reservedCollision !== undefined) {
-      fail(
-        "GARAK_IDENTITY_SPIKE_COLLISION",
-        "product.json.productId",
-        `Derived FUID collides with a Phase 1A/1B fixture: ${reservedCollision}`,
-      );
-    }
-  }
   return {
     valid: true,
     products: records.map((record, index) => ({
