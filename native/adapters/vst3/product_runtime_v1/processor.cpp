@@ -3,6 +3,7 @@
 #include "factory_support.hpp"
 #include "garak/dsp/gain/gain.hpp"
 #include "garak/runtime/product_v1/product_state.hpp"
+#include "garak/runtime/static_graph/gain_plan.hpp"
 #include "state_stream.hpp"
 
 #include "pluginterfaces/vst/ivstparameterchanges.h"
@@ -16,6 +17,12 @@ namespace garak::adapter::vst3::product_runtime_v1 {
 namespace {
 
 constexpr Steinberg::int32 kMaximumParameterQueueCount = 2;
+constexpr auto kExecutionPlan = garak::runtime::static_graph::make_gain_execution_plan(
+    garak::runtime::product_v1::kGainParameterId,
+    garak::runtime::product_v1::kBypassParameterId);
+static_assert(garak::runtime::static_graph::is_supported_gain_execution_plan(
+    kExecutionPlan, garak::runtime::product_v1::kGainParameterId,
+    garak::runtime::product_v1::kBypassParameterId));
 
 class QueuePointSource final {
 public:
@@ -121,11 +128,16 @@ process_audio(Steinberg::Vst::ProcessData& data, QueuePointSource& gain_source,
   }
 
   std::uint64_t output_silence = 0;
-  garak::dsp::gain::process_block(
+  const auto executed = garak::runtime::static_graph::execute_gain_plan(
+      kExecutionPlan, garak::runtime::product_v1::kGainParameterId,
+      garak::runtime::product_v1::kBypassParameterId,
       garak::dsp::gain::ProcessBlockContext<Sample, QueuePointSource, QueuePointSource>{
           input_channels.data(), output_channels.data(), channel_count, data.numSamples,
           input.silenceFlags, output_silence, gain_source, bypass_source, current_gain,
           current_bypass});
+  if (!executed) {
+    return Steinberg::kResultFalse;
+  }
   output.silenceFlags = output_silence;
   return Steinberg::kResultTrue;
 }
@@ -264,11 +276,16 @@ Steinberg::tresult PLUGIN_API GainProcessor::process(Steinberg::Vst::ProcessData
       std::uint64_t unused_silence = 0;
       std::array<Steinberg::Vst::Sample32*, 1> unused_input{};
       std::array<Steinberg::Vst::Sample32*, 1> unused_output{};
-      garak::dsp::gain::process_block(
+      const auto executed = garak::runtime::static_graph::execute_gain_plan(
+          kExecutionPlan, garak::runtime::product_v1::kGainParameterId,
+          garak::runtime::product_v1::kBypassParameterId,
           garak::dsp::gain::ProcessBlockContext<Steinberg::Vst::Sample32, QueuePointSource,
                                                 QueuePointSource>{
               unused_input.data(), unused_output.data(), 0, 0, 0, unused_silence, gain_source,
               bypass_source, current_gain_normalized_, current_bypass_});
+      if (!executed) {
+        return Steinberg::kResultFalse;
+      }
       publish_processed_state(processing_generation);
       return Steinberg::kResultTrue;
     }

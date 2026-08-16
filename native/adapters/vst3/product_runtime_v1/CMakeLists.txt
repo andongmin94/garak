@@ -18,7 +18,7 @@ set(
 add_library(garak_product_runtime_v1_objects OBJECT ${garak_product_runtime_v1_sources})
 target_link_libraries(
   garak_product_runtime_v1_objects
-  PRIVATE garak::product_contract_v1 garak::dsp_gain
+  PRIVATE garak::product_contract_v1 garak::dsp_gain garak::static_graph
 )
 target_compile_features(garak_product_runtime_v1_objects PRIVATE cxx_std_20)
 target_include_directories(
@@ -74,7 +74,7 @@ smtg_add_vst3plugin(
 set(SMTG_CREATE_MODULE_INFO "${garak_previous_create_module_info}")
 target_link_libraries(
   garak_product_runtime_v1_vst3
-  PRIVATE sdk garak::product_contract_v1 garak::dsp_gain
+  PRIVATE sdk garak::product_contract_v1 garak::dsp_gain garak::static_graph
 )
 target_compile_features(garak_product_runtime_v1_vst3 PRIVATE cxx_std_20)
 

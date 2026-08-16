@@ -13,6 +13,12 @@ garak_apply_warnings(garak_gain_dsp_tests)
 garak_apply_clang_tidy(garak_gain_dsp_tests)
 add_test(NAME garak_gain_dsp_tests COMMAND garak_gain_dsp_tests)
 
+add_executable(garak_static_graph_tests static_graph_tests.cpp)
+target_link_libraries(garak_static_graph_tests PRIVATE garak::static_graph)
+garak_apply_warnings(garak_static_graph_tests)
+garak_apply_clang_tidy(garak_static_graph_tests)
+add_test(NAME garak_static_graph_tests COMMAND garak_static_graph_tests)
+
 if(GARAK_BUILD_PRODUCT_RUNTIME_V1)
   add_executable(
     garak_product_v1_contract_tests
