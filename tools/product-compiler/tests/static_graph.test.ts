@@ -15,13 +15,24 @@ import {
   encodeStaticExecutionPlan,
 } from "../src/static_graph.ts";
 
-const WARM_PROJECT = {
+const WARM_PROJECT: ProductProject = {
+  schemaVersion: 2,
+  productId: "6f0e50f1-a2d4-4b37-8c9e-1f2a3b4c5d6e",
+  vendor: "Garak Test Artist",
+  name: "Artist Gain Warm",
+  version: "0.1.0",
+  versionParts: { major: 0, minor: 1, patch: 0 },
+  category: "Fx",
   template: { id: "garak.gain", version: 1 },
-} as const satisfies ProductProject;
+  defaults: { gainDb: -6 },
+};
 
-const BRIGHT_PROJECT = {
-  template: { id: "garak.gain", version: 1 },
-} as const satisfies ProductProject;
+const BRIGHT_PROJECT: ProductProject = {
+  ...WARM_PROJECT,
+  productId: "c8a56d90-7e4b-4af1-91d3-2b6c8e0f1357",
+  name: "Artist Gain Bright",
+  defaults: { gainDb: 3 },
+};
 
 function sha256(bytes: Uint8Array): string {
   return createHash("sha256").update(bytes).digest("hex").toUpperCase();
@@ -102,7 +113,8 @@ test("rejects corrupt, truncated, future, and noncanonical plan bytes", () => {
 });
 
 test("rejects unsupported product templates", () => {
-  const unsupported = {
+  const unsupported: ProductProject = {
+    ...WARM_PROJECT,
     template: { id: "garak.other", version: 1 },
   } as unknown as ProductProject;
   expectGraphError(
