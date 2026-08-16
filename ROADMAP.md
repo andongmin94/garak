@@ -3,9 +3,9 @@
 - 기준일: 2026-08-23
 - Branch: `main`
 - Current Windows foundation: **PASS**
-- Verified implementation/documentation commit: `edf4ddb561edd317f001418c9d2935bbb35fc666`
-- Authoritative run: `32580085187`
-- 다음 milestone: **Phase 3A — Minimal Static DSP Graph and Compiled Execution Plan**
+- Phase 3A implementation commit: `27e21307830edf5a6849a3bc96d6ef7ad044cacd`
+- Authoritative run: `32617339447`
+- 다음 milestone: **Phase 3B — Realtime Safety Instrumentation and Long-run Runtime Stress**
 
 이 roadmap은 기능 목록을 미리 쌓는 문서가 아니다. 각 milestone은 직전의 실제 end-to-end 제품 경로가 clean checkout에서 통과한 뒤에만 시작한다.
 
@@ -16,6 +16,7 @@
 - 실행하지 않은 platform, host와 distribution gate를 완료로 표시하지 않는다.
 - obsolete internal path를 compatibility shim이나 fallback으로 보존하지 않는다.
 - persistent Product/FUID/Parameter ID와 지원 schema/state는 명시적 migration으로 보존한다.
+- 사용하지 않는 serializer, resource와 abstraction을 미래 기능이라는 이유로 먼저 추가하지 않는다.
 - 큰 변경 전 별도 ExecPlan을 작성한다.
 
 ## 완료된 foundation
@@ -78,61 +79,94 @@ Windows x64에서 same-binary data-driven Runtime과 product-specific thin wrapp
 
 ### Current baseline cleanup — Complete
 
-[ExecPlan 0011](plans/0011-remove-obsolete-runtime-spikes.md)에 따라 Phase 3 전에 current product 경로를 과거 기술 spike에서 분리했다.
+[ExecPlan 0011](plans/0011-remove-obsolete-runtime-spikes.md)에 따라 current product 경로를 과거 기술 spike에서 분리했다.
 
 - Product Runtime preset/target에서 Phase 1A/1B dependency 제거
 - reusable Gain DSP를 `native/dsp/gain` production module로 승격
 - obsolete Gain/Data/Thin adapter, tests와 packaging tools 제거
 - Warm/Bright actual export/validator/loaded-module gate만 current build graph에 유지
 - active README/AGENTS/architecture/status를 current commands로 동기화
-- exact commit `edf4ddb561edd317f001418c9d2935bbb35fc666`의 `garak/windows-foundation` success
 
-## Phase 3 — Static DSP Graph Runtime
+## Phase 3 — Static DSP Runtime Foundation
 
-### Phase 3A — Minimal Static Graph Contract and Execution Plan
+### Phase 3A — Minimal Native Static Execution Plan — Complete
+
+[ExecPlan 0012](plans/0012-phase-3a-minimal-static-dsp-graph.md)에 따라 current Gain path를 immutable native execution plan 경계로 옮겼다.
+
+실제 산출물:
+
+- fixed operation sequence `Input → Gain → Output`
+- immutable operation/parameter/buffer binding
+- latency `0`
+- production Gain DSP 재사용
+- Product Runtime processor의 actual plan dispatch
+- invalid-plan unit regression
+- 삭제된 Phase 1A/1B FUID reservation 제거
+
+의도적으로 만들지 않은 것:
+
+- `graph.garakbin`
+- TypeScript graph compiler/serializer
+- editable `.garak` graph source
+- generic node registry와 dynamic buffer planner
+
+수용 근거:
+
+- implementation commit `27e21307830edf5a6849a3bc96d6ef7ad044cacd`
+- authoritative run `32617339447`
+- Product Compiler, Studio, Debug/Release actual export, official Validator, loaded-module CTest, Werror와 clang-tidy 모두 success
+
+### Phase 3B — Realtime Safety Instrumentation and Long-run Runtime Stress
 
 진입 조건:
 
-- ExecPlan 0011 Complete
-- exact current Windows foundation status success
-- Warm/Bright current path가 obsolete spike implementation 없이 통과
+- Phase 3A Complete
+- current Windows foundation status success
 
 핵심 산출물:
 
-- versioned Node ID와 Node implementation version
-- typed audio/control port
-- acyclic static graph validation
-- deterministic topological schedule
-- prepare-time buffer plan
-- latency propagation
-- Input → Gain → Output reference graph
-- graph execution을 사용하는 exported VST3
+- process-thread allocation/deallocation counter 또는 동등한 first-party test instrumentation
+- process callback allocation 0 검증
+- randomized mono/stereo Float32/Float64 block sequence
+- zero/max/variable block-size stress
+- automation queue와 state handoff concurrency stress
+- NaN/Inf/subnormal/silence contract 반복 검증
+- bounded long-run watchdog와 deterministic failure report
+- current Warm/Bright export/validator 전체 regression
 
 수용 기준:
 
-- valid mono/stereo graph를 compile하고 current Runtime에서 실행
-- missing node/version, invalid port, cycle와 channel mismatch를 export 전에 거부
-- 같은 logical graph가 같은 execution plan bytes를 생성
-- callback 중 allocation, lock, I/O와 graph mutation 0
-- fixed Gain semantic fixture와 output/state parity 또는 명시적 version transition
-- current Windows foundation gate 전체 통과
+- instrumented process window allocation/deallocation 0
+- deadlock, unbounded wait와 process crash 0
+- state snapshot tearing과 cross-instance leakage 0
+- repeated DSP output가 existing semantic fixtures와 일치
+- exact final commit의 Windows foundation gate 전체 통과
 
 비범위:
 
-- runtime graph mutation
-- full node catalog
-- synthesizer/sampler/convolution
-- third-party Node SDK
+- 새 DSP node
+- editable graph schema
 - Studio graph editor
+- 실제 DAW performance claim
 
-### Phase 3B — Initial DSP Node Set and Realtime Instrumentation
+### Phase 3C — Editable Static Graph Project Contract and Compiled Plan
+
+Phase 3B 이후 별도 ExecPlan으로 시작한다.
+
+- versioned editable graph source
+- strict node/version/port/connection validation
+- deterministic compiled execution plan
+- deployed Runtime의 missing/corrupt/future plan fail closed
+- `GARAKCPD`/`GARAKPST` compatibility 경계 유지 또는 명시적 version transition
+- Studio canvas 없이 headless authoring/export부터 검증
+
+### Phase 3D — Initial DSP Node Set
 
 - Input/Output
 - Gain/Pan/Polarity/Dry-Wet
 - Biquad/Tilt EQ
 - basic saturation
-- bounded realtime allocation/blocking instrumentation
-- per-node version/sound fixtures
+- per-node implementation version과 sound fixture
 
 ## Phase 4 — Parameter and Macro System
 

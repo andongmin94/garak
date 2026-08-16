@@ -11,6 +11,7 @@ unpacked .garak project
 → Product Compiler validation/migration
 → deterministic product.garakbin
 → prebuilt Garak Product Runtime v1
+→ immutable native Input → Gain → Output execution plan
 → product-specific moduleinfo.json
 → local white-label VST3 bundle
 → first-party inspector + official VST3 Validator
@@ -22,7 +23,13 @@ Native Runtime은 C++20이며 생성된 VST3에는 Electron, Chromium, Node.js �
 
 ## 권위 있는 기준선
 
-완료 판정은 문서에 적힌 과거 test 수가 아니라, **정확한 현재 `main` commit**에서 `garak/windows-foundation` status가 성공한 경우에만 유효하다. 이 gate는 clean Windows checkout에서 다음을 한 번에 수행한다.
+완료 판정은 문서에 적힌 과거 test 수가 아니라, **정확한 구현 commit**에서 `garak/windows-foundation` status가 성공한 경우에만 유효하다. 현재 Phase 3A 검증 기준은 다음이다.
+
+- implementation commit: `27e21307830edf5a6849a3bc96d6ef7ad044cacd`
+- workflow run: `32617339447`
+- status: `garak/windows-foundation` success
+
+이 gate는 clean Windows checkout에서 다음을 한 번에 수행한다.
 
 - frozen pnpm install
 - Product Compiler format/lint/typecheck/test
@@ -31,7 +38,7 @@ Native Runtime은 C++20이며 생성된 VST3에는 Electron, Chromium, Node.js �
 - first-party C++ format
 - Debug/Release Product Runtime clean build
 - Warm/Bright actual export와 official standard/extensive validation
-- loaded-module CTest와 inspector parity
+- static-plan, loaded-module와 inspector parity CTest
 - Studio ProductService Debug/Release workflow
 - warnings-as-errors와 clang-tidy
 - gate 실행 후 tracked source mutation 0 확인
@@ -142,6 +149,25 @@ cmake --build --preset product-runtime-clang-tidy-build --clean-first
 - compiled artifact `use-existing` / `rebuild` / `reject` compatibility policy
 - Windows local white-label VST3 export
 - editorless mono/stereo Float32/Float64 Gain Runtime
+- native immutable `Input → Gain → Output` execution-plan boundary
+
+## Phase 3A에서 의도적으로 제거한 것
+
+최초 graph increment는 실제 Runtime이나 export가 사용하지 않는 TypeScript graph codec, node/edge/operation 중복 표현과 임시 CI artifact workflow를 추가했다. 감사 후 이를 제거했다.
+
+현재 Phase 3A에는 다음만 남는다.
+
+- `native/runtime/static_graph`의 fixed immutable plan
+- production Gain DSP를 호출하는 actual processor dispatch
+- plan과 output parity unit test
+
+아직 만들지 않았다.
+
+- `graph.garakbin`
+- editable graph source
+- TypeScript graph compiler/serializer
+- generic node registry
+- dynamic heap buffer planner
 
 ## 제거된 기술 spike
 
@@ -152,29 +178,31 @@ Phase 1A의 fixed Gain module과 Phase 1B의 Data/Thin A/B runtime-strategy 구�
 - [`docs/adr/0003-generated-plugin-runtime-strategy.md`](docs/adr/0003-generated-plugin-runtime-strategy.md)
 - [`docs/status/phase-1b-runtime-strategy-validation.md`](docs/status/phase-1b-runtime-strategy-validation.md)
 
-이 문서에 기록된 삭제된 preset, target, script 또는 bundle은 현재 실행 명령이 아니다. Obsolete implementation을 compatibility path로 복구하지 않는다.
+삭제된 spike FUID도 current Product Compiler의 영구 예약 목록으로 유지하지 않는다. 이들은 출시된 product identity가 아니다.
 
 ## 아직 제품이 아닌 부분
 
 현재 Garak은 repository-local Windows vertical slice다. 다음은 아직 완료되지 않았다.
 
-- general static DSP graph와 node library
+- process-thread allocation/blocking 계측과 장시간 stress
+- editable static graph와 node library
 - macro mapping과 functional Sound/Control workspaces
 - native plug-in interface designer
 - preset/asset product packaging
 - packaged Studio와 clean-system installer
-- representative DAW matrix와 장시간 audio stress/quality 기준
+- representative DAW matrix와 audio quality 기준
 - macOS Universal VST3, AU, signing과 notarization
 - backup retention/pruning과 advanced manual recovery
 - repository 및 commercial redistribution legal decision
 
-다음 product capability milestone은 current Windows foundation gate가 green인 뒤 시작하는 **Phase 3A — Minimal Static DSP Graph and Compiled Execution Plan**이다.
+다음 milestone은 **Phase 3B — Realtime Safety Instrumentation and Long-run Runtime Stress**다. 새 DSP node나 editable graph schema보다 current process 경로의 allocation 0, bounded work와 state concurrency를 먼저 계측한다.
 
 ## 문서
 
 - [Repository constitution](AGENTS.md)
 - [Roadmap](ROADMAP.md)
 - [Current status](docs/status/current.md)
+- [Phase 3A ExecPlan](plans/0012-phase-3a-minimal-static-dsp-graph.md)
 - [System overview](docs/architecture/system-overview.md)
 - [Runtime and export](docs/architecture/runtime-and-export.md)
 - [VST3 adapter](docs/architecture/vst3-adapter.md)
