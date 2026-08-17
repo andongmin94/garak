@@ -19,6 +19,13 @@ garak_apply_warnings(garak_static_graph_tests)
 garak_apply_clang_tidy(garak_static_graph_tests)
 add_test(NAME garak_static_graph_tests COMMAND garak_static_graph_tests)
 
+add_executable(garak_realtime_stress_tests realtime_stress_tests.cpp)
+target_link_libraries(garak_realtime_stress_tests PRIVATE garak::static_graph)
+garak_apply_warnings(garak_realtime_stress_tests)
+garak_apply_clang_tidy(garak_realtime_stress_tests)
+add_test(NAME garak_realtime_stress_tests COMMAND garak_realtime_stress_tests)
+set_tests_properties(garak_realtime_stress_tests PROPERTIES TIMEOUT 120)
+
 if(GARAK_BUILD_PRODUCT_RUNTIME_V1)
   add_executable(
     garak_product_v1_contract_tests
