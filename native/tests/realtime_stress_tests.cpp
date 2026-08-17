@@ -271,10 +271,12 @@ template <typename Sample>
         const auto source =
             original[static_cast<std::size_t>(channel)][static_cast<std::size_t>(sample)];
         Sample expected = 0;
-        if (!silent) {
-          expected = target_bypass
-                         ? source
-                         : static_cast<Sample>(source * static_cast<Sample>(linear_gain));
+        if (silent) {
+          expected = 0;
+        } else if (target_bypass) {
+          expected = source;
+        } else {
+          expected = static_cast<Sample>(source * static_cast<Sample>(linear_gain));
         }
         const auto actual =
             output_channels[static_cast<std::size_t>(channel)][static_cast<std::size_t>(sample)];
