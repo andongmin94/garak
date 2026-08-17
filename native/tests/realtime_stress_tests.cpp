@@ -154,8 +154,9 @@ constexpr std::uint32_t kGainParameterId = garak::runtime::product_v1::kGainPara
 constexpr std::uint32_t kBypassParameterId = garak::runtime::product_v1::kBypassParameterId;
 constexpr auto kPlan =
     garak::runtime::static_graph::make_gain_execution_plan(kGainParameterId, kBypassParameterId);
-static_assert(garak::runtime::static_graph::is_supported_gain_execution_plan(
-    kPlan, kGainParameterId, kBypassParameterId));
+static_assert(garak::runtime::static_graph::is_supported_gain_execution_plan(kPlan,
+                                                                             kGainParameterId,
+                                                                             kBypassParameterId));
 
 class Generator final {
 public:
@@ -220,8 +221,7 @@ template <typename Sample>
 
   allocation_tracking::begin();
   for (std::uint32_t block = 0; block < kBlockCount && result.output_matches; ++block) {
-    const auto sample_count =
-        static_cast<std::int32_t>(generator.next() % (kMaximumSamples + 1U));
+    const auto sample_count = static_cast<std::int32_t>(generator.next() % (kMaximumSamples + 1U));
     const auto channel_count = static_cast<std::int32_t>((generator.next() % 2U) + 1U);
     const auto in_place = (generator.next() & 1U) != 0U;
     const auto gain_index = generator.next() % 5U;
@@ -251,32 +251,32 @@ template <typename Sample>
       }
     }
     std::uint64_t output_silence_flags = 0;
-    const auto executed = garak::runtime::static_graph::execute_gain_plan(
-        kPlan, kGainParameterId, kBypassParameterId,
+    garak::runtime::static_graph::execute_gain_plan(
+        kPlan,
         garak::dsp::gain::ProcessBlockContext<Sample, SinglePointSource, SinglePointSource>{
             input_channels.data(), output_channels.data(), channel_count, sample_count,
             input_silence_flags, output_silence_flags, gain_source, bypass_source, current_gain,
             current_bypass});
-    if (!executed || current_gain != target_gain || current_bypass != target_bypass ||
+    if (current_gain != target_gain || current_bypass != target_bypass ||
         output_silence_flags != input_silence_flags) {
       result.output_matches = false;
       break;
     }
 
-    const auto linear_gain = garak::dsp::gain::decibels_to_linear(
-        garak::dsp::gain::normalized_to_decibels(target_gain));
+    const auto linear_gain =
+        garak::dsp::gain::decibels_to_linear(garak::dsp::gain::normalized_to_decibels(target_gain));
     for (std::int32_t channel = 0; channel < channel_count && result.output_matches; ++channel) {
       const auto silent = (input_silence_flags & (std::uint64_t{1} << channel)) != 0U;
       for (std::int32_t sample = 0; sample < sample_count; ++sample) {
         const auto source =
             original[static_cast<std::size_t>(channel)][static_cast<std::size_t>(sample)];
-        const auto expected = silent
-                                  ? static_cast<Sample>(0)
-                                  : target_bypass
-                                        ? source
-                                        : static_cast<Sample>(source * static_cast<Sample>(linear_gain));
-        const auto actual = output_channels[static_cast<std::size_t>(channel)]
-                                           [static_cast<std::size_t>(sample)];
+        const auto expected = silent ? static_cast<Sample>(0)
+                                     : target_bypass
+                                           ? source
+                                           : static_cast<Sample>(
+                                                 source * static_cast<Sample>(linear_gain));
+        const auto actual =
+            output_channels[static_cast<std::size_t>(channel)][static_cast<std::size_t>(sample)];
         if (!nearly_equal(actual, expected)) {
           result.output_matches = false;
           break;
@@ -315,5 +315,5 @@ int main() {
   const auto float_result = run_stress<float>(0xB10C'F32A'1234'5678ULL);
   const auto double_result = run_stress<double>(0xB10C'F64A'8765'4321ULL);
   return report("Float32", float_result) && report("Float64", double_result) ? EXIT_SUCCESS
-                                                                            : EXIT_FAILURE;
+                                                                             : EXIT_FAILURE;
 }
