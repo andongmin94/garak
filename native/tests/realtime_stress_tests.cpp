@@ -251,13 +251,13 @@ template <typename Sample>
       }
     }
     std::uint64_t output_silence_flags = 0;
-    garak::runtime::static_graph::execute_gain_plan(
-        kPlan,
+    const auto executed = garak::runtime::static_graph::execute_gain_plan(
+        kPlan, kGainParameterId, kBypassParameterId,
         garak::dsp::gain::ProcessBlockContext<Sample, SinglePointSource, SinglePointSource>{
             input_channels.data(), output_channels.data(), channel_count, sample_count,
             input_silence_flags, output_silence_flags, gain_source, bypass_source, current_gain,
             current_bypass});
-    if (current_gain != target_gain || current_bypass != target_bypass ||
+    if (!executed || current_gain != target_gain || current_bypass != target_bypass ||
         output_silence_flags != input_silence_flags) {
       result.output_matches = false;
       break;
