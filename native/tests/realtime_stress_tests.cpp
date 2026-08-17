@@ -221,12 +221,12 @@ template <typename Sample>
 
   allocation_tracking::begin();
   for (std::uint32_t block = 0; block < kBlockCount && result.output_matches; ++block) {
-    const auto sample_count = static_cast<std::int32_t>(generator.next() % (kMaximumSamples + 1U));
-    const auto channel_count = static_cast<std::int32_t>((generator.next() % 2U) + 1U);
-    const auto in_place = (generator.next() & 1U) != 0U;
-    const auto gain_index = generator.next() % 5U;
-    const auto target_gain = static_cast<double>(gain_index) * 0.25;
-    const auto target_bypass = (generator.next() % 5U) == 0U;
+    const auto sample_count =
+        static_cast<std::int32_t>(block % static_cast<std::uint32_t>(kMaximumSamples + 1));
+    const auto channel_count = static_cast<std::int32_t>((block % 2U) + 1U);
+    const auto in_place = (block & 2U) != 0U;
+    const auto target_gain = static_cast<double>(block % 5U) * 0.25;
+    const auto target_bypass = (block % 7U) == 0U;
     gain_source.set(target_gain);
     bypass_source.set(target_bypass ? 1.0 : 0.0);
 
@@ -270,11 +270,12 @@ template <typename Sample>
       for (std::int32_t sample = 0; sample < sample_count; ++sample) {
         const auto source =
             original[static_cast<std::size_t>(channel)][static_cast<std::size_t>(sample)];
-        const auto expected = silent ? static_cast<Sample>(0)
-                                     : target_bypass
-                                           ? source
-                                           : static_cast<Sample>(
-                                                 source * static_cast<Sample>(linear_gain));
+        Sample expected = 0;
+        if (!silent) {
+          expected = target_bypass
+                         ? source
+                         : static_cast<Sample>(source * static_cast<Sample>(linear_gain));
+        }
         const auto actual =
             output_channels[static_cast<std::size_t>(channel)][static_cast<std::size_t>(sample)];
         if (!nearly_equal(actual, expected)) {
