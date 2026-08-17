@@ -27,6 +27,7 @@ if(GARAK_BUILD_PRODUCT_RUNTIME_V1)
       garak_version_tests
       garak_gain_dsp_tests
       garak_static_graph_tests
+      garak_realtime_stress_tests
       garak_product_v1_contract_tests
       garak_product_compatibility_tests
       garak_product_runtime_v1_smoke_tests
