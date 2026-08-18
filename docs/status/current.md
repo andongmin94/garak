@@ -2,11 +2,11 @@
 
 - 기준일: 2026-08-23
 - Branch: `main`
-- Phase 3A: **PASS / Complete — Windows x64**
-- Verified implementation commit: `27e21307830edf5a6849a3bc96d6ef7ad044cacd`
-- Authoritative Windows run: `32617339447`
+- Phase 3B: **PASS / Complete — Windows x64**
+- Verified implementation commit: `4b2535deba302eddab86c5c02b165e8d4f168cf4`
+- Authoritative Windows run: `32634527751`
 - Status context: `garak/windows-foundation` — **success**
-- 다음 milestone: **Phase 3B — Realtime Safety Instrumentation and Long-run Runtime Stress**
+- 다음 milestone: **Phase 3C — Editable Static Graph Project Contract and Compiled Plan**
 
 ## 실제 current product path
 
@@ -35,24 +35,11 @@ Studio는 current/legacy project 생성·열기·검증·저장·migration·conf
 - compiled artifact `use-existing` / `rebuild` / `reject` policy
 - future/foreign/corrupt data fail-closed behavior
 
-Phase 3A는 위 persistent bytes와 ID를 변경하지 않았다.
+Phase 3A와 Phase 3B는 위 persistent bytes와 ID를 변경하지 않았다.
 
-## Phase 3A 감사와 정리
+## Phase 3A — Minimal Native Static Execution Plan
 
-최초 Phase 3A increment는 TypeScript에서 node, edge와 operation을 중복 표현한 graph codec을 만들었지만 Product Compiler export나 Native Runtime에서 사용하지 않았다. 해당 `main`은 Product Compiler formatter gate도 실패했다.
-
-감사 후 다음처럼 정리했다.
-
-- unused TypeScript graph compiler/serializer/test 제거
-- 임시 formatter artifact workflow 제거
-- `graph.garakbin` 도입 취소
-- `native/runtime/static_graph`에 세 operation의 immutable plan만 추가
-- Product Runtime processor가 그 plan을 통해 production Gain DSP 실행
-- plan order, parameter/buffer binding과 latency unit regression 추가
-- 삭제된 Phase 1A/1B 실험 FUID 10개의 current compiler reservation 제거
-- generic registry, heap planner, dynamic graph와 persistent graph format 미도입
-
-현재 plan은 다음 하나다.
+Phase 3A는 unused cross-language graph codec을 제거하고 실제 Runtime이 사용하는 가장 작은 native execution boundary만 남겼다.
 
 ```text
 Audio Input
@@ -60,9 +47,42 @@ Audio Input
 → Audio Output
 ```
 
+현재 구현은 fixed operation/parameter/buffer binding, latency `0`, production Gain DSP dispatch와 invalid-plan regression을 제공한다. `graph.garakbin`, editable graph source, TypeScript graph serializer, generic node registry와 dynamic heap planner는 도입하지 않았다.
+
+수용 근거:
+
+- implementation commit `27e21307830edf5a6849a3bc96d6ef7ad044cacd`
+- authoritative run `32617339447`
+
+## Phase 3B — Realtime Safety Instrumentation and Long-run Runtime Stress
+
+SDK-independent static-plan/Gain process window를 별도 first-party executable에서 실제 계측한다.
+
+계측 경계:
+
+- same-thread standard aligned/unaligned C++ `new`/`delete`
+- tracking 시작 전에 준비한 fixed-size stack input/output/automation storage
+- production `execute_gain_plan`과 Gain DSP
+
+Deterministic stress 결과:
+
+- Float32: 20,000 blocks, 1,919,504 channel-samples
+- Float64: 20,000 blocks, 1,919,504 channel-samples
+- block size `0..128`
+- mono/stereo
+- in-place/out-of-place
+- Gain/Bypass offset-0 automation
+- deterministic silence flags
+- allocation `0`
+- deallocation `0`
+- output/state/silence mismatch `0`
+- CTest timeout 120 seconds, timeout/crash/hang `0`
+
+최종 MSVC warnings-as-errors blocker였던 template의 unreachable-code 진단은 의미 변화 없이 `if constexpr ... else` 구조로 정리했다. 이 수정이 포함된 commit `4b2535deba302eddab86c5c02b165e8d4f168cf4`에서 전체 Windows gate가 성공했다.
+
 ## Authoritative gate 결과
 
-Run `32617339447`에서 다음 job과 모든 하위 step이 성공했다.
+Run `32634527751`에서 다음 job과 모든 하위 step이 성공했다.
 
 ### Product Compiler and Studio
 
@@ -77,49 +97,48 @@ Run `32617339447`에서 다음 job과 모든 하위 step이 성공했다.
 - exact recursive SDK pins
 - first-party C++ format
 - Debug Product Runtime clean build
-- Warm/Bright Debug actual export와 official validation
-- Debug CTest와 static-plan/loaded-module regression
+- Warm/Bright Debug actual export와 official standard/extensive validation
+- Debug CTest, static-plan, realtime stress와 loaded-module regression
 - actual Studio Debug product workflow
 - Release Product Runtime clean build
-- Warm/Bright Release actual export와 official validation
-- Release CTest와 static-plan/loaded-module regression
+- Warm/Bright Release actual export와 official standard/extensive validation
+- Release CTest, static-plan, realtime stress와 loaded-module regression
 - actual Studio Release product workflow
 - warnings-as-errors
 - clang-tidy
 - tracked source mutation 0
 
-완료 판정은 문서상의 과거 test 수가 아니라 정확한 current implementation commit의 `garak/windows-foundation` status를 따른다.
+완료 판정은 문서상의 과거 test 수가 아니라 정확한 verified implementation commit의 `garak/windows-foundation` status를 따른다.
 
-## 이번 감사에서 제거한 불필요한 복잡도
+## Phase 3B 완료가 보장하지 않는 항목
 
-- 실행되지 않는 cross-language graph codec과 220-byte 계획 포맷
-- node/edge/operation의 중복 직렬화
-- CI 진단용 temporary artifact workflow
-- 삭제된 pre-release spike FUID reservation과 collision branch
-- current product path에서 사용하지 않는 future graph resource 설계
+- raw C heap 또는 Windows allocator allocation
+- Steinberg SDK와 host thread 내부 allocation
+- kernel-level blocking/wait
+- OS scheduler latency와 실제 DAW deadline
+- cross-thread automation/state handoff concurrency
+- NaN/Inf/subnormal automation 입력
+- representative DAW performance와 audio-quality claim
 
-과거 Phase 1A/1B의 ADR, ExecPlan과 status report는 역사적 판단 근거로만 보존한다. 실행 구현이나 compatibility fallback은 복구하지 않는다.
+이 항목은 source audit, timeout 또는 current loaded-module regression으로 대체됐다고 주장하지 않는다.
 
 ## 아직 검증되지 않은 핵심 항목
 
-- process-thread allocation/deallocation의 실제 계측
-- blocking/wait의 runtime 계측
-- 장시간 randomized block/automation/state stress
+- versioned editable graph source와 deterministic compiled plan
+- deployed Runtime의 graph plan compatibility/fail-closed 경계
+- additional DSP node와 macro system
 - representative DAW scan/load/save/reopen matrix
 - packaged Studio와 clean-system installer
-- editable graph source와 persistent compiled graph
-- additional DSP node와 macro system
 - native interface designer
 - preset/asset packaging
 - backup retention/pruning와 advanced manual recovery
 - macOS Universal VST3, AU, signing과 notarization
 - legal/trademark/security review와 repository license decision
 
-Phase 1B에서는 realtime path source audit는 수행했지만 별도 allocation/blocking 계측은 수행하지 않았다. 따라서 다음 단계는 새 node 추가보다 계측과 장시간 stress를 우선한다.
-
 ## Source of truth
 
-- [ExecPlan 0012](../../plans/0012-phase-3a-minimal-static-dsp-graph.md)
+- [Phase 3B ExecPlan](../../plans/0013-phase-3b-realtime-safety-stress.md)
+- [Phase 3A ExecPlan](../../plans/0012-phase-3a-minimal-static-dsp-graph.md)
 - [Repository constitution](../../AGENTS.md)
 - [Roadmap](../../ROADMAP.md)
 - [Current VST3 adapter](../architecture/vst3-adapter.md)
@@ -129,6 +148,6 @@ Phase 1B에서는 realtime path source audit는 수행했지만 별도 allocatio
 
 ## 다음 단계
 
-`Phase 3B — Realtime Safety Instrumentation and Long-run Runtime Stress`
+`Phase 3C — Editable Static Graph Project Contract and Compiled Plan`
 
-이 단계가 green이 된 뒤에만 editable graph contract 또는 additional DSP node로 넘어간다.
+첫 increment는 Studio canvas나 additional node가 아니다. strict headless graph source validation, deterministic compilation, current compiled/state contract와의 경계, deployed Runtime의 missing/corrupt/future plan fail closed를 end-to-end로 먼저 검증한다.
