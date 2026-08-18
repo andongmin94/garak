@@ -200,8 +200,9 @@ template <typename Sample>
 [[nodiscard]] bool nearly_equal(const Sample actual, const Sample expected) noexcept {
   if constexpr (std::is_same_v<Sample, float>) {
     return std::abs(actual - expected) <= 1.0e-5F;
+  } else {
+    return std::abs(actual - expected) <= 1.0e-12;
   }
-  return std::abs(actual - expected) <= 1.0e-12;
 }
 
 template <typename Sample>
