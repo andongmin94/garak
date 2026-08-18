@@ -3,9 +3,9 @@
 - 기준일: 2026-08-23
 - Branch: `main`
 - Current Windows foundation: **PASS**
-- Phase 3A implementation commit: `27e21307830edf5a6849a3bc96d6ef7ad044cacd`
-- Authoritative run: `32617339447`
-- 다음 milestone: **Phase 3B — Realtime Safety Instrumentation and Long-run Runtime Stress**
+- Phase 3B implementation commit: `4b2535deba302eddab86c5c02b165e8d4f168cf4`
+- Authoritative run: `32634527751`
+- 다음 milestone: **Phase 3C — Editable Static Graph Project Contract and Compiled Plan**
 
 이 roadmap은 기능 목록을 미리 쌓는 문서가 아니다. 각 milestone은 직전의 실제 end-to-end 제품 경로가 clean checkout에서 통과한 뒤에만 시작한다.
 
@@ -116,38 +116,34 @@ Windows x64에서 same-binary data-driven Runtime과 product-specific thin wrapp
 - authoritative run `32617339447`
 - Product Compiler, Studio, Debug/Release actual export, official Validator, loaded-module CTest, Werror와 clang-tidy 모두 success
 
-### Phase 3B — Realtime Safety Instrumentation and Long-run Runtime Stress
+### Phase 3B — Realtime Safety Instrumentation and Long-run Runtime Stress — Complete
 
-진입 조건:
+[ExecPlan 0013](plans/0013-phase-3b-realtime-safety-stress.md)에 따라 current static Gain process window에 first-party allocation/deallocation 계측과 deterministic long-run stress를 추가했다.
 
-- Phase 3A Complete
-- current Windows foundation status success
+실제 산출물:
 
-핵심 산출물:
+- same-thread standard aligned/unaligned C++ `new`/`delete` 계측
+- tracking 시작 전 fixed-size stack storage 준비
+- Float32/Float64 각각 20,000 blocks와 1,919,504 channel-samples
+- block size `0..128`, mono/stereo와 in-place/out-of-place 반복
+- Gain/Bypass offset-0 automation, silence flag, output와 current-state 검증
+- allocation `0`, deallocation `0`, mismatch `0`
+- fixed seed와 120-second CTest timeout
+- current Warm/Bright Debug/Release export/validator 전체 regression
 
-- process-thread allocation/deallocation counter 또는 동등한 first-party test instrumentation
-- process callback allocation 0 검증
-- randomized mono/stereo Float32/Float64 block sequence
-- zero/max/variable block-size stress
-- automation queue와 state handoff concurrency stress
-- NaN/Inf/subnormal/silence contract 반복 검증
-- bounded long-run watchdog와 deterministic failure report
-- current Warm/Bright export/validator 전체 regression
+수용 근거:
 
-수용 기준:
+- implementation commit `4b2535deba302eddab86c5c02b165e8d4f168cf4`
+- authoritative run `32634527751`
+- Product Compiler, Studio, Debug/Release actual export, official Validator, CTest, real Studio workflow, Werror와 clang-tidy 모두 success
 
-- instrumented process window allocation/deallocation 0
-- deadlock, unbounded wait와 process crash 0
-- state snapshot tearing과 cross-instance leakage 0
-- repeated DSP output가 existing semantic fixtures와 일치
-- exact final commit의 Windows foundation gate 전체 통과
+완료 근거로 일반화하지 않는 항목:
 
-비범위:
-
-- 새 DSP node
-- editable graph schema
-- Studio graph editor
-- 실제 DAW performance claim
+- raw C heap, Windows allocator, Steinberg SDK와 host thread 내부 allocation
+- kernel-level blocking/wait와 실제 DAW deadline
+- cross-thread state handoff concurrency
+- NaN/Inf/subnormal automation 입력
+- representative DAW performance 또는 audio-quality claim
 
 ### Phase 3C — Editable Static Graph Project Contract and Compiled Plan
 
