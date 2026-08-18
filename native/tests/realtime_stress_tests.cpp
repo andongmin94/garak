@@ -1,7 +1,6 @@
 #include "garak/runtime/static_graph/gain_plan.hpp"
 
 #include "garak/dsp/gain/gain.hpp"
-#include "garak/runtime/product_v1/compiled_product.hpp"
 
 #include <array>
 #include <cmath>
@@ -150,8 +149,8 @@ namespace {
 
 constexpr std::int32_t kMaximumSamples = 128;
 constexpr std::uint32_t kBlockCount = 20'000;
-constexpr std::uint32_t kGainParameterId = garak::runtime::product_v1::kGainParameterId;
-constexpr std::uint32_t kBypassParameterId = garak::runtime::product_v1::kBypassParameterId;
+constexpr std::uint32_t kGainParameterId = 1001;
+constexpr std::uint32_t kBypassParameterId = 1002;
 constexpr auto kPlan =
     garak::runtime::static_graph::make_gain_execution_plan(kGainParameterId, kBypassParameterId);
 static_assert(garak::runtime::static_graph::is_supported_gain_execution_plan(kPlan,
