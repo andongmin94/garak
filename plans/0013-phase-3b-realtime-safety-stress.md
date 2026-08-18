@@ -1,7 +1,8 @@
 # ExecPlan 0013 — Phase 3B Realtime Safety Instrumentation and Long-run Runtime Stress
 
-- Status: In Progress
+- Status: Complete
 - Started: 2026-08-23
+- Completed: 2026-08-23
 - Updated: 2026-08-23
 - Owner: Native DSP/runtime quality
 
@@ -63,12 +64,12 @@ VST3 adapter는 기존 loaded-module regression, source boundary와 timeout으�
 
 ## 구현 단계
 
-1. [ ] allocation/deallocation tracking test executable 추가
-2. [ ] deterministic Float32/Float64 long-run stress 추가
-3. [ ] CTest timeout과 Product Runtime quality target 연결
-4. [ ] first-party format/Werror/tidy 통과
-5. [ ] Debug/Release actual export/validator/loaded-module 전체 gate 통과
-6. [ ] exact final commit status success 후 문서와 plan Complete
+1. [x] allocation/deallocation tracking test executable 추가
+2. [x] deterministic Float32/Float64 long-run stress 추가
+3. [x] CTest timeout과 Product Runtime quality target 연결
+4. [x] first-party format/Werror/tidy 통과
+5. [x] Debug/Release actual export/validator/loaded-module 전체 gate 통과
+6. [x] exact final commit status success 후 문서와 plan Complete
 
 ## 수용 기준
 
@@ -88,8 +89,27 @@ VST3 adapter는 기존 loaded-module regression, source boundary와 timeout으�
 
 ## 완료 기록
 
-진행 중. 계측과 full Windows gate가 모두 통과하기 전에는 Phase 3B를 완료로 표시하지 않는다.
+Phase 3B는 다음 verified implementation에서 완료됐다.
+
+- implementation commit: `4b2535deba302eddab86c5c02b165e8d4f168cf4`
+- authoritative Windows run: `32634527751`
+- status context: `garak/windows-foundation` — success
+
+계측 결과:
+
+- Float32: 20,000 blocks, 1,919,504 channel-samples, allocation `0`, deallocation `0`
+- Float64: 20,000 blocks, 1,919,504 channel-samples, allocation `0`, deallocation `0`
+- block size: `0..128` 반복
+- channel layout: mono/stereo 반복
+- processing: in-place/out-of-place 반복
+- controls: Gain/Bypass offset-0 automation 반복
+- silence flag, output, current Gain/Bypass state mismatch `0`
+- fixed seed와 120-second CTest timeout 사용
+
+동일 run에서 Product Compiler와 Studio quality gates, Debug/Release Product Runtime clean build, Warm/Bright actual export, official standard/extensive Validator, CTest, real Studio product workflow, warnings-as-errors, clang-tidy와 tracked-source immutability가 모두 성공했다.
+
+이번 완료가 보장하지 않는 항목은 raw C heap/Windows allocator, Steinberg SDK 또는 host thread 내부 allocation, kernel-level blocking/wait, cross-thread state handoff, 실제 DAW deadline이다. 이 항목을 Phase 3B 완료 근거로 일반화하지 않는다.
 
 ## 다음 단계
 
-Phase 3B가 Complete가 된 뒤 editable static graph project contract를 별도 ExecPlan으로 시작한다.
+`Phase 3C — Editable Static Graph Project Contract and Compiled Plan`을 별도 ExecPlan으로 시작한다. Studio canvas보다 strict headless project validation, deterministic compilation과 deployed Runtime fail-closed 경계를 먼저 검증한다.
