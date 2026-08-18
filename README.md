@@ -23,10 +23,10 @@ Native Runtime은 C++20이며 생성된 VST3에는 Electron, Chromium, Node.js �
 
 ## 권위 있는 기준선
 
-완료 판정은 문서에 적힌 과거 test 수가 아니라, **정확한 구현 commit**에서 `garak/windows-foundation` status가 성공한 경우에만 유효하다. 현재 Phase 3A 검증 기준은 다음이다.
+완료 판정은 문서에 적힌 과거 test 수가 아니라, **정확한 구현 commit**에서 `garak/windows-foundation` status가 성공한 경우에만 유효하다. 현재 Phase 3B 검증 기준은 다음이다.
 
-- implementation commit: `27e21307830edf5a6849a3bc96d6ef7ad044cacd`
-- workflow run: `32617339447`
+- implementation commit: `4b2535deba302eddab86c5c02b165e8d4f168cf4`
+- workflow run: `32634527751`
 - status: `garak/windows-foundation` success
 
 이 gate는 clean Windows checkout에서 다음을 한 번에 수행한다.
@@ -38,7 +38,7 @@ Native Runtime은 C++20이며 생성된 VST3에는 Electron, Chromium, Node.js �
 - first-party C++ format
 - Debug/Release Product Runtime clean build
 - Warm/Bright actual export와 official standard/extensive validation
-- static-plan, loaded-module와 inspector parity CTest
+- static-plan, realtime stress, loaded-module와 inspector parity CTest
 - Studio ProductService Debug/Release workflow
 - warnings-as-errors와 clang-tidy
 - gate 실행 후 tracked source mutation 0 확인
@@ -150,8 +150,10 @@ cmake --build --preset product-runtime-clang-tidy-build --clean-first
 - Windows local white-label VST3 export
 - editorless mono/stereo Float32/Float64 Gain Runtime
 - native immutable `Input → Gain → Output` execution-plan boundary
+- first-party static-plan/Gain process window의 C++ allocation/deallocation `0` regression
+- deterministic Float32/Float64 long-run runtime stress와 bounded CTest timeout
 
-## Phase 3A에서 의도적으로 제거한 것
+## Phase 3A — 최소 static execution plan
 
 최초 graph increment는 실제 Runtime이나 export가 사용하지 않는 TypeScript graph codec, node/edge/operation 중복 표현과 임시 CI artifact workflow를 추가했다. 감사 후 이를 제거했다.
 
@@ -169,6 +171,25 @@ cmake --build --preset product-runtime-clang-tidy-build --clean-first
 - generic node registry
 - dynamic heap buffer planner
 
+## Phase 3B — realtime safety stress
+
+별도 first-party executable이 production static plan과 Gain DSP를 fixed-size stack storage로 실행하며 same-thread standard aligned/unaligned C++ `new`/`delete`를 계수한다.
+
+검증된 범위:
+
+- Float32/Float64 각각 20,000 blocks
+- 각 sample type 1,919,504 channel-samples
+- block size `0..128`
+- mono/stereo
+- in-place/out-of-place
+- Gain/Bypass offset-0 automation
+- deterministic silence flags
+- allocation `0`, deallocation `0`
+- output/state/silence mismatch `0`
+- 120-second CTest timeout
+
+이 결과는 raw C heap, Windows allocator, Steinberg SDK/host thread allocation, kernel-level blocking, cross-thread state handoff 또는 실제 DAW deadline을 증명하지 않는다.
+
 ## 제거된 기술 spike
 
 Phase 1A의 fixed Gain module과 Phase 1B의 Data/Thin A/B runtime-strategy 구현은 의사결정을 위한 pre-release 기술 spike였다. 현재 제품 build graph와 source tree에서는 제거됐다. 당시 결과는 다음 문서에 역사적 증거로만 남긴다.
@@ -178,14 +199,16 @@ Phase 1A의 fixed Gain module과 Phase 1B의 Data/Thin A/B runtime-strategy 구�
 - [`docs/adr/0003-generated-plugin-runtime-strategy.md`](docs/adr/0003-generated-plugin-runtime-strategy.md)
 - [`docs/status/phase-1b-runtime-strategy-validation.md`](docs/status/phase-1b-runtime-strategy-validation.md)
 
-삭제된 spike FUID도 current Product Compiler의 영구 예약 목록으로 유지하지 않는다. 이들은 출시된 product identity가 아니다.
+삭제된 spike FUID도 current Product Compiler의 영구 예약 목록으로 유지하지 않는다. 이들은 출시된 product identity가 아니다. 과거 Phase 1B Windows spike의 검증 범위도 current cross-platform product 완료 근거로 일반화하지 않는다.
 
 ## 아직 제품이 아닌 부분
 
 현재 Garak은 repository-local Windows vertical slice다. 다음은 아직 완료되지 않았다.
 
-- process-thread allocation/blocking 계측과 장시간 stress
-- editable static graph와 node library
+- editable static graph source와 deterministic compiled plan
+- deployed Runtime의 graph plan compatibility/fail-closed 경계
+- additional DSP node library
+- cross-thread automation/state handoff 및 kernel-level blocking 계측
 - macro mapping과 functional Sound/Control workspaces
 - native plug-in interface designer
 - preset/asset product packaging
@@ -195,13 +218,14 @@ Phase 1A의 fixed Gain module과 Phase 1B의 Data/Thin A/B runtime-strategy 구�
 - backup retention/pruning과 advanced manual recovery
 - repository 및 commercial redistribution legal decision
 
-다음 milestone은 **Phase 3B — Realtime Safety Instrumentation and Long-run Runtime Stress**다. 새 DSP node나 editable graph schema보다 current process 경로의 allocation 0, bounded work와 state concurrency를 먼저 계측한다.
+다음 milestone은 **Phase 3C — Editable Static Graph Project Contract and Compiled Plan**이다. 첫 increment는 Studio canvas나 additional node가 아니라 strict headless graph validation, deterministic compilation과 deployed Runtime fail-closed 경계를 end-to-end로 연결한다.
 
 ## 문서
 
 - [Repository constitution](AGENTS.md)
 - [Roadmap](ROADMAP.md)
 - [Current status](docs/status/current.md)
+- [Phase 3B ExecPlan](plans/0013-phase-3b-realtime-safety-stress.md)
 - [Phase 3A ExecPlan](plans/0012-phase-3a-minimal-static-dsp-graph.md)
 - [System overview](docs/architecture/system-overview.md)
 - [Runtime and export](docs/architecture/runtime-and-export.md)
