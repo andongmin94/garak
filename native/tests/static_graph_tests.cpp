@@ -1,3 +1,4 @@
+#include "garak/runtime/static_graph/compiled_graph.hpp"
 #include "garak/runtime/static_graph/gain_plan.hpp"
 
 #include "garak/dsp/gain/gain.hpp"
@@ -6,8 +7,21 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
+#include <span>
 
 namespace {
+
+constexpr std::array<std::uint8_t, garak::runtime::static_graph::kCompiledGraphTotalBytes>
+    kCompiledGraphFixture{
+        0x47U, 0x41U, 0x52U, 0x41U, 0x4BU, 0x47U, 0x52U, 0x46U, 0x01U, 0x00U, 0x00U,
+        0x00U, 0x20U, 0x00U, 0x00U, 0x00U, 0x5CU, 0x00U, 0x00U, 0x00U, 0x03U, 0x00U,
+        0x02U, 0x00U, 0x00U, 0x00U, 0x00U, 0x00U, 0x00U, 0x00U, 0x00U, 0x00U, 0x01U,
+        0x00U, 0x00U, 0x00U, 0x01U, 0x00U, 0x00U, 0x00U, 0xFFU, 0xFFU, 0x00U, 0x00U,
+        0x00U, 0x00U, 0x00U, 0x00U, 0x00U, 0x00U, 0x00U, 0x00U, 0x02U, 0x00U, 0x00U,
+        0x00U, 0x02U, 0x00U, 0x00U, 0x00U, 0x00U, 0x00U, 0x01U, 0x00U, 0xE9U, 0x03U,
+        0x00U, 0x00U, 0xEAU, 0x03U, 0x00U, 0x00U, 0x03U, 0x00U, 0x00U, 0x00U, 0x03U,
+        0x00U, 0x00U, 0x00U, 0x01U, 0x00U, 0xFFU, 0xFFU, 0x00U, 0x00U, 0x00U, 0x00U,
+        0x00U, 0x00U, 0x00U, 0x00U};
 
 class EmptyPointSource final {
 public:
@@ -34,6 +48,44 @@ public:
   invalid.operations[1].primary_parameter_id = 9999;
   return !garak::runtime::static_graph::is_supported_gain_execution_plan(invalid, kGainParameterId,
                                                                          kBypassParameterId);
+}
+
+[[nodiscard]] bool test_compiled_graph_fixture() {
+  constexpr std::uint32_t kGainParameterId = 1001;
+  constexpr std::uint32_t kBypassParameterId = 1002;
+  const auto parsed = garak::runtime::static_graph::parse_compiled_gain_graph(
+      kCompiledGraphFixture, kGainParameterId, kBypassParameterId);
+  if (!parsed || !garak::runtime::static_graph::is_supported_gain_execution_plan(
+                     *parsed, kGainParameterId, kBypassParameterId)) {
+    return false;
+  }
+
+  const auto truncated = std::span<const std::uint8_t>(kCompiledGraphFixture).first(
+      kCompiledGraphFixture.size() - 1);
+  if (garak::runtime::static_graph::parse_compiled_gain_graph(
+          truncated, kGainParameterId, kBypassParameterId)) {
+    return false;
+  }
+
+  auto future = kCompiledGraphFixture;
+  future[8] = 2;
+  if (garak::runtime::static_graph::parse_compiled_gain_graph(
+          future, kGainParameterId, kBypassParameterId)) {
+    return false;
+  }
+
+  auto reserved = kCompiledGraphFixture;
+  reserved[28] = 1;
+  if (garak::runtime::static_graph::parse_compiled_gain_graph(
+          reserved, kGainParameterId, kBypassParameterId)) {
+    return false;
+  }
+
+  auto noncanonical = kCompiledGraphFixture;
+  noncanonical[64] = 0x0FU;
+  noncanonical[65] = 0x27U;
+  return !garak::runtime::static_graph::parse_compiled_gain_graph(
+      noncanonical, kGainParameterId, kBypassParameterId);
 }
 
 [[nodiscard]] bool test_execution() {
@@ -69,9 +121,13 @@ int main() {
     std::fputs("Static graph plan validation failed\n", stderr);
     return 1;
   }
+  if (!test_compiled_graph_fixture()) {
+    std::fputs("Compiled graph fixture validation failed\n", stderr);
+    return 2;
+  }
   if (!test_execution()) {
     std::fputs("Static graph execution failed\n", stderr);
-    return 2;
+    return 3;
   }
   return 0;
 }
