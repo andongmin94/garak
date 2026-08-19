@@ -147,6 +147,10 @@ Compiled graph의 current/missing/corrupt/too-old/too-new disposition을 명시�
 - Node/edge와 operation/buffer plan을 함께 persist하면 이전 unused prototype의 중복 복잡도가 재발한다. Operation과 buffer는 compiler output에만 존재한다.
 - Separate resource publication이 partial bundle을 만들면 안 된다. Existing atomic export stage에서 product, graph와 moduleinfo를 모두 검증한 뒤 한 번에 publish한다.
 
+## 진행 기록
+
+- 2026-08-23: commit `8286fa4362e8708c94bbb353b8e3e5204e24b826`에서 exact 92-byte `GARAKGRF` 1.0 contract, TypeScript encode/decode, Native parser와 동일 고정 fixture를 추가했다. Export와 deployed Runtime 연결 전이므로 단계 1–2는 authoritative gate가 성공한 뒤에만 완료 표시한다.
+
 ## 완료 기록
 
 진행 중. `graph.garakbin`이 actual exported Runtime에서 소비되고 schema v3 source가 그 bytes를 결정하기 전에는 Phase 3C를 완료로 표시하지 않는다.
