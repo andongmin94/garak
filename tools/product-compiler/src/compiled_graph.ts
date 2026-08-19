@@ -1,8 +1,5 @@
 import { fail } from "./errors.ts";
-import {
-  BYPASS_PARAMETER_ID,
-  GAIN_PARAMETER_ID,
-} from "./project_model.ts";
+import { BYPASS_PARAMETER_ID, GAIN_PARAMETER_ID } from "./project_model.ts";
 
 export const COMPILED_GRAPH_FILENAME = "graph.garakbin";
 export const COMPILED_GRAPH_MAGIC = Buffer.from("GARAKGRF", "ascii");
