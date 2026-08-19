@@ -21,16 +21,16 @@ inline constexpr std::size_t kCompiledGraphTotalBytes =
 namespace detail {
 
 inline constexpr std::array<std::uint8_t, 8> kCompiledGraphMagic{'G', 'A', 'R', 'A',
-                                                                'K', 'G', 'R', 'F'};
+                                                                 'K', 'G', 'R', 'F'};
 
-[[nodiscard]] constexpr std::uint16_t
-read_graph_u16(const std::span<const std::uint8_t> bytes, const std::size_t offset) noexcept {
+[[nodiscard]] constexpr std::uint16_t read_graph_u16(const std::span<const std::uint8_t> bytes,
+                                                     const std::size_t offset) noexcept {
   return static_cast<std::uint16_t>(bytes[offset]) |
          static_cast<std::uint16_t>(static_cast<std::uint16_t>(bytes[offset + 1]) << 8U);
 }
 
-[[nodiscard]] constexpr std::uint32_t
-read_graph_u32(const std::span<const std::uint8_t> bytes, const std::size_t offset) noexcept {
+[[nodiscard]] constexpr std::uint32_t read_graph_u32(const std::span<const std::uint8_t> bytes,
+                                                     const std::size_t offset) noexcept {
   std::uint32_t value = 0;
   for (std::size_t index = 0; index < 4; ++index) {
     value |= static_cast<std::uint32_t>(bytes[offset + index]) << (index * 8U);
@@ -67,8 +67,8 @@ parse_compiled_gain_graph(const std::span<const std::uint8_t> bytes,
       return std::nullopt;
     }
     plan.operations[index] = {
-        detail::read_graph_u32(bytes, offset), static_cast<OperationType>(type),
-        detail::read_graph_u16(bytes, offset + 8), detail::read_graph_u16(bytes, offset + 10),
+        detail::read_graph_u32(bytes, offset),      static_cast<OperationType>(type),
+        detail::read_graph_u16(bytes, offset + 8),  detail::read_graph_u16(bytes, offset + 10),
         detail::read_graph_u32(bytes, offset + 12), detail::read_graph_u32(bytes, offset + 16)};
     offset += kCompiledGraphOperationBytes;
   }
