@@ -1,5 +1,12 @@
 import assert from "node:assert/strict";
-import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  readFile,
+  realpath,
+  rename,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
 
@@ -76,7 +83,9 @@ test("durable save retains a verified persistent backup and advances the tree re
       createPersistenceTransactionId: () => "create-outer",
       createInnerTransactionId: () => "create-inner",
     });
-    const oldBytes = await readFile(path.join(projectDirectory, "product.json"));
+    const oldBytes = await readFile(
+      path.join(projectDirectory, "product.json"),
+    );
     const saved = await saveDurableProductProject({
       projectDirectory,
       expectedRevision: created.revision,
@@ -167,12 +176,14 @@ test("recovery restores the verified backup when interruption leaves the source 
       createPersistenceTransactionId: () => "create-b",
       createInnerTransactionId: () => "create-b-inner",
     });
-    const sourceBytes = await readFile(path.join(projectDirectory, "product.json"));
+    const sourceBytes = await readFile(
+      path.join(projectDirectory, "product.json"),
+    );
     const fileSystem: ProjectTransactionFileSystem = {
       rename: async (source, destination) => {
         await rename(source, destination);
         if (
-          source === projectDirectory &&
+          path.basename(source) === path.basename(projectDirectory) &&
           destination.includes("garak-backup")
         ) {
           throw new Error(
@@ -295,7 +306,9 @@ test("explicit in-place migration keeps identity and retains the exact legacy ba
       mutableLegacyWarmProduct(),
       "legacy.garak",
     );
-    const legacyBytes = await readFile(path.join(projectDirectory, "product.json"));
+    const legacyBytes = await readFile(
+      path.join(projectDirectory, "product.json"),
+    );
     const opened = await openDurableProductProject(projectDirectory);
     assert.equal(opened.schemaStatus.migrationRequired, true);
     const migrated = await migrateProductProjectInPlace({
@@ -313,7 +326,9 @@ test("explicit in-place migration keeps identity and retains the exact legacy ba
     assert.notEqual(migrated.backup, null);
     if (migrated.backup === null) return;
     assert.deepEqual(
-      await readFile(path.join(migrated.backup.projectDirectory, "product.json")),
+      await readFile(
+        path.join(migrated.backup.projectDirectory, "product.json"),
+      ),
       legacyBytes,
     );
     assert.equal(
@@ -331,7 +346,10 @@ test("a lock without a transaction manifest fails closed as ambiguous recovery",
     const key = (await import("node:crypto"))
       .createHash("sha256")
       .update("garak.persistence-target.v1\0", "utf8")
-      .update(path.normalize(projectDirectory).toUpperCase(), "utf8")
+      .update(
+        path.normalize(await realpath(projectDirectory)).toUpperCase(),
+        "utf8",
+      )
       .digest("hex")
       .slice(0, 32);
     const root = path.join(temporary, ".garak-persistence", key);

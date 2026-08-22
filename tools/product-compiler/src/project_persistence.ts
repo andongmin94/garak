@@ -55,10 +55,7 @@ const PRODUCT_ID =
 
 export type PersistenceOperation = "save" | "migrate-in-place";
 export type PersistencePhase =
-  | "prepared"
-  | "backup-verified"
-  | "candidate-published"
-  | "committed";
+  "prepared" | "backup-verified" | "candidate-published" | "committed";
 
 export interface ProjectBackupSummary {
   readonly transactionId: string;
@@ -81,23 +78,22 @@ export interface ProjectRecoveryResult {
 }
 
 export type PersistenceFaultPoint =
-  | "after-backup-verified"
-  | "after-mutation-published";
+  "after-backup-verified" | "after-mutation-published";
 
 interface DurableHooks {
   readonly createPersistenceTransactionId?: () => string;
   readonly createInnerTransactionId?: () => string;
   readonly transactionFileSystem?: ProjectTransactionFileSystem;
-  readonly faultInjector?: (point: PersistenceFaultPoint) => void | Promise<void>;
+  readonly faultInjector?: (
+    point: PersistenceFaultPoint,
+  ) => void | Promise<void>;
 }
 
 export interface DurableCreateProductProjectOptions
-  extends CreateProductProjectOptions,
-    DurableHooks {}
+  extends CreateProductProjectOptions, DurableHooks {}
 
 export interface DurableSaveProductProjectOptions
-  extends SaveProductProjectOptions,
-    DurableHooks {}
+  extends SaveProductProjectOptions, DurableHooks {}
 
 export interface MigrateProductProjectInPlaceOptions extends DurableHooks {
   readonly projectDirectory: string;
@@ -148,6 +144,18 @@ interface PersistenceLock {
   readonly createdAt: string;
 }
 
+const LOCK_KEYS = Object.freeze([
+  "type",
+  "version",
+  "transactionId",
+  "operation",
+  "targetKey",
+  "productId",
+  "expectedRevision",
+  "processId",
+  "createdAt",
+]);
+
 const MANIFEST_KEYS = Object.freeze([
   "type",
   "version",
@@ -169,7 +177,11 @@ const MANIFEST_KEYS = Object.freeze([
   "innerBackupRelativePath",
 ]);
 
-function persistenceFailure(code: string, field: string, message: string): never {
+function persistenceFailure(
+  code: string,
+  field: string,
+  message: string,
+): never {
   fail(
     code,
     field.length === 0 ? "project.persistence" : `project.persistence.${field}`,
@@ -234,7 +246,10 @@ async function layoutFor(projectDirectory: string): Promise<ProjectLayout> {
   };
 }
 
-function updateLength(hash: ReturnType<typeof createHash>, length: number): void {
+function updateLength(
+  hash: ReturnType<typeof createHash>,
+  length: number,
+): void {
   const bytes = Buffer.alloc(8);
   bytes.writeBigUInt64LE(BigInt(length));
   hash.update(bytes);
@@ -397,7 +412,10 @@ async function writeTextAtomic(filePath: string, text: string): Promise<void> {
   await rename(temporary, filePath);
 }
 
-async function writeJsonAtomic(filePath: string, value: unknown): Promise<void> {
+async function writeJsonAtomic(
+  filePath: string,
+  value: unknown,
+): Promise<void> {
   await writeTextAtomic(filePath, `${JSON.stringify(value, null, 2)}\n`);
 }
 
@@ -555,6 +573,76 @@ async function readManifest(filePath: string): Promise<PersistenceManifest> {
   return parseManifest(await readFile(filePath, "utf8"));
 }
 
+function parseLock(text: string): PersistenceLock {
+  const parsed = parseStrictJson(text, {
+    sourcePath: "project.persistence.lock",
+    syntaxCode: "GARAK_PROJECT_TRANSACTION_LOCK_JSON",
+    duplicateCode: "GARAK_PROJECT_TRANSACTION_LOCK_DUPLICATE",
+  });
+  if (!isJsonObject(parsed)) {
+    persistenceFailure(
+      "GARAK_PROJECT_TRANSACTION_LOCK_SHAPE",
+      "lock",
+      "Persistence lock must be a JSON object.",
+    );
+  }
+  assertExactKeys(parsed, LOCK_KEYS);
+  const operation = requireString(parsed.operation, "operation");
+  const lock: PersistenceLock = {
+    type: requireString(parsed.type, "type") as typeof LOCK_TYPE,
+    version: parsed.version as typeof MANIFEST_VERSION,
+    transactionId: requireString(parsed.transactionId, "transactionId"),
+    operation: operation as PersistenceOperation,
+    targetKey: requireString(parsed.targetKey, "targetKey"),
+    productId: requireString(parsed.productId, "productId"),
+    expectedRevision: requireString(
+      parsed.expectedRevision,
+      "expectedRevision",
+    ),
+    processId: parsed.processId as number,
+    createdAt: requireString(parsed.createdAt, "createdAt"),
+  };
+  if (
+    lock.type !== LOCK_TYPE ||
+    lock.version !== MANIFEST_VERSION ||
+    !TRANSACTION_ID.test(lock.transactionId) ||
+    (lock.operation !== "save" && lock.operation !== "migrate-in-place") ||
+    !/^[0-9a-f]{32}$/u.test(lock.targetKey) ||
+    !PRODUCT_ID.test(lock.productId) ||
+    !SHA256.test(lock.expectedRevision) ||
+    !Number.isSafeInteger(lock.processId) ||
+    lock.processId <= 0 ||
+    Number.isNaN(Date.parse(lock.createdAt))
+  ) {
+    persistenceFailure(
+      "GARAK_PROJECT_TRANSACTION_LOCK_VALUE",
+      "lock",
+      "Persistence lock contains an invalid value.",
+    );
+  }
+  return lock;
+}
+
+async function readLock(
+  layout: ProjectLayout,
+): Promise<PersistenceLock | null> {
+  if (!(await pathExists(layout.lockPath))) return null;
+  return parseLock(await readFile(layout.lockPath, "utf8"));
+}
+
+function processIsAlive(processId: number): boolean {
+  if (processId === process.pid) return true;
+  try {
+    process.kill(processId, 0);
+    return true;
+  } catch (error) {
+    if (error instanceof Error && "code" in error && error.code === "ESRCH") {
+      return false;
+    }
+    return true;
+  }
+}
+
 function resolveManaged(parent: string, relative: string): string {
   const resolved = path.resolve(parent, relative);
   const relation = path.relative(parent, resolved);
@@ -626,9 +714,7 @@ async function releaseLock(
   }
 }
 
-async function loadTarget(
-  targetPath: string,
-): Promise<{
+async function loadTarget(targetPath: string): Promise<{
   readonly fingerprint: string;
   readonly productId: string;
 } | null> {
@@ -768,6 +854,27 @@ export async function recoverProductPersistence(
   const manifest = await readManifest(
     path.join(transactionDirectory, MANIFEST_FILENAME),
   );
+  const lock = await readLock(layout);
+  if (
+    lock !== null &&
+    (lock.transactionId !== manifest.transactionId ||
+      lock.targetKey !== manifest.targetKey ||
+      lock.productId !== manifest.productId ||
+      lock.operation !== manifest.operation)
+  ) {
+    persistenceFailure(
+      "GARAK_PROJECT_RECOVERY_AMBIGUOUS",
+      "recovery",
+      "Persistence lock does not match the unresolved transaction manifest.",
+    );
+  }
+  if (lock !== null && processIsAlive(lock.processId)) {
+    persistenceFailure(
+      "GARAK_PROJECT_TRANSACTION_LOCKED",
+      "lock",
+      "Another process still owns the project persistence transaction.",
+    );
+  }
   if (
     manifest.targetKey !== layout.targetKey ||
     manifest.targetLeaf !== layout.targetLeaf ||
@@ -785,11 +892,7 @@ export async function recoverProductPersistence(
   );
   const expectedBackupRelative = path.relative(
     layout.parentPath,
-    path.join(
-      layout.backupRootPath,
-      manifest.transactionId,
-      layout.targetLeaf,
-    ),
+    path.join(layout.backupRootPath, manifest.transactionId, layout.targetLeaf),
   );
   if (
     manifest.transactionRelativePath !== expectedTransactionRelative ||
@@ -1055,7 +1158,9 @@ async function durableMutation(
       operation === "save"
         ? await saveAtomicProductProject(innerOptions)
         : await replaceAtomicProductProjectForMigration(innerOptions);
-    const publishedFingerprint = await fingerprintProjectTree(layout.targetPath);
+    const publishedFingerprint = await fingerprintProjectTree(
+      layout.targetPath,
+    );
     const published = await loadProductProjectSource(layout.targetPath);
     if (
       publishedFingerprint !== candidateFingerprint ||
