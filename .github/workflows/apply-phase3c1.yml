@@ -1,0 +1,71 @@
+name: Apply Phase 3C1 patch
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - tools/phase3c1_apply.py
+      - .github/workflows/apply-phase3c1.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: garak-phase3c1-patch
+  cancel-in-progress: true
+
+jobs:
+  apply:
+    if: ${{ !contains(github.event.head_commit.message, 'remove phase3c1 patch runner') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out exact main state
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.19.0
+
+      - name: Install exact workspace dependencies
+        run: |
+          corepack enable
+          corepack prepare pnpm@11.16.0 --activate
+          pnpm install --frozen-lockfile
+
+      - name: Apply exact Phase 3C1 changes
+        run: python tools/phase3c1_apply.py
+
+      - name: Format changed first-party sources
+        shell: bash
+        run: |
+          pnpm product:format
+          pnpm studio:format
+          clang-format -i --style=file \
+            native/adapters/vst3/product_runtime_v1/product_runtime_context.hpp \
+            native/adapters/vst3/product_runtime_v1/product_runtime_loader_win.cpp \
+            native/adapters/vst3/product_runtime_v1/product_runtime_loader_win.hpp \
+            native/adapters/vst3/product_runtime_v1/controller.cpp \
+            native/adapters/vst3/product_runtime_v1/factory.cpp \
+            native/adapters/vst3/product_runtime_v1/factory_support.cpp \
+            native/adapters/vst3/product_runtime_v1/factory_support.hpp \
+            native/adapters/vst3/product_runtime_v1/processor.cpp \
+            native/adapters/vst3/product_runtime_v1/processor.hpp
+
+      - name: Commit the atomic product-path change
+        shell: bash
+        run: |
+          git diff --check
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          if git diff --cached --quiet; then
+            echo 'Phase 3C1 patch produced no changes.' >&2
+            exit 1
+          fi
+          git commit -m 'feat: load compiled graph resource in product runtime'
+          git push origin HEAD:main
