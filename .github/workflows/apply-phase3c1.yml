@@ -45,25 +45,45 @@ jobs:
 
           path = Path('tools/phase3c1_apply.py')
           text = path.read_text(encoding='utf-8')
-          old = '''replace_exact(
-              "native/adapters/vst3/product_runtime_v1/processor.cpp",
-              "      kExecutionPlan, garak::runtime::product_v1::kGainParameterId,\\n",
-              "      execution_plan, garak::runtime::product_v1::kGainParameterId,\\n",
-          )
+          old = r'''def replace_exact(relative: str, old: str, new: str, expected: int = 1) -> None:
+              path = ROOT / relative
+              text = path.read_text(encoding="utf-8")
+              count = text.count(old)
+              if count != expected:
+                  raise RuntimeError(
+                      f"{relative}: expected {expected} occurrence(s), found {count}: {old[:120]!r}"
+                  )
+              path.write_text(text.replace(old, new), encoding="utf-8", newline="\n")
           '''
-          new = '''replace_exact(
-              "native/adapters/vst3/product_runtime_v1/processor.cpp",
-              """  const auto executed = garak::runtime::static_graph::execute_gain_plan(
-              kExecutionPlan, garak::runtime::product_v1::kGainParameterId,
-          """,
-              """  const auto executed = garak::runtime::static_graph::execute_gain_plan(
-              execution_plan, garak::runtime::product_v1::kGainParameterId,
-          """,
-          )
+          replacement = r'''def replace_exact(relative: str, old: str, new: str, expected: int = 1) -> None:
+              path = ROOT / relative
+              text = path.read_text(encoding="utf-8")
+              count = text.count(old)
+              processor_execution_plan = (
+                  "      kExecutionPlan, garak::runtime::product_v1::kGainParameterId,\n"
+              )
+              if (
+                  relative == "native/adapters/vst3/product_runtime_v1/processor.cpp"
+                  and old == processor_execution_plan
+                  and expected == 1
+              ):
+                  if count != 2:
+                      raise RuntimeError(
+                          f"{relative}: expected two execution-plan calls, found {count}"
+                      )
+                  path.write_text(
+                      text.replace(old, new, 1), encoding="utf-8", newline="\n"
+                  )
+                  return
+              if count != expected:
+                  raise RuntimeError(
+                      f"{relative}: expected {expected} occurrence(s), found {count}: {old[:120]!r}"
+                  )
+              path.write_text(text.replace(old, new), encoding="utf-8", newline="\n")
           '''
           if text.count(old) != 1:
-              raise RuntimeError(f'expected one generic execution-plan replacement, found {text.count(old)}')
-          path.write_text(text.replace(old, new), encoding='utf-8', newline='\n')
+              raise RuntimeError(f'expected one replace_exact definition, found {text.count(old)}')
+          path.write_text(text.replace(old, replacement), encoding='utf-8', newline='\n')
           PY
 
       - name: Apply exact Phase 3C1 changes
