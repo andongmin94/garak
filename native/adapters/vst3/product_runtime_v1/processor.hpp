@@ -2,6 +2,7 @@
 #define GARAK_ADAPTERS_VST3_PRODUCT_RUNTIME_V1_PROCESSOR_HPP_INCLUDED
 
 #include "garak/runtime/product_v1/compiled_product.hpp"
+#include "garak/runtime/static_graph/gain_plan.hpp"
 
 #include "public.sdk/source/vst/vstaudioeffect.h"
 
@@ -13,7 +14,8 @@ namespace garak::adapter::vst3::product_runtime_v1 {
 class GainProcessor final : public Steinberg::Vst::AudioEffect {
 public:
   GainProcessor(garak::runtime::product_v1::Identifier product_id, double default_gain_normalized,
-                const garak::runtime::product_v1::Identifier& controller_class_id) noexcept;
+                const garak::runtime::product_v1::Identifier& controller_class_id,
+                garak::runtime::static_graph::GainExecutionPlan execution_plan) noexcept;
 
   static Steinberg::FUnknown* create_instance(void* context);
 
@@ -38,6 +40,7 @@ private:
   static_assert(std::atomic<std::uint64_t>::is_always_lock_free);
 
   garak::runtime::product_v1::Identifier product_id_{};
+  garak::runtime::static_graph::GainExecutionPlan execution_plan_{};
   std::atomic<std::uint64_t> pending_state_{};
   std::atomic<std::uint64_t> pending_generation_{};
   std::atomic<std::uint64_t> snapshot_state_{};

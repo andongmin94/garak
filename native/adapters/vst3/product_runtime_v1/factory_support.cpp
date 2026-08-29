@@ -33,12 +33,13 @@ Steinberg::FUID class_id(const garak::runtime::product_v1::Identifier& value) no
 }
 
 Steinberg::IPluginFactory*
-get_or_create_product_factory(const garak::runtime::product_v1::CompiledProduct& product) noexcept {
+get_or_create_product_factory(const ProductRuntimeContext& runtime) noexcept {
   try {
     if (Steinberg::gPluginFactory != nullptr) {
       Steinberg::gPluginFactory->addRef();
       return Steinberg::gPluginFactory;
     }
+    const auto& product = runtime.product;
     const std::string controller_name = product.name + " Controller";
     if (product.vendor.size() >= static_cast<std::size_t>(Steinberg::PFactoryInfo::kNameSize) ||
         product.name.size() >= static_cast<std::size_t>(Steinberg::PClassInfo::kNameSize) ||
@@ -77,8 +78,7 @@ get_or_create_product_factory(const garak::runtime::product_v1::CompiledProduct&
         Steinberg::Vst::toTChar(sdk_version_utf16));
 
     auto candidate = std::make_unique<Steinberg::CPluginFactory>(factory_info);
-    auto* const context =
-        const_cast<garak::runtime::product_v1::CompiledProduct*>(std::addressof(product));
+    auto* const context = const_cast<ProductRuntimeContext*>(std::addressof(runtime));
     if (!candidate->registerClass(&processor_info, GainProcessor::create_instance, context) ||
         !candidate->registerClass(&controller_info, GainController::create_instance, context) ||
         candidate->countClasses() != 2) {

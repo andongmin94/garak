@@ -1,5 +1,6 @@
-#include "compiled_product_loader_win.hpp"
+#include "product_runtime_loader_win.hpp"
 
+#include "garak/runtime/static_graph/compiled_graph.hpp"
 #include "public.sdk/source/main/moduleinit.h"
 
 #ifndef NOMINMAX
@@ -12,8 +13,10 @@
 #include <filesystem>
 #include <fstream>
 #include <optional>
+#include <span>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 namespace garak::adapter::vst3::product_runtime_v1 {
@@ -23,7 +26,8 @@ constexpr std::size_t kInitialPathCharacters = 512;
 constexpr std::size_t kMaximumPathCharacters = 32'768;
 constexpr wchar_t kArchitectureDirectory[] = L"x86_64-win";
 constexpr wchar_t kContentsDirectory[] = L"Contents";
-constexpr wchar_t kResourceFilename[] = L"product.garakbin";
+constexpr wchar_t kProductResourceFilename[] = L"product.garakbin";
+constexpr wchar_t kGraphResourceFilename[] = L"graph.garakbin";
 
 [[nodiscard]] std::optional<std::filesystem::path> current_module_path() {
   const auto module = Steinberg::getPlatformModuleHandle();
@@ -83,9 +87,28 @@ read_compiled_product(const std::filesystem::path& path) {
       std::span<const std::uint8_t>(bytes.data(), static_cast<std::size_t>(count)));
 }
 
+[[nodiscard]] std::optional<garak::runtime::static_graph::GainExecutionPlan>
+read_compiled_graph(const std::filesystem::path& path) {
+  std::ifstream input(path, std::ios::binary);
+  if (!input.is_open()) {
+    return std::nullopt;
+  }
+  std::array<std::uint8_t, garak::runtime::static_graph::kCompiledGraphTotalBytes + 1> bytes{};
+  input.read(reinterpret_cast<char*>(bytes.data()), static_cast<std::streamsize>(bytes.size()));
+  const auto count = input.gcount();
+  if (input.bad() || (input.fail() && !input.eof()) ||
+      count !=
+          static_cast<std::streamsize>(garak::runtime::static_graph::kCompiledGraphTotalBytes)) {
+    return std::nullopt;
+  }
+  return garak::runtime::static_graph::parse_compiled_gain_graph(
+      std::span<const std::uint8_t>(bytes.data(), static_cast<std::size_t>(count)),
+      garak::runtime::product_v1::kGainParameterId, garak::runtime::product_v1::kBypassParameterId);
+}
+
 } // namespace
 
-std::optional<garak::runtime::product_v1::CompiledProduct> load_module_compiled_product() noexcept {
+std::optional<ProductRuntimeContext> load_module_product_runtime() noexcept {
   try {
     const auto module_path = current_module_path();
     if (!module_path) {
@@ -102,16 +125,17 @@ std::optional<garak::runtime::product_v1::CompiledProduct> load_module_compiled_
       return std::nullopt;
     }
 
-    const auto resource_path = contents_directory / L"Resources" / kResourceFilename;
-    auto product = read_compiled_product(resource_path);
-    if (!product) {
+    const auto resources_directory = contents_directory / L"Resources";
+    auto product = read_compiled_product(resources_directory / kProductResourceFilename);
+    auto execution_plan = read_compiled_graph(resources_directory / kGraphResourceFilename);
+    if (!product || !execution_plan) {
       return std::nullopt;
     }
     const auto product_name = utf8_to_wide(product->name);
     if (!product_name || inner_filename != std::filesystem::path(*product_name + L".vst3")) {
       return std::nullopt;
     }
-    return product;
+    return ProductRuntimeContext{std::move(*product), *execution_plan};
   } catch (...) {
     return std::nullopt;
   }

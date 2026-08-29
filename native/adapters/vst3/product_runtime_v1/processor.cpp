@@ -3,7 +3,7 @@
 #include "factory_support.hpp"
 #include "garak/dsp/gain/gain.hpp"
 #include "garak/runtime/product_v1/product_state.hpp"
-#include "garak/runtime/static_graph/gain_plan.hpp"
+#include "product_runtime_context.hpp"
 #include "state_stream.hpp"
 
 #include "pluginterfaces/vst/ivstparameterchanges.h"
@@ -17,12 +17,6 @@ namespace garak::adapter::vst3::product_runtime_v1 {
 namespace {
 
 constexpr Steinberg::int32 kMaximumParameterQueueCount = 2;
-constexpr auto kExecutionPlan = garak::runtime::static_graph::make_gain_execution_plan(
-    garak::runtime::product_v1::kGainParameterId, garak::runtime::product_v1::kBypassParameterId);
-static_assert(garak::runtime::static_graph::is_supported_gain_execution_plan(
-    kExecutionPlan, garak::runtime::product_v1::kGainParameterId,
-    garak::runtime::product_v1::kBypassParameterId));
-
 class QueuePointSource final {
 public:
   explicit QueuePointSource(Steinberg::Vst::IParamValueQueue* queue) noexcept : queue_(queue) {}
@@ -99,7 +93,8 @@ find_parameter_queues(Steinberg::Vst::IParameterChanges* const changes) {
 
 template <typename Sample>
 [[nodiscard]] Steinberg::tresult
-process_audio(Steinberg::Vst::ProcessData& data, QueuePointSource& gain_source,
+process_audio(const garak::runtime::static_graph::GainExecutionPlan& execution_plan,
+              Steinberg::Vst::ProcessData& data, QueuePointSource& gain_source,
               QueuePointSource& bypass_source, double& current_gain, bool& current_bypass) {
   auto& input = data.inputs[0];
   auto& output = data.outputs[0];
@@ -128,7 +123,7 @@ process_audio(Steinberg::Vst::ProcessData& data, QueuePointSource& gain_source,
 
   std::uint64_t output_silence = 0;
   const auto executed = garak::runtime::static_graph::execute_gain_plan(
-      kExecutionPlan, garak::runtime::product_v1::kGainParameterId,
+      execution_plan, garak::runtime::product_v1::kGainParameterId,
       garak::runtime::product_v1::kBypassParameterId,
       garak::dsp::gain::ProcessBlockContext<Sample, QueuePointSource, QueuePointSource>{
           input_channels.data(), output_channels.data(), channel_count, data.numSamples,
@@ -145,8 +140,9 @@ process_audio(Steinberg::Vst::ProcessData& data, QueuePointSource& gain_source,
 
 GainProcessor::GainProcessor(
     garak::runtime::product_v1::Identifier product_id, const double default_gain_normalized,
-    const garak::runtime::product_v1::Identifier& controller_class_id) noexcept
-    : product_id_(product_id) {
+    const garak::runtime::product_v1::Identifier& controller_class_id,
+    garak::runtime::static_graph::GainExecutionPlan execution_plan) noexcept
+    : product_id_(product_id), execution_plan_(execution_plan) {
   setControllerClass(class_id(controller_class_id));
   const garak::runtime::product_v1::ProductState defaults{default_gain_normalized, false};
   const auto packed = garak::runtime::product_v1::pack_realtime_state(defaults);
@@ -157,13 +153,14 @@ GainProcessor::GainProcessor(
 
 Steinberg::FUnknown* GainProcessor::create_instance(void* const context) {
   try {
-    const auto* const product =
-        static_cast<const garak::runtime::product_v1::CompiledProduct*>(context);
-    if (product == nullptr) {
+    const auto* const runtime = static_cast<const ProductRuntimeContext*>(context);
+    if (runtime == nullptr) {
       return nullptr;
     }
-    return static_cast<Steinberg::Vst::IAudioProcessor*>(new GainProcessor(
-        product->product_id, product->parameters[0].default_normalized, product->controller_fuid));
+    const auto& product = runtime->product;
+    return static_cast<Steinberg::Vst::IAudioProcessor*>(
+        new GainProcessor(product.product_id, product.parameters[0].default_normalized,
+                          product.controller_fuid, runtime->execution_plan));
   } catch (...) {
     return nullptr;
   }
@@ -276,7 +273,7 @@ Steinberg::tresult PLUGIN_API GainProcessor::process(Steinberg::Vst::ProcessData
       std::array<Steinberg::Vst::Sample32*, 1> unused_input{};
       std::array<Steinberg::Vst::Sample32*, 1> unused_output{};
       const auto executed = garak::runtime::static_graph::execute_gain_plan(
-          kExecutionPlan, garak::runtime::product_v1::kGainParameterId,
+          execution_plan_, garak::runtime::product_v1::kGainParameterId,
           garak::runtime::product_v1::kBypassParameterId,
           garak::dsp::gain::ProcessBlockContext<Steinberg::Vst::Sample32, QueuePointSource,
                                                 QueuePointSource>{
@@ -298,11 +295,13 @@ Steinberg::tresult PLUGIN_API GainProcessor::process(Steinberg::Vst::ProcessData
 
     Steinberg::tresult result = Steinberg::kResultFalse;
     if (data.symbolicSampleSize == Steinberg::Vst::kSample32) {
-      result = process_audio<Steinberg::Vst::Sample32>(data, gain_source, bypass_source,
-                                                       current_gain_normalized_, current_bypass_);
+      result =
+          process_audio<Steinberg::Vst::Sample32>(execution_plan_, data, gain_source, bypass_source,
+                                                  current_gain_normalized_, current_bypass_);
     } else if (data.symbolicSampleSize == Steinberg::Vst::kSample64) {
-      result = process_audio<Steinberg::Vst::Sample64>(data, gain_source, bypass_source,
-                                                       current_gain_normalized_, current_bypass_);
+      result =
+          process_audio<Steinberg::Vst::Sample64>(execution_plan_, data, gain_source, bypass_source,
+                                                  current_gain_normalized_, current_bypass_);
     }
     if (result == Steinberg::kResultTrue) {
       publish_processed_state(processing_generation);

@@ -133,7 +133,7 @@ async function main(): Promise<void> {
     throw new Error('Studio preload response guard rejected the real Product export result.');
   }
   if (
-    exported.value.inventory.length !== 3 ||
+    exported.value.inventory.length !== 4 ||
     exported.value.childProcesses.length !== 5 ||
     exported.value.childProcesses.some((child) => child.exitCode !== 0) ||
     exported.value.cleanupWarnings.length !== 0

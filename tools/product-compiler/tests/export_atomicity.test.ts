@@ -388,7 +388,7 @@ test("transaction-name collisions never remove unowned staging paths", async () 
   });
 });
 
-test("exports an exact three-file bundle through injected official-tool behavior", async () => {
+test("exports an exact four-file bundle through injected official-tool behavior", async () => {
   await withTemporaryDirectory(async (temporary) => {
     const project = await loadTemporaryWarmProject(temporary);
     const artifacts = await createFakeArtifacts(temporary);
@@ -405,10 +405,24 @@ test("exports an exact three-file bundle through injected official-tool behavior
       createTransactionId: () => "success",
     });
     assert.deepEqual(result.inventory, [
+      "Contents/Resources/graph.garakbin",
       "Contents/Resources/moduleinfo.json",
       "Contents/Resources/product.garakbin",
       "Contents/x86_64-win/Artist Gain Warm.vst3",
     ]);
+    assert.equal(
+      (
+        await readFile(
+          path.join(
+            result.bundlePath,
+            "Contents",
+            "Resources",
+            "graph.garakbin",
+          ),
+        )
+      ).length,
+      92,
+    );
     assert.equal(
       result.compiledSha256,
       "3B38FDC841F100A32D5A62BBCBB4016D145847C619F5B9DA73B654A14E1D08B9",

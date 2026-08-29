@@ -2,8 +2,9 @@ project(GarakProductRuntimeV1 VERSION 0.1.0 LANGUAGES CXX)
 
 set(
   garak_product_runtime_v1_sources
-  compiled_product_loader_win.cpp
-  compiled_product_loader_win.hpp
+  product_runtime_context.hpp
+  product_runtime_loader_win.cpp
+  product_runtime_loader_win.hpp
   controller.cpp
   controller.hpp
   factory.cpp

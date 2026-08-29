@@ -86,6 +86,7 @@ function Get-BundleEvidence {
 
     $leaf = [IO.Path]::GetFileName($BundlePath)
     $expected = [string[]]@(
+        'Contents/Resources/graph.garakbin',
         'Contents/Resources/moduleinfo.json',
         'Contents/Resources/product.garakbin',
         "Contents/x86_64-win/$leaf"
@@ -103,12 +104,14 @@ function Get-BundleEvidence {
     }
 
     $inner = Join-Path $BundlePath "Contents\x86_64-win\$leaf"
+    $graph = Join-Path $BundlePath 'Contents\Resources\graph.garakbin'
     $compiled = Join-Path $BundlePath 'Contents\Resources\product.garakbin'
     $moduleInfo = Join-Path $BundlePath 'Contents\Resources\moduleinfo.json'
     return [ordered]@{
         path = $BundlePath
         inventory = $actual
         runtimeSha256 = (Get-FileHash -LiteralPath $inner -Algorithm SHA256).Hash
+        graphSha256 = (Get-FileHash -LiteralPath $graph -Algorithm SHA256).Hash
         compiledSha256 = (Get-FileHash -LiteralPath $compiled -Algorithm SHA256).Hash
         moduleInfoSha256 = (Get-FileHash -LiteralPath $moduleInfo -Algorithm SHA256).Hash
     }
@@ -225,7 +228,7 @@ foreach ($entry in $brightSecondRun.childProcesses) {
 $warmSecond = Get-BundleEvidence -BundlePath $warmBundle
 $brightSecond = Get-BundleEvidence -BundlePath $brightBundle
 
-foreach ($field in @('runtimeSha256', 'compiledSha256', 'moduleInfoSha256')) {
+foreach ($field in @('runtimeSha256', 'graphSha256', 'compiledSha256', 'moduleInfoSha256')) {
     if ($warmFirst.$field -cne $warmSecond.$field) {
         throw "Warm repeated export changed $field."
     }
@@ -236,6 +239,9 @@ foreach ($field in @('runtimeSha256', 'compiledSha256', 'moduleInfoSha256')) {
 if ($warmSecond.runtimeSha256 -cne $templateHashBefore -or
     $brightSecond.runtimeSha256 -cne $templateHashBefore) {
     throw 'Exported Runtime hashes do not match the immutable prebuilt template.'
+}
+if ($warmSecond.graphSha256 -cne $brightSecond.graphSha256) {
+    throw 'Warm and Bright compiled graph data must be identical.'
 }
 if ($warmSecond.compiledSha256 -ceq $brightSecond.compiledSha256) {
     throw 'Warm and Bright compiled product data must differ.'

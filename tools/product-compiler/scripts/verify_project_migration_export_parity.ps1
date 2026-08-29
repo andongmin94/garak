@@ -475,6 +475,7 @@ function Get-BundleEvidence {
         -Description 'Bundle directory inventory'
 
     $expectedInventory = [string[]]@(
+        'Contents/Resources/graph.garakbin',
         'Contents/Resources/moduleinfo.json',
         'Contents/Resources/product.garakbin',
         "Contents/x86_64-win/$bundleLeaf"

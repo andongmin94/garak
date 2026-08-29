@@ -1,6 +1,7 @@
 #include "controller.hpp"
 
 #include "garak/dsp/gain/gain.hpp"
+#include "product_runtime_context.hpp"
 #include "state_stream.hpp"
 
 #include "public.sdk/source/vst/vstparameters.h"
@@ -13,13 +14,13 @@ GainController::GainController(garak::runtime::product_v1::Identifier product_id
 
 Steinberg::FUnknown* GainController::create_instance(void* const context) {
   try {
-    const auto* const product =
-        static_cast<const garak::runtime::product_v1::CompiledProduct*>(context);
-    if (product == nullptr) {
+    const auto* const runtime = static_cast<const ProductRuntimeContext*>(context);
+    if (runtime == nullptr) {
       return nullptr;
     }
+    const auto& product = runtime->product;
     return static_cast<Steinberg::Vst::IEditController*>(
-        new GainController(product->product_id, product->parameters[0].default_normalized));
+        new GainController(product.product_id, product.parameters[0].default_normalized));
   } catch (...) {
     return nullptr;
   }

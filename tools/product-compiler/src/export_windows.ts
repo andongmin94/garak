@@ -15,6 +15,11 @@ import path from "node:path";
 import { TextDecoder } from "node:util";
 
 import {
+  canonicalGainGraphPlan,
+  decodeCompiledGraph,
+  encodeCompiledGraph,
+} from "./compiled_graph.ts";
+import {
   decodeCompiledProduct,
   encodeCompiledProduct,
   sha256Hex,
@@ -454,6 +459,7 @@ async function inventoryForBundle(
   ];
   const leaf = path.basename(bundlePath);
   const expectedFiles = [
+    "Contents/Resources/graph.garakbin",
     "Contents/Resources/moduleinfo.json",
     "Contents/Resources/product.garakbin",
     `Contents/x86_64-win/${leaf}`,
@@ -732,6 +738,8 @@ export async function exportWindowsProduct(
   const identity = deriveProductIdentity(options.project.productId);
   const compiledBytes = encodeCompiledProduct(options.project);
   assertCompiledParity(options.project, compiledBytes);
+  const graphBytes = encodeCompiledGraph(canonicalGainGraphPlan());
+  decodeCompiledGraph(graphBytes);
   const artifacts =
     options.artifacts ??
     resolveProductRuntimeArtifacts(
@@ -801,6 +809,7 @@ export async function exportWindowsProduct(
   const innerDirectory = path.join(stageBundle, "Contents", "x86_64-win");
   const resourcesDirectory = path.join(stageBundle, "Contents", "Resources");
   const stagedInnerModule = path.join(innerDirectory, bundleLeaf);
+  const stagedGraph = path.join(resourcesDirectory, "graph.garakbin");
   const stagedCompiled = path.join(resourcesDirectory, "product.garakbin");
   const stagedModuleInfo = path.join(resourcesDirectory, "moduleinfo.json");
   const childProcesses: ChildProcessLog[] = [];
@@ -845,6 +854,16 @@ export async function exportWindowsProduct(
       );
     }
     assertCompiledParity(options.project, stagedCompiledBytes);
+    await writeFile(stagedGraph, graphBytes, { flag: "wx" });
+    const stagedGraphBytes = await readFile(stagedGraph);
+    if (!stagedGraphBytes.equals(graphBytes)) {
+      fail(
+        "GARAK_EXPORT_GRAPH_PARITY",
+        "export.compiledGraph",
+        "Staged compiled graph bytes changed after writing.",
+      );
+    }
+    decodeCompiledGraph(stagedGraphBytes);
 
     await invokeRequired(
       runner,
