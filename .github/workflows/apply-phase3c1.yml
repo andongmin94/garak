@@ -69,3 +69,5 @@ jobs:
           fi
           git commit -m 'feat: load compiled graph resource in product runtime'
           git push origin HEAD:main
+
+# This workflow is intentionally temporary and self-removing after application.
