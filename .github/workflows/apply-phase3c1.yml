@@ -44,20 +44,26 @@ jobs:
           from pathlib import Path
 
           path = Path('tools/phase3c1_apply.py')
-          lines = path.read_text(encoding='utf-8').splitlines()
-          matches = 0
-          for index in range(len(lines) - 2):
-              if (
-                  'kExecutionPlan, garak::runtime::product_v1::kGainParameterId' in lines[index]
-                  and 'execution_plan, garak::runtime::product_v1::kGainParameterId' in lines[index + 1]
-                  and lines[index + 2] == ')'
-              ):
-                  lines.insert(index + 2, '    expected=2,')
-                  matches += 1
-                  break
-          if matches != 1:
-              raise RuntimeError(f'expected one Phase 3C1 count repair, found {matches}')
-          path.write_text('\n'.join(lines) + '\n', encoding='utf-8', newline='\n')
+          text = path.read_text(encoding='utf-8')
+          old = '''replace_exact(
+              "native/adapters/vst3/product_runtime_v1/processor.cpp",
+              "      kExecutionPlan, garak::runtime::product_v1::kGainParameterId,\\n",
+              "      execution_plan, garak::runtime::product_v1::kGainParameterId,\\n",
+          )
+          '''
+          new = '''replace_exact(
+              "native/adapters/vst3/product_runtime_v1/processor.cpp",
+              """  const auto executed = garak::runtime::static_graph::execute_gain_plan(
+              kExecutionPlan, garak::runtime::product_v1::kGainParameterId,
+          """,
+              """  const auto executed = garak::runtime::static_graph::execute_gain_plan(
+              execution_plan, garak::runtime::product_v1::kGainParameterId,
+          """,
+          )
+          '''
+          if text.count(old) != 1:
+              raise RuntimeError(f'expected one generic execution-plan replacement, found {text.count(old)}')
+          path.write_text(text.replace(old, new), encoding='utf-8', newline='\n')
           PY
 
       - name: Apply exact Phase 3C1 changes
