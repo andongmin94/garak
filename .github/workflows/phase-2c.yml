@@ -1,9 +1,6 @@
 name: Windows foundation gates
 
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
 
 permissions:
