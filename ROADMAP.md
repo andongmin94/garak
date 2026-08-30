@@ -1,13 +1,14 @@
 # Garak Roadmap
 
-- 기준일: 2026-08-23
+- 기준일: 2026-08-30
 - Branch: `main`
-- Current Windows foundation: **PASS**
-- Phase 3B implementation commit: `4b2535deba302eddab86c5c02b165e8d4f168cf4`
-- Authoritative run: `32634527751`
-- 다음 milestone: **Phase 3C — Editable Static Graph Project Contract and Compiled Plan**
+- Phase 3B historical Windows foundation: **PASS**
+- Phase 3B verified implementation: `4b2535deba302eddab86c5c02b165e8d4f168cf4`
+- Phase 3C1 implementation: `48807fd56e72fdae7192956bf90d6a4ed4b83572`
+- Current Phase 3C status: **IN PROGRESS — full clean Windows local gate pending**
+- 다음 increment: **Phase 3C2 — Editable project schema v3**
 
-이 roadmap은 기능 목록을 미리 쌓는 문서가 아니다. 각 milestone은 직전의 실제 end-to-end 제품 경로가 clean checkout에서 통과한 뒤에만 시작한다.
+이 roadmap은 기능 목록을 미리 쌓는 문서가 아니다. 각 milestone은 직전의 실제 end-to-end 제품 경로가 clean checkout에서 통과한 뒤에만 다음 층으로 진행한다.
 
 ## 운영 원칙
 
@@ -18,6 +19,7 @@
 - persistent Product/FUID/Parameter ID와 지원 schema/state는 명시적 migration으로 보존한다.
 - 사용하지 않는 serializer, resource와 abstraction을 미래 기능이라는 이유로 먼저 추가하지 않는다.
 - 큰 변경 전 별도 ExecPlan을 작성한다.
+- 검증 근거는 삭제된 workflow 상태가 아니라 exact commit의 clean local command 결과로 남긴다.
 
 ## 완료된 foundation
 
@@ -101,20 +103,18 @@ Windows x64에서 same-binary data-driven Runtime과 product-specific thin wrapp
 - production Gain DSP 재사용
 - Product Runtime processor의 actual plan dispatch
 - invalid-plan unit regression
-- 삭제된 Phase 1A/1B FUID reservation 제거
 
-의도적으로 만들지 않은 것:
+Phase 3A 당시 의도적으로 범위 밖이었던 것:
 
 - `graph.garakbin`
 - TypeScript graph compiler/serializer
 - editable `.garak` graph source
 - generic node registry와 dynamic buffer planner
 
-수용 근거:
+역사적 수용 근거:
 
 - implementation commit `27e21307830edf5a6849a3bc96d6ef7ad044cacd`
-- authoritative run `32617339447`
-- Product Compiler, Studio, Debug/Release actual export, official Validator, loaded-module CTest, Werror와 clang-tidy 모두 success
+- historical run `32617339447`
 
 ### Phase 3B — Realtime Safety Instrumentation and Long-run Runtime Stress — Complete
 
@@ -131,11 +131,10 @@ Windows x64에서 same-binary data-driven Runtime과 product-specific thin wrapp
 - fixed seed와 120-second CTest timeout
 - current Warm/Bright Debug/Release export/validator 전체 regression
 
-수용 근거:
+역사적 수용 근거:
 
 - implementation commit `4b2535deba302eddab86c5c02b165e8d4f168cf4`
-- authoritative run `32634527751`
-- Product Compiler, Studio, Debug/Release actual export, official Validator, CTest, real Studio workflow, Werror와 clang-tidy 모두 success
+- historical run `32634527751`
 
 완료 근거로 일반화하지 않는 항목:
 
@@ -145,16 +144,38 @@ Windows x64에서 same-binary data-driven Runtime과 product-specific thin wrapp
 - NaN/Inf/subnormal automation 입력
 - representative DAW performance 또는 audio-quality claim
 
-### Phase 3C — Editable Static Graph Project Contract and Compiled Plan
+### Phase 3C — Editable Static Graph Project Contract and Compiled Plan — In Progress
 
-Phase 3B 이후 별도 ExecPlan으로 시작한다.
+[ExecPlan 0014](plans/0014-phase-3c-editable-static-graph-contract.md)에 따라 단계별로 진행한다.
+
+#### Phase 3C1 — Runtime-consumed compiled graph resource — Implemented, verification pending
+
+Commit `48807fd56e72fdae7192956bf90d6a4ed4b83572`에 다음 implementation이 반영됐다.
+
+- deterministic `GARAKGRF` v1 `graph.garakbin`
+- canonical Gain graph compile
+- Windows export의 required graph resource와 inventory/hash parity
+- Native module-load parser와 fail-closed 경계
+- Product Runtime context에 loaded immutable plan 전달
+- processor가 loaded plan을 실제 실행
+- one-time patch runner와 patch source 제거
+
+아직 full clean Windows local gate를 실행하지 않았으므로 3C1을 accepted 또는 complete로 표시하지 않는다.
+
+#### Phase 3C2 — Editable project schema v3 — Pending
 
 - versioned editable graph source
 - strict node/version/port/connection validation
-- deterministic compiled execution plan
-- deployed Runtime의 missing/corrupt/future plan fail closed
-- `GARAKCPD`/`GARAKPST` compatibility 경계 유지 또는 명시적 version transition
-- Studio canvas 없이 headless authoring/export부터 검증
+- deterministic v2→v3 migration
+- Studio typed document/draft round-trip
+- Product/FUID/Parameter/default parity 보존
+
+#### Phase 3C3 — Compatibility와 full product gate — Pending
+
+- current/missing/corrupt/too-old/too-new graph disposition
+- Product Compiler, Runtime, inspector와 fixture의 동일 판정
+- Debug/Release export, Validator, CTest, Studio workflow, Werror와 clang-tidy
+- exact commit의 clean Windows local verification record
 
 ### Phase 3D — Initial DSP Node Set
 

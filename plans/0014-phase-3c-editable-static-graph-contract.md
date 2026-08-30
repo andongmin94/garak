@@ -2,7 +2,7 @@
 
 - Status: In Progress
 - Started: 2026-08-23
-- Updated: 2026-08-23
+- Updated: 2026-08-30
 - Owner: Product Compiler, Native Runtime and Studio product workflow
 
 ## 목적
@@ -17,13 +17,13 @@ Current `.garak → Product Compiler → Product Runtime` 경로에 versioned gr
 
 - Branch: `main`
 - Phase 3B verified implementation: `4b2535deba302eddab86c5c02b165e8d4f168cf4`
-- Phase 3B authoritative run: `32634527751`
+- Phase 3B historical Windows run: `32634527751`
 - Editable project current format: schema v2
 - Compiled product current format: `GARAKCPD` 1.0
 - Plug-in state current format: `GARAKPST` 1.0
 - Runtime execution path: immutable native `Input → Gain → Output` plan
 - Current `.garak` inventory: physical `product.json` one file
-- Current VST3 resources: `product.garakbin` and `moduleinfo.json`
+- Starting VST3 resources: `product.garakbin` and `moduleinfo.json`
 
 ## 핵심 결정
 
@@ -126,7 +126,9 @@ Compiled graph의 current/missing/corrupt/too-old/too-new disposition을 명시�
 9. [ ] Studio document/draft/workflow와 Warm/Bright fixture를 schema v3로 이동
 10. [ ] compatibility 문서와 active status 동기화
 11. [ ] format/lint/typecheck/test, Debug/Release actual export/Validator, Werror, clang-tidy 전체 통과
-12. [ ] exact final commit의 `garak/windows-foundation` success 확인 후 Complete
+12. [ ] exact final commit의 clean Windows local gate 전체 성공과 검증 기록 보관 후 Complete
+
+체크박스는 implementation이 존재한다는 이유만으로 닫지 않는다. 해당 층의 exact commit에서 요구된 local gate를 실제로 통과한 뒤에만 완료 표시한다.
 
 ## 수용 기준
 
@@ -138,7 +140,7 @@ Compiled graph의 current/missing/corrupt/too-old/too-new disposition을 명시�
 - v2→v3 migration 후 Product ID/FUID/Parameter/default parity 유지
 - current/legacy project open/save/reopen/export regression success
 - Phase 3B allocation/deallocation `0` stress 유지
-- exact final commit의 authoritative Windows gate success
+- exact final commit의 clean Windows local gate success와 재현 가능한 명령 기록
 
 ## 리스크
 
@@ -149,12 +151,17 @@ Compiled graph의 current/missing/corrupt/too-old/too-new disposition을 명시�
 
 ## 진행 기록
 
-- 2026-08-23: commit `8286fa4362e8708c94bbb353b8e3e5204e24b826`에서 exact 92-byte `GARAKGRF` 1.0 contract, TypeScript encode/decode, Native parser와 동일 고정 fixture를 추가했다. Export와 deployed Runtime 연결 전이므로 단계 1–2는 authoritative gate가 성공한 뒤에만 완료 표시한다.
+- 2026-08-23: commit `8286fa4362e8708c94bbb353b8e3e5204e24b826`에서 exact 92-byte `GARAKGRF` 1.0 contract, TypeScript encode/decode, Native parser와 동일 고정 fixture를 추가했다. Export와 deployed Runtime 연결 전이므로 단계 1–2는 검증 전 완료 표시하지 않았다.
+- 2026-08-29: commit `48807fd56e72fdae7192956bf90d6a4ed4b83572`에서 canonical graph export, exact bundle inventory, Native module-load graph parse, Product Runtime context와 loaded-plan processor dispatch를 연결했다. 같은 commit에서 one-time patch workflow와 patch script를 제거했다.
+- 2026-08-30: GitHub Actions 검증 workflow를 제거하고, exact commit의 clean Windows local command 결과를 권위 있는 검증 기준으로 전환했다. Phase 3C1 이후 full Windows local gate는 아직 실행하지 않았으므로 단계 1–6과 11–12는 완료 표시하지 않는다.
 
 ## 완료 기록
 
-진행 중. `graph.garakbin`이 actual exported Runtime에서 소비되고 schema v3 source가 그 bytes를 결정하기 전에는 Phase 3C를 완료로 표시하지 않는다.
+진행 중. `graph.garakbin`의 actual exported Runtime 소비는 구현됐지만 full local gate가 남아 있고, schema v3 source가 그 bytes를 결정하기 전에는 Phase 3C를 완료로 표시하지 않는다.
 
 ## 다음 단계
 
-Phase 3C가 Complete가 된 뒤 `Phase 3D — Initial DSP Node Set`을 별도 ExecPlan으로 시작한다. 첫 additional node는 current compiled graph와 realtime stress gate를 그대로 통과하는 가장 작은 stateless node부터 선택한다.
+1. Phase 3C1 exact current commit에서 clean Windows full local gate를 실행한다.
+2. 통과 결과를 exact commit과 명령 로그로 기록한다.
+3. 이후 Phase 3C2의 project schema v3와 strict editable graph source를 구현한다.
+4. Phase 3C가 Complete가 된 뒤 `Phase 3D — Initial DSP Node Set`을 별도 ExecPlan으로 시작한다.

@@ -38,7 +38,7 @@ macOS/AU 결과를 Windows 결과로 일반화하지 않는다.
 ```text
 unpacked .garak project
 → Product Compiler
-→ deterministic product.garakbin
+→ deterministic product.garakbin + graph.garakbin
 → prebuilt Garak Product Runtime v1
 → moduleinfo.json + VST3 bundle
 → inspector + official validator + loaded-module tests
@@ -48,7 +48,7 @@ Current reference products는 `Artist Gain Warm`과 `Artist Gain Bright`다.
 
 Phase 1A fixed Gain plug-in과 Phase 1B Data/Thin runtime-strategy A/B 구현은 삭제됐다. 당시 ADR, ExecPlan과 status 문서는 역사적 증거다. 삭제된 source, CMake option, preset, script 또는 test를 compatibility path나 fallback으로 복원하지 않는다.
 
-Current reusable Gain processing은 `native/dsp/gain`, persistent compiled/state contract는 `native/runtime/product_v1`, VST3 ABI integration은 `native/adapters/vst3/product_runtime_v1`에 둔다.
+Current reusable Gain processing은 `native/dsp/gain`, persistent compiled/state contract는 `native/runtime/product_v1`, compiled graph contract는 `native/runtime/static_graph`, VST3 ABI integration은 `native/adapters/vst3/product_runtime_v1`에 둔다.
 
 ## First-party 경계
 
@@ -117,7 +117,7 @@ Memory, buffer, schedule, latency와 mapping은 prepare/compile 단계에서 확
 
 - open만으로 legacy source를 rewrite하지 않는다.
 - external modification, future schema와 Product ID replacement를 overwrite하지 않는다.
-- destructive save/migration은 verified backup과 transaction/recovery contract를 따른다.
+- destructive save/migration은 verified backup와 transaction/recovery contract를 따른다.
 - ambiguous recovery에서 artifact를 임의 삭제하지 않는다.
 - process-crash consistency와 hardware power-loss guarantee를 구분한다.
 
@@ -144,7 +144,7 @@ Steinberg VST3 SDK는 exact Git pin을 유지한다. SDK source를 수정·재�
 
 ## 권위 있는 검증
 
-문서의 과거 test 수가 아니라 정확한 current commit의 `garak/windows-foundation` status가 기준이다. Workflow는 read-only verifier여야 하며 source를 포맷·commit·push하거나 issue를 자동 생성해서는 안 된다.
+문서의 과거 test 수나 삭제된 원격 workflow 상태가 아니라, **정확한 current commit을 clean Windows checkout에서 아래 명령으로 검증한 기록**이 기준이다. 검증 과정은 source를 포맷·commit·push하거나 issue를 자동 생성해서는 안 된다.
 
 ### TypeScript
 

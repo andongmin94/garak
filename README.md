@@ -9,9 +9,10 @@ Garak(가락)은 음악가, 프로듀서와 사운드 디자이너가 자신의 
 ```text
 unpacked .garak project
 → Product Compiler validation/migration
-→ deterministic product.garakbin
+→ deterministic product.garakbin + graph.garakbin
 → prebuilt Garak Product Runtime v1
-→ immutable native Input → Gain → Output execution plan
+→ module-load validation of product and graph resources
+→ immutable loaded Input → Gain → Output execution plan
 → product-specific moduleinfo.json
 → local white-label VST3 bundle
 → first-party inspector + official VST3 Validator
@@ -19,31 +20,24 @@ unpacked .garak project
 
 Studio는 `.garak` 생성·열기·검증·저장·migration·conflict/recovery 처리와 Debug/Release export를 Electron main의 typed capability 경계로 제공한다. Renderer에는 Node.js, filesystem, shell 또는 raw IPC 권한이 없다.
 
-Native Runtime은 C++20이며 생성된 VST3에는 Electron, Chromium, Node.js 또는 임의 JavaScript runtime이 포함되지 않는다. 현재 reference products는 `Artist Gain Warm`과 `Artist Gain Bright`이고, 둘은 같은 prebuilt Runtime bytes를 사용하면서 서로 다른 Product ID, VST3 FUID, metadata, default와 state를 가진다.
+Native Runtime은 C++20이며 생성된 VST3에는 Electron, Chromium, Node.js 또는 임의 JavaScript runtime이 포함되지 않는다. 현재 reference products는 `Artist Gain Warm`과 `Artist Gain Bright`이고, 둘은 같은 prebuilt Runtime bytes와 같은 canonical compiled graph를 사용하면서 서로 다른 Product ID, VST3 FUID, metadata, default와 state를 가진다.
 
-## 권위 있는 기준선
+## 현재 검증 상태
 
-완료 판정은 문서에 적힌 과거 test 수가 아니라, **정확한 구현 commit**에서 `garak/windows-foundation` status가 성공한 경우에만 유효하다. 현재 Phase 3B 검증 기준은 다음이다.
+Phase 3B의 마지막 전체 Windows 검증은 역사적 기준선으로 남아 있다.
 
-- implementation commit: `4b2535deba302eddab86c5c02b165e8d4f168cf4`
-- workflow run: `32634527751`
-- status: `garak/windows-foundation` success
+- verified implementation commit: `4b2535deba302eddab86c5c02b165e8d4f168cf4`
+- historical workflow run: `32634527751`
+- result: Product Compiler, Studio, Debug/Release export, Validator, CTest, Werror와 clang-tidy success
 
-이 gate는 clean Windows checkout에서 다음을 한 번에 수행한다.
+Phase 3C1의 실제 export/runtime 연결은 commit `48807fd56e72fdae7192956bf90d6a4ed4b83572`에 반영됐다.
 
-- frozen pnpm install
-- Product Compiler format/lint/typecheck/test
-- Studio format/lint/typecheck/test/production build
-- exact recursive VST3 SDK checkout 확인
-- first-party C++ format
-- Debug/Release Product Runtime clean build
-- Warm/Bright actual export와 official standard/extensive validation
-- static-plan, realtime stress, loaded-module와 inspector parity CTest
-- Studio ProductService Debug/Release workflow
-- warnings-as-errors와 clang-tidy
-- gate 실행 후 tracked source mutation 0 확인
+- export bundle에 required `graph.garakbin` 포함
+- Native Runtime이 `product.garakbin`과 `graph.garakbin`을 module load에서 함께 parse
+- loaded immutable plan을 processor에 전달
+- one-time patch workflow와 patch script 제거
 
-현재 상태는 [`docs/status/current.md`](docs/status/current.md)를 따른다.
+다만 이 변경 이후의 **전체 clean Windows 로컬 게이트는 실행하지 않았다.** 따라서 Phase 3C는 여전히 In Progress이며, 현재 문서는 해당 변경을 PASS 또는 Complete로 표시하지 않는다. 현재 사실은 [`docs/status/current.md`](docs/status/current.md)를 따른다.
 
 ## 빠른 시작
 
@@ -143,70 +137,56 @@ cmake --build --preset product-runtime-clang-tidy-build --clean-first
 - immutable Product ID와 deterministic processor/controller FUID derivation
 - permanent Gain `1001` / Bypass `1002` Parameter IDs
 - deterministic `GARAKCPD` v1 compiled product data
+- deterministic `GARAKGRF` v1 compiled graph data
 - product-bound `GARAKPST` v1 plug-in state
 - durable project save, persistent verified backup와 crash recovery core
 - main-owned migration/conflict/recovery decisions
 - compiled artifact `use-existing` / `rebuild` / `reject` compatibility policy
 - Windows local white-label VST3 export
 - editorless mono/stereo Float32/Float64 Gain Runtime
-- native immutable `Input → Gain → Output` execution-plan boundary
+- module-load graph parse/validation과 immutable loaded execution plan
 - first-party static-plan/Gain process window의 C++ allocation/deallocation `0` regression
 - deterministic Float32/Float64 long-run runtime stress와 bounded CTest timeout
 
-## Phase 3A — 최소 static execution plan
+## Phase 3 진행 상태
 
-최초 graph increment는 실제 Runtime이나 export가 사용하지 않는 TypeScript graph codec, node/edge/operation 중복 표현과 임시 CI artifact workflow를 추가했다. 감사 후 이를 제거했다.
+### Phase 3A — Minimal Native Static Execution Plan — Complete
 
-현재 Phase 3A에는 다음만 남는다.
+Phase 3A는 production Gain DSP를 실제 processor dispatch와 연결하는 최소 native execution boundary를 확립했다. 당시 `graph.garakbin`과 editable graph source는 의도적으로 범위 밖이었다.
 
-- `native/runtime/static_graph`의 fixed immutable plan
-- production Gain DSP를 호출하는 actual processor dispatch
-- plan과 output parity unit test
+### Phase 3B — Realtime Safety Instrumentation and Long-run Runtime Stress — Complete
 
-아직 만들지 않았다.
+별도 first-party executable에서 production static plan과 Gain DSP를 fixed-size stack storage로 실행해 Float32/Float64 각각 20,000 blocks를 검증했다. 역사적 full Windows gate에서 allocation `0`, deallocation `0`, output/state/silence mismatch `0`을 확인했다.
 
-- `graph.garakbin`
-- editable graph source
-- TypeScript graph compiler/serializer
-- generic node registry
-- dynamic heap buffer planner
+### Phase 3C — Editable Static Graph Project Contract and Compiled Plan — In Progress
 
-## Phase 3B — realtime safety stress
+3C1 implementation은 source에 반영됐다.
 
-별도 first-party executable이 production static plan과 Gain DSP를 fixed-size stack storage로 실행하며 same-thread standard aligned/unaligned C++ `new`/`delete`를 계수한다.
+- deterministic `graph.garakbin` v1
+- actual export inventory와 hash parity
+- Native module-load parser
+- loaded plan을 사용하는 processor dispatch
+- missing/corrupt/unsupported resource fail-closed 기반
 
-검증된 범위:
+아직 남은 단계:
 
-- Float32/Float64 각각 20,000 blocks
-- 각 sample type 1,919,504 channel-samples
-- block size `0..128`
-- mono/stereo
-- in-place/out-of-place
-- Gain/Bypass offset-0 automation
-- deterministic silence flags
-- allocation `0`, deallocation `0`
-- output/state/silence mismatch `0`
-- 120-second CTest timeout
+- clean Windows에서 3C1 전체 로컬 게이트 재검증
+- project schema v3의 versioned editable graph source
+- strict v2→v3 migration
+- Studio document/draft round-trip
+- compiled graph compatibility matrix와 full product gate
 
-이 결과는 raw C heap, Windows allocator, Steinberg SDK/host thread allocation, kernel-level blocking, cross-thread state handoff 또는 실제 DAW deadline을 증명하지 않는다.
+다음 구현 increment는 **Phase 3C2 — Editable project schema v3**다. 상세 계획은 [`plans/0014-phase-3c-editable-static-graph-contract.md`](plans/0014-phase-3c-editable-static-graph-contract.md)를 따른다.
 
 ## 제거된 기술 spike
 
-Phase 1A의 fixed Gain module과 Phase 1B의 Data/Thin A/B runtime-strategy 구현은 의사결정을 위한 pre-release 기술 spike였다. 현재 제품 build graph와 source tree에서는 제거됐다. 당시 결과는 다음 문서에 역사적 증거로만 남긴다.
-
-- [`plans/0003-phase-1a-windows-minimal-vst3-gain-shell.md`](plans/0003-phase-1a-windows-minimal-vst3-gain-shell.md)
-- [`plans/0004-phase-1b-generated-runtime-ab-spike.md`](plans/0004-phase-1b-generated-runtime-ab-spike.md)
-- [`docs/adr/0003-generated-plugin-runtime-strategy.md`](docs/adr/0003-generated-plugin-runtime-strategy.md)
-- [`docs/status/phase-1b-runtime-strategy-validation.md`](docs/status/phase-1b-runtime-strategy-validation.md)
-
-삭제된 spike FUID도 current Product Compiler의 영구 예약 목록으로 유지하지 않는다. 이들은 출시된 product identity가 아니다. 과거 Phase 1B Windows spike의 검증 범위도 current cross-platform product 완료 근거로 일반화하지 않는다.
+Phase 1A의 fixed Gain module과 Phase 1B의 Data/Thin A/B runtime-strategy 구현은 의사결정을 위한 pre-release 기술 spike였다. 현재 제품 build graph와 source tree에서는 제거됐다. 당시 결과는 역사적 문서에만 남긴다. 삭제된 spike source, preset, packaging path 또는 FUID reservation을 compatibility layer로 복원하지 않는다.
 
 ## 아직 제품이 아닌 부분
 
 현재 Garak은 repository-local Windows vertical slice다. 다음은 아직 완료되지 않았다.
 
-- editable static graph source와 deterministic compiled plan
-- deployed Runtime의 graph plan compatibility/fail-closed 경계
+- editable graph source와 schema v3 migration
 - additional DSP node library
 - cross-thread automation/state handoff 및 kernel-level blocking 계측
 - macro mapping과 functional Sound/Control workspaces
@@ -218,15 +198,12 @@ Phase 1A의 fixed Gain module과 Phase 1B의 Data/Thin A/B runtime-strategy 구�
 - backup retention/pruning과 advanced manual recovery
 - repository 및 commercial redistribution legal decision
 
-다음 milestone은 **Phase 3C — Editable Static Graph Project Contract and Compiled Plan**이다. 첫 increment는 Studio canvas나 additional node가 아니라 strict headless graph validation, deterministic compilation과 deployed Runtime fail-closed 경계를 end-to-end로 연결한다.
-
 ## 문서
 
 - [Repository constitution](AGENTS.md)
 - [Roadmap](ROADMAP.md)
 - [Current status](docs/status/current.md)
-- [Phase 3B ExecPlan](plans/0013-phase-3b-realtime-safety-stress.md)
-- [Phase 3A ExecPlan](plans/0012-phase-3a-minimal-static-dsp-graph.md)
+- [Phase 3C ExecPlan](plans/0014-phase-3c-editable-static-graph-contract.md)
 - [System overview](docs/architecture/system-overview.md)
 - [Runtime and export](docs/architecture/runtime-and-export.md)
 - [VST3 adapter](docs/architecture/vst3-adapter.md)
