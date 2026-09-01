@@ -1,8 +1,8 @@
 # ExecPlan 0014 — Phase 3C Editable Static Graph Project Contract and Compiled Plan
 
-- Status: In Progress
+- Status: In Progress — Phase 3C1 Complete, Phase 3C2 next
 - Started: 2026-08-23
-- Updated: 2026-08-30
+- Updated: 2026-09-01
 - Owner: Product Compiler, Native Runtime and Studio product workflow
 
 ## 목적
@@ -57,11 +57,11 @@ Valid first graph는 `Input → Gain → Output` 한 chain이다. Generic node r
 
 ## 구현 층
 
-### 3C1 — Runtime-consumed compiled graph resource
+### 3C1 — Runtime-consumed compiled graph resource — Complete
 
 현재 canonical Gain template에서 deterministic `graph.garakbin` v1을 생성한다. Export가 resource를 bundle에 넣고 Native Runtime이 module load 시 parse/validate한 plan을 실제 processor에 전달한다.
 
-이 층은 editable schema를 아직 변경하지 않지만, 생성된 resource가 실제 deployed Runtime에서 사용되므로 unused serializer나 speculative format이 아니다.
+Exact source commit `510f906f45924ad4ef035f6598fc193c25eed245`의 clean Windows verification run `33455352188`에서 전체 Phase 3C1 product path가 통과했다.
 
 ### 3C2 — Editable project schema v3
 
@@ -115,20 +115,20 @@ Compiled graph의 current/missing/corrupt/too-old/too-new disposition을 명시�
 
 ## 구현 단계
 
-1. [ ] `graph.garakbin` v1 최소 binary contract와 TypeScript codec 추가
-2. [ ] current Gain template에서 canonical graph compile 및 exact byte fixtures 추가
-3. [ ] Windows export에 required graph resource와 inventory/hash parity 추가
-4. [ ] Native graph parser와 module-load fail-closed 추가
-5. [ ] Processor가 loaded immutable plan을 실제 실행하도록 연결
-6. [ ] inspector/CTest에서 missing/corrupt/future graph rejection 검증
+1. [x] `graph.garakbin` v1 최소 binary contract와 TypeScript codec 추가
+2. [x] current Gain template에서 canonical graph compile 및 exact byte fixtures 추가
+3. [x] Windows export에 required graph resource와 inventory/hash parity 추가
+4. [x] Native graph parser와 module-load fail-closed 추가
+5. [x] Processor가 loaded immutable plan을 실제 실행하도록 연결
+6. [x] inspector/CTest에서 missing/corrupt/future graph rejection 검증
 7. [ ] project schema v3와 strict graph source validator 추가
 8. [ ] deterministic v2→v3 migration과 canonical serializer 추가
 9. [ ] Studio document/draft/workflow와 Warm/Bright fixture를 schema v3로 이동
 10. [ ] compatibility 문서와 active status 동기화
-11. [ ] format/lint/typecheck/test, Debug/Release actual export/Validator, Werror, clang-tidy 전체 통과
-12. [ ] exact final commit의 clean Windows local gate 전체 성공과 검증 기록 보관 후 Complete
+11. [ ] Phase 3C3 format/lint/typecheck/test, Debug/Release actual export/Validator, Werror, clang-tidy 전체 통과
+12. [ ] exact final commit의 clean Windows gate 전체 성공과 검증 기록 보관 후 Phase 3C Complete
 
-체크박스는 implementation이 존재한다는 이유만으로 닫지 않는다. 해당 층의 exact commit에서 요구된 local gate를 실제로 통과한 뒤에만 완료 표시한다.
+체크박스는 implementation이 존재한다는 이유만으로 닫지 않는다. 해당 층의 exact source commit에서 요구된 clean Windows gate를 실제로 통과한 뒤에만 완료 표시한다.
 
 ## 수용 기준
 
@@ -140,7 +140,7 @@ Compiled graph의 current/missing/corrupt/too-old/too-new disposition을 명시�
 - v2→v3 migration 후 Product ID/FUID/Parameter/default parity 유지
 - current/legacy project open/save/reopen/export regression success
 - Phase 3B allocation/deallocation `0` stress 유지
-- exact final commit의 clean Windows local gate success와 재현 가능한 명령 기록
+- exact final commit의 clean Windows gate success와 재현 가능한 명령 기록
 
 ## 리스크
 
@@ -153,15 +153,19 @@ Compiled graph의 current/missing/corrupt/too-old/too-new disposition을 명시�
 
 - 2026-08-23: commit `8286fa4362e8708c94bbb353b8e3e5204e24b826`에서 exact 92-byte `GARAKGRF` 1.0 contract, TypeScript encode/decode, Native parser와 동일 고정 fixture를 추가했다. Export와 deployed Runtime 연결 전이므로 단계 1–2는 검증 전 완료 표시하지 않았다.
 - 2026-08-29: commit `48807fd56e72fdae7192956bf90d6a4ed4b83572`에서 canonical graph export, exact bundle inventory, Native module-load graph parse, Product Runtime context와 loaded-plan processor dispatch를 연결했다. 같은 commit에서 one-time patch workflow와 patch script를 제거했다.
-- 2026-08-30: GitHub Actions 검증 workflow를 제거하고, exact commit의 clean Windows local command 결과를 권위 있는 검증 기준으로 전환했다. Phase 3C1 이후 full Windows local gate는 아직 실행하지 않았으므로 단계 1–6과 11–12는 완료 표시하지 않는다.
+- 2026-08-30: GitHub Actions 검증 workflow를 제거하고, exact source commit의 clean Windows command 결과를 권위 있는 검증 기준으로 전환했다. Phase 3C1 이후 full Windows gate는 아직 실행하지 않았으므로 단계 1–6을 완료 표시하지 않았다.
+- 2026-09-01: 일회성 verification wrapper를 통해 두 job이 gate 실행 전 exact source commit `510f906f45924ad4ef035f6598fc193c25eed245`를 직접 checkout하고 SHA를 확인했다. Run `33455352188`에서 Product Compiler와 Studio의 format/lint/typecheck/test/build, Debug/Release Runtime build, Warm/Bright actual export와 official Validator, CTest, Studio workflow, warnings-as-errors, clang-tidy, tracked source mutation `0`이 모두 통과했다. 결과 확인 후 workflow는 제거했으며 단계 1–6과 Phase 3C1을 완료 처리했다.
 
 ## 완료 기록
 
-진행 중. `graph.garakbin`의 actual exported Runtime 소비는 구현됐지만 full local gate가 남아 있고, schema v3 source가 그 bytes를 결정하기 전에는 Phase 3C를 완료로 표시하지 않는다.
+Phase 3C1은 완료됐다. `graph.garakbin`은 실제 export bundle에 포함되고 deployed Runtime이 검증한 immutable plan을 processor가 실행하며, exact source commit의 clean Windows full gate가 성공했다.
+
+전체 ExecPlan은 계속 진행 중이다. Schema v3 editable graph source와 compatibility/final gate가 완료되기 전에는 Phase 3C를 Complete로 표시하지 않는다.
 
 ## 다음 단계
 
-1. Phase 3C1 exact current commit에서 clean Windows full local gate를 실행한다.
-2. 통과 결과를 exact commit과 명령 로그로 기록한다.
-3. 이후 Phase 3C2의 project schema v3와 strict editable graph source를 구현한다.
-4. Phase 3C가 Complete가 된 뒤 `Phase 3D — Initial DSP Node Set`을 별도 ExecPlan으로 시작한다.
+1. Phase 3C2의 project schema v3와 strict editable graph source를 구현한다.
+2. deterministic v2→v3 migration과 canonical serializer를 추가한다.
+3. Studio document/draft/workflow와 Warm/Bright fixture를 schema v3로 이동한다.
+4. Phase 3C3 compatibility matrix와 final clean Windows gate를 완료한다.
+5. Phase 3C가 Complete가 된 뒤 `Phase 3D — Initial DSP Node Set`을 별도 ExecPlan으로 시작한다.

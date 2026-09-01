@@ -24,20 +24,23 @@ Native Runtime은 C++20이며 생성된 VST3에는 Electron, Chromium, Node.js �
 
 ## 현재 검증 상태
 
-Phase 3B의 마지막 전체 Windows 검증은 역사적 기준선으로 남아 있다.
+Phase 3B의 전체 Windows 검증은 역사적 realtime-safety 기준선으로 남아 있다.
 
 - verified implementation commit: `4b2535deba302eddab86c5c02b165e8d4f168cf4`
 - historical workflow run: `32634527751`
 - result: Product Compiler, Studio, Debug/Release export, Validator, CTest, Werror와 clang-tidy success
 
-Phase 3C1의 실제 export/runtime 연결은 commit `48807fd56e72fdae7192956bf90d6a4ed4b83572`에 반영됐다.
+Phase 3C1의 실제 export/runtime 연결은 commit `48807fd56e72fdae7192956bf90d6a4ed4b83572`에 반영됐고, exact source commit `510f906f45924ad4ef035f6598fc193c25eed245`를 clean Windows checkout에서 다시 검증했다.
 
-- export bundle에 required `graph.garakbin` 포함
-- Native Runtime이 `product.garakbin`과 `graph.garakbin`을 module load에서 함께 parse
-- loaded immutable plan을 processor에 전달
-- one-time patch workflow와 patch script 제거
+- verification run: `33455352188`
+- Product Compiler와 Studio format/lint/typecheck/test/build success
+- Debug/Release Product Runtime clean build success
+- Warm/Bright actual export와 official VST3 Validator success
+- Debug/Release CTest와 Studio product workflow success
+- warnings-as-errors와 clang-tidy success
+- tracked source mutation `0`
 
-다만 이 변경 이후의 **전체 clean Windows 로컬 게이트는 실행하지 않았다.** 따라서 Phase 3C는 여전히 In Progress이며, 현재 문서는 해당 변경을 PASS 또는 Complete로 표시하지 않는다. 현재 사실은 [`docs/status/current.md`](docs/status/current.md)를 따른다.
+따라서 **Phase 3C1은 PASS / Complete**다. 검증을 위해 사용한 일회성 workflow는 결과 확인 후 제거했으며 상시 CI 경로로 보존하지 않는다. Phase 3C 전체는 editable schema v3와 compatibility/full product gate가 남아 있어 여전히 In Progress다. 현재 사실은 [`docs/status/current.md`](docs/status/current.md)를 따른다.
 
 ## 빠른 시작
 
@@ -160,21 +163,21 @@ Phase 3A는 production Gain DSP를 실제 processor dispatch와 연결하는 최
 
 ### Phase 3C — Editable Static Graph Project Contract and Compiled Plan — In Progress
 
-3C1 implementation은 source에 반영됐다.
+#### Phase 3C1 — Runtime-consumed compiled graph resource — Complete
 
 - deterministic `graph.garakbin` v1
 - actual export inventory와 hash parity
 - Native module-load parser
 - loaded plan을 사용하는 processor dispatch
 - missing/corrupt/unsupported resource fail-closed 기반
+- exact source commit `510f906f45924ad4ef035f6598fc193c25eed245`의 clean Windows full gate success
 
 아직 남은 단계:
 
-- clean Windows에서 3C1 전체 로컬 게이트 재검증
 - project schema v3의 versioned editable graph source
 - strict v2→v3 migration
 - Studio document/draft round-trip
-- compiled graph compatibility matrix와 full product gate
+- compiled graph compatibility matrix와 final full product gate
 
 다음 구현 increment는 **Phase 3C2 — Editable project schema v3**다. 상세 계획은 [`plans/0014-phase-3c-editable-static-graph-contract.md`](plans/0014-phase-3c-editable-static-graph-contract.md)를 따른다.
 

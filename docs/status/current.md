@@ -1,12 +1,15 @@
 # Garak Current Status
 
-- 기준일: 2026-08-30
+- 기준일: 2026-09-01
 - Branch: `main`
-- Phase 3B: **PASS / Complete — historical Windows x64 baseline**
+- Phase 3B: **PASS / Complete — historical Windows x64 realtime-safety baseline**
 - Phase 3B verified implementation: `4b2535deba302eddab86c5c02b165e8d4f168cf4`
 - Phase 3B historical run: `32634527751`
 - Phase 3C1 implementation: `48807fd56e72fdae7192956bf90d6a4ed4b83572`
-- Phase 3C: **IN PROGRESS — full clean Windows local gate pending**
+- Phase 3C1 verified source: `510f906f45924ad4ef035f6598fc193c25eed245`
+- Phase 3C1 clean Windows verification run: `33455352188`
+- Phase 3C1: **PASS / Complete**
+- Phase 3C: **IN PROGRESS — Phase 3C2 and Phase 3C3 pending**
 - 다음 increment: **Phase 3C2 — Editable project schema v3**
 
 ## 실제 current product path
@@ -72,7 +75,7 @@ SDK-independent static-plan/Gain process window를 별도 first-party executable
 
 이 결과는 commit `4b2535deba302eddab86c5c02b165e8d4f168cf4`의 historical clean Windows run `32634527751`에서 확인됐다.
 
-## Phase 3C1 — Runtime-consumed compiled graph resource
+## Phase 3C1 — Runtime-consumed compiled graph resource — PASS / Complete
 
 Commit `48807fd56e72fdae7192956bf90d6a4ed4b83572`에 다음 implementation이 반영됐다.
 
@@ -84,33 +87,34 @@ Commit `48807fd56e72fdae7192956bf90d6a4ed4b83572`에 다음 implementation이 �
 - processor가 source-derived loaded plan을 실제 실행
 - one-time patch workflow와 patch script 제거
 
-이 implementation 이후 전체 clean Windows local gate는 실행하지 않았다. 따라서 3C1은 **implemented but not accepted**이며 Phase 3C 완료 판정은 보류한다.
+Exact source commit `510f906f45924ad4ef035f6598fc193c25eed245`를 clean Windows checkout으로 고정한 일회성 검증 run `33455352188`에서 다음 두 job이 모두 success로 종료됐다.
 
-## 현재 검증 방법
+### Product Compiler and Studio
 
-삭제된 workflow status가 아니라 exact current commit의 clean Windows checkout에서 아래 범위를 직접 실행하고 결과를 기록한다.
-
-### Product Compiler와 Studio
-
+- exact source SHA 확인
 - frozen dependency install
-- repository LF/whitespace
+- repository LF/whitespace 확인
 - Product Compiler format/lint/typecheck/test
 - Studio format/lint/typecheck/test/production build
-- tracked source mutation 0
+- tracked source mutation `0`
 
-### Native Product Runtime와 actual export
+### Native Product Runtime and real export path
 
-- exact recursive SDK pins
+- exact source SHA와 recursive SDK pins 확인
 - first-party C++ format
 - Debug/Release Product Runtime clean build
-- Warm/Bright actual export와 official standard/extensive validation
+- Warm/Bright actual export와 official VST3 Validator
 - Debug/Release CTest와 loaded-module regression
 - Studio Debug/Release product workflow
 - warnings-as-errors
 - clang-tidy
-- tracked source mutation 0
+- tracked source mutation `0`
 
-구체적인 명령은 [`AGENTS.md`](../../AGENTS.md)의 “권위 있는 검증”을 따른다.
+검증 wrapper commit은 source commit과 분리됐고 두 job은 gate 실행 전에 `510f906f45924ad4ef035f6598fc193c25eed245`를 직접 checkout하고 SHA를 확인했다. 결과 확인 뒤 일회성 workflow는 삭제했으며 상시 CI 또는 obsolete product path로 보존하지 않는다.
+
+## 현재 검증 방법
+
+새 implementation은 exact source commit을 clean Windows checkout에서 [`AGENTS.md`](../../AGENTS.md)의 권위 있는 명령으로 검증하고 결과를 기록한다. 검증용 wrapper나 runner가 존재하더라도 source SHA 확인, required command 전체 실행, tracked source mutation `0`이 충족되지 않으면 수용 근거로 사용하지 않는다.
 
 ## 완료가 보장하지 않는 항목
 
@@ -124,7 +128,6 @@ Commit `48807fd56e72fdae7192956bf90d6a4ed4b83572`에 다음 implementation이 �
 
 ## 아직 검증되지 않은 핵심 항목
 
-- Phase 3C1 exact current commit의 full clean Windows local gate
 - project schema v3 graph source와 deterministic v2→v3 migration
 - Studio graph document/draft persistence
 - compiled graph compatibility matrix
@@ -150,6 +153,7 @@ Commit `48807fd56e72fdae7192956bf90d6a4ed4b83572`에 다음 implementation이 �
 
 ## 다음 단계
 
-1. Phase 3C1 implementation을 exact current commit에서 clean Windows local gate로 검증한다.
-2. 검증이 통과하면 결과 커밋과 명령 로그를 기록한다.
-3. 그 다음 `Phase 3C2 — Editable project schema v3`를 진행한다.
+1. Phase 3C2에서 project schema v3의 strict editable graph source를 구현한다.
+2. deterministic v2→v3 migration과 Product/FUID/Parameter/default parity를 검증한다.
+3. Studio document/draft create/open/save/reopen workflow가 graph source를 손실 없이 round-trip하도록 연결한다.
+4. Phase 3C3에서 compiled graph compatibility matrix와 final full product gate를 완료한다.

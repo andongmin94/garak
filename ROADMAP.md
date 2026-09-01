@@ -1,11 +1,14 @@
 # Garak Roadmap
 
-- 기준일: 2026-08-30
+- 기준일: 2026-09-01
 - Branch: `main`
 - Phase 3B historical Windows foundation: **PASS**
 - Phase 3B verified implementation: `4b2535deba302eddab86c5c02b165e8d4f168cf4`
 - Phase 3C1 implementation: `48807fd56e72fdae7192956bf90d6a4ed4b83572`
-- Current Phase 3C status: **IN PROGRESS — full clean Windows local gate pending**
+- Phase 3C1 verified source: `510f906f45924ad4ef035f6598fc193c25eed245`
+- Phase 3C1 verification run: `33455352188`
+- Phase 3C1 status: **PASS / Complete**
+- Current Phase 3C status: **IN PROGRESS — Phase 3C2 and Phase 3C3 pending**
 - 다음 increment: **Phase 3C2 — Editable project schema v3**
 
 이 roadmap은 기능 목록을 미리 쌓는 문서가 아니다. 각 milestone은 직전의 실제 end-to-end 제품 경로가 clean checkout에서 통과한 뒤에만 다음 층으로 진행한다.
@@ -19,7 +22,7 @@
 - persistent Product/FUID/Parameter ID와 지원 schema/state는 명시적 migration으로 보존한다.
 - 사용하지 않는 serializer, resource와 abstraction을 미래 기능이라는 이유로 먼저 추가하지 않는다.
 - 큰 변경 전 별도 ExecPlan을 작성한다.
-- 검증 근거는 삭제된 workflow 상태가 아니라 exact commit의 clean local command 결과로 남긴다.
+- 검증 근거는 exact source commit의 clean Windows command 결과로 남긴다.
 
 ## 완료된 foundation
 
@@ -148,7 +151,7 @@ Phase 3A 당시 의도적으로 범위 밖이었던 것:
 
 [ExecPlan 0014](plans/0014-phase-3c-editable-static-graph-contract.md)에 따라 단계별로 진행한다.
 
-#### Phase 3C1 — Runtime-consumed compiled graph resource — Implemented, verification pending
+#### Phase 3C1 — Runtime-consumed compiled graph resource — Complete
 
 Commit `48807fd56e72fdae7192956bf90d6a4ed4b83572`에 다음 implementation이 반영됐다.
 
@@ -160,7 +163,7 @@ Commit `48807fd56e72fdae7192956bf90d6a4ed4b83572`에 다음 implementation이 �
 - processor가 loaded plan을 실제 실행
 - one-time patch runner와 patch source 제거
 
-아직 full clean Windows local gate를 실행하지 않았으므로 3C1을 accepted 또는 complete로 표시하지 않는다.
+Exact source commit `510f906f45924ad4ef035f6598fc193c25eed245`를 고정한 clean Windows run `33455352188`에서 Product Compiler, Studio, Debug/Release actual export와 Validator, CTest, Studio workflow, Werror, clang-tidy 및 tracked source mutation 검사가 모두 통과했다. 검증용 workflow는 결과 확인 후 제거했다.
 
 #### Phase 3C2 — Editable project schema v3 — Pending
 
@@ -175,7 +178,7 @@ Commit `48807fd56e72fdae7192956bf90d6a4ed4b83572`에 다음 implementation이 �
 - current/missing/corrupt/too-old/too-new graph disposition
 - Product Compiler, Runtime, inspector와 fixture의 동일 판정
 - Debug/Release export, Validator, CTest, Studio workflow, Werror와 clang-tidy
-- exact commit의 clean Windows local verification record
+- exact commit의 clean Windows verification record
 
 ### Phase 3D — Initial DSP Node Set
 
