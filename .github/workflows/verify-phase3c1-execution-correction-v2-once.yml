@@ -1,0 +1,228 @@
+name: Verify Phase 3C1 execution correction v2 once
+
+on:
+  push:
+    branches:
+      - agent/phase-3c1-execution-correction-v2
+    paths:
+      - .github/workflows/verify-phase3c1-execution-correction-v2-once.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: garak-phase3c1-execution-correction-v2-verify-once
+  cancel-in-progress: false
+
+jobs:
+  exact-windows-gate:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    env:
+      GARAK_VERIFY_SHA: ${{ github.event.before }}
+    steps:
+      - name: Check out exact correction implementation and recursive SDK graph
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.GARAK_VERIFY_SHA }}
+          submodules: recursive
+
+      - name: Confirm exact source commit
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $actual = git rev-parse HEAD
+          if ($actual -ne $env:GARAK_VERIFY_SHA) {
+            throw "Expected $env:GARAK_VERIFY_SHA, got $actual"
+          }
+          Write-Host "Verifying exact correction commit $actual"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.19.0
+
+      - name: Install exact workspace dependencies
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          corepack enable
+          corepack prepare pnpm@11.16.0 --activate
+          pnpm install --frozen-lockfile
+
+      - name: Configure MSVC environment
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Verify recursive SDK pins and source formatting
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          $status = @(git submodule status --recursive)
+          $invalid = @($status | Where-Object { $_ -match '^[+-U]' })
+          if ($invalid.Count -ne 0) {
+            $invalid | ForEach-Object { Write-Error $_ }
+            throw 'A recursive submodule is missing or not at its recorded gitlink.'
+          }
+          git diff --check
+          $badEol = @(git ls-files --eol | Select-String 'w/(crlf|mixed)')
+          if ($badEol.Count -ne 0) {
+            $badEol | ForEach-Object { Write-Error $_.Line }
+            throw 'Tracked first-party text must use LF working-tree line endings.'
+          }
+          $files = @(
+            git ls-files -- '*.c' '*.cc' '*.cpp' '*.cxx' '*.h' '*.hh' '*.hpp' '*.hxx' |
+              Where-Object { $_ -notlike 'third_party/*' }
+          )
+          & clang-format --dry-run --Werror --style=file @files
+
+      - name: Verify Product Compiler and Studio
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          pnpm product:format:check
+          pnpm product:lint
+          pnpm product:typecheck
+          pnpm product:test
+          pnpm studio:format:check
+          pnpm studio:lint
+          pnpm studio:typecheck
+          pnpm studio:test
+          pnpm studio:build
+
+      - name: Configure and build Debug Product Runtime
+        run: cmake --preset product-runtime-debug --fresh
+
+      - name: Build Debug Product Runtime
+        run: cmake --build --preset product-runtime-debug-build --clean-first
+
+      - name: Export and officially validate Debug products
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          pnpm product:export --project examples/products/artist-gain-warm.garak --configuration Debug --output out/exports/phase-3c1-correction-exact/debug --force --validate
+          pnpm product:export --project examples/products/artist-gain-bright.garak --configuration Debug --output out/exports/phase-3c1-correction-exact/debug --force --validate
+
+      - name: Test Debug Product Runtime and Studio workflow
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          ctest --preset product-runtime-debug-test --no-tests=error
+          pnpm --dir studio verify:product-workflow --configuration Debug
+
+      - name: Configure and build Release Product Runtime
+        run: cmake --preset product-runtime-release --fresh
+
+      - name: Build Release Product Runtime
+        run: cmake --build --preset product-runtime-release-build --clean-first
+
+      - name: Export and officially validate Release products
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          pnpm product:export --project examples/products/artist-gain-warm.garak --configuration Release --output out/exports/phase-3c1-correction-exact/release --force --validate
+          pnpm product:export --project examples/products/artist-gain-bright.garak --configuration Release --output out/exports/phase-3c1-correction-exact/release --force --validate
+
+      - name: Test Release Product Runtime and Studio workflow
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          ctest --preset product-runtime-release-test --no-tests=error
+          pnpm --dir studio verify:product-workflow --configuration Release
+
+      - name: Build with first-party warnings as errors
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          cmake --preset product-runtime-werror --fresh
+          cmake --build --preset product-runtime-werror-build --clean-first
+
+      - name: Build with first-party clang-tidy
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          cmake --preset product-runtime-clang-tidy --fresh
+          cmake --build --preset product-runtime-clang-tidy-build --clean-first
+
+      - name: Verify gates did not rewrite tracked source
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $changes = @(git status --porcelain --untracked-files=no)
+          if ($changes.Count -ne 0) {
+            $changes | ForEach-Object { Write-Error $_ }
+            throw 'Exact correction gates modified tracked source.'
+          }
+
+      - name: Publish acceptance record and remove one-time workflow
+        shell: pwsh
+        env:
+          GARAK_BRANCH: agent/phase-3c1-execution-correction-v2
+          GARAK_RUN_ID: ${{ github.run_id }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          git fetch origin $env:GARAK_BRANCH
+          git checkout -B $env:GARAK_BRANCH origin/$env:GARAK_BRANCH
+          @'
+          import os
+          from pathlib import Path
+
+          root = Path.cwd()
+          verified_sha = os.environ["GARAK_VERIFY_SHA"]
+          run_id = os.environ["GARAK_RUN_ID"]
+
+          plan = root / "plans/0015-phase-3c1-graph-execution-correction.md"
+          text = plan.read_text(encoding="utf-8")
+          old = "- Status: In Progress — implementation and working-tree Windows gates complete; exact final commit verification pending"
+          new = "- Status: Complete — exact implementation commit passed clean Windows gates"
+          if text.count(old) != 1:
+              raise RuntimeError(f"ExecPlan 0015 status occurrence: {text.count(old)}")
+          text = text.replace(old, new, 1)
+          text += (
+              "\n## 완료 기록\n\n"
+              f"Exact implementation commit `{verified_sha}`를 clean Windows checkout에서 검증했다. "
+              f"Verification run `{run_id}`에서 Product Compiler와 Studio format/lint/typecheck/test/build, "
+              "Debug/Release Runtime build, Warm/Bright actual export와 official VST3 Validator, CTest, "
+              "Studio workflow, warnings-as-errors, clang-tidy와 tracked source mutation `0`이 모두 통과했다. "
+              "따라서 Phase 3C1 execution correction은 완료이며 Phase 3C2를 재개할 수 있다.\n"
+          )
+          plan.write_text(text, encoding="utf-8", newline="\n")
+
+          replacements = {
+              "Phase 3C1 status: **CORRECTION IN PROGRESS**": "Phase 3C1 status: **PASS / Complete**",
+              "Current Phase 3C status: **IN PROGRESS — Phase 3C1 execution correction, Phase 3C2 and Phase 3C3 pending**": "Current Phase 3C status: **IN PROGRESS — Phase 3C2 and Phase 3C3 pending**",
+              "다음 increment: **Phase 3C1 graph execution correction**": "다음 increment: **Phase 3C2 — Editable project schema v3**",
+              "- Status: In Progress — Phase 3C1 execution correction, Phase 3C2 blocked": "- Status: In Progress — Phase 3C1 Complete, Phase 3C2 next",
+              "### 3C1 — Runtime-consumed compiled graph resource — Correction in progress": "### 3C1 — Runtime-consumed compiled graph resource — Complete",
+              "#### Phase 3C1 — Runtime-consumed compiled graph resource — Correction in progress": "#### Phase 3C1 — Runtime-consumed compiled graph resource — Complete",
+          }
+          for relative in ("README.md", "ROADMAP.md", "docs/status/current.md", "plans/0014-phase-3c-editable-static-graph-contract.md"):
+              path = root / relative
+              if not path.exists():
+                  continue
+              doc = path.read_text(encoding="utf-8")
+              for old_value, new_value in replacements.items():
+                  doc = doc.replace(old_value, new_value)
+              if relative == "plans/0014-phase-3c-editable-static-graph-contract.md":
+                  progress_anchor = "## 완료 기록\n"
+                  record = (
+                      f"- 2026-09-01: ExecPlan 0015 correction에서 exact implementation commit "
+                      f"`{verified_sha}`의 clean Windows run `{run_id}`가 통과했다. Operation type 폭, "
+                      "validated execution binding과 malformed automation 회귀를 보정한 뒤 Phase 3C2를 재개한다.\n\n"
+                  )
+                  if record not in doc:
+                      if progress_anchor not in doc:
+                          raise RuntimeError("ExecPlan 0014 completion anchor not found")
+                      doc = doc.replace(progress_anchor, record + progress_anchor, 1)
+              path.write_text(doc, encoding="utf-8", newline="\n")
+          '@ | python -
+          git rm -f .github/workflows/verify-phase3c1-execution-correction-v2-once.yml
+          git diff --check
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'docs: accept Phase 3C1 execution correction'
+          git push origin HEAD:$env:GARAK_BRANCH
