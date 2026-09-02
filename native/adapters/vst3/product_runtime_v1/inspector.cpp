@@ -412,7 +412,8 @@ int wmain(const int argc, wchar_t* argv[]) {
         garak::runtime::product_v1::kBypassParameterId);
     if (graph.disposition != garak::runtime::static_graph::CompiledGraphDisposition::current ||
         !graph.binding) {
-      std::fprintf(stderr, "Product parity inspection failed at compiled graph compatibility (%s)\n",
+      std::fprintf(stderr,
+                   "Product parity inspection failed at compiled graph compatibility (%s)\n",
                    garak::runtime::static_graph::compiled_graph_diagnostic_code(graph.diagnostic));
       return 5;
     }

@@ -146,11 +146,10 @@ public:
                                                                   kBypassParameterId);
 }
 
-
 [[nodiscard]] bool test_compiled_graph_compatibility() {
+  using garak::runtime::static_graph::classify_compiled_graph_compatibility;
   using garak::runtime::static_graph::CompiledGraphDiagnostic;
   using garak::runtime::static_graph::CompiledGraphDisposition;
-  using garak::runtime::static_graph::classify_compiled_graph_compatibility;
 
   const auto current = classify_compiled_graph_compatibility(
       std::optional<std::span<const std::uint8_t>>(kCompiledGraphFixture), kGainParameterId,
@@ -163,8 +162,8 @@ public:
     return false;
   }
 
-  const auto missing = classify_compiled_graph_compatibility(
-      std::nullopt, kGainParameterId, kBypassParameterId);
+  const auto missing =
+      classify_compiled_graph_compatibility(std::nullopt, kGainParameterId, kBypassParameterId);
   if (missing.disposition != CompiledGraphDisposition::rebuild_from_project ||
       missing.diagnostic != CompiledGraphDiagnostic::missing || missing.version.available ||
       missing.binding) {
@@ -206,8 +205,7 @@ public:
   auto corrupt = kCompiledGraphFixture;
   corrupt[28] = 1;
   const auto corrupt_report = classify_compiled_graph_compatibility(
-      std::optional<std::span<const std::uint8_t>>(corrupt), kGainParameterId,
-      kBypassParameterId);
+      std::optional<std::span<const std::uint8_t>>(corrupt), kGainParameterId, kBypassParameterId);
   if (corrupt_report.disposition != CompiledGraphDisposition::reject_invalid ||
       corrupt_report.diagnostic != CompiledGraphDiagnostic::invalid_current ||
       !corrupt_report.version.available || corrupt_report.binding) {
@@ -216,9 +214,9 @@ public:
 
   auto bad_magic = kCompiledGraphFixture;
   bad_magic[0] = 0;
-  const auto bad_magic_report = classify_compiled_graph_compatibility(
-      std::optional<std::span<const std::uint8_t>>(bad_magic), kGainParameterId,
-      kBypassParameterId);
+  const auto bad_magic_report =
+      classify_compiled_graph_compatibility(std::optional<std::span<const std::uint8_t>>(bad_magic),
+                                            kGainParameterId, kBypassParameterId);
   return bad_magic_report.disposition == CompiledGraphDisposition::reject_invalid &&
          bad_magic_report.diagnostic == CompiledGraphDiagnostic::invalid_magic &&
          !bad_magic_report.version.available && !bad_magic_report.binding;

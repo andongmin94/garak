@@ -87,8 +87,6 @@ read_compiled_product(const std::filesystem::path& path) {
       std::span<const std::uint8_t>(bytes.data(), static_cast<std::size_t>(count)));
 }
 
-
-
 } // namespace
 
 std::optional<ProductRuntimeContext> load_module_product_runtime() noexcept {
@@ -110,10 +108,9 @@ std::optional<ProductRuntimeContext> load_module_product_runtime() noexcept {
 
     const auto resources_directory = contents_directory / L"Resources";
     auto product = read_compiled_product(resources_directory / kProductResourceFilename);
-    const auto graph = read_compiled_graph_resource(
-        resources_directory / kGraphResourceFilename,
-        garak::runtime::product_v1::kGainParameterId,
-        garak::runtime::product_v1::kBypassParameterId);
+    const auto graph = read_compiled_graph_resource(resources_directory / kGraphResourceFilename,
+                                                    garak::runtime::product_v1::kGainParameterId,
+                                                    garak::runtime::product_v1::kBypassParameterId);
     if (!product ||
         graph.disposition != garak::runtime::static_graph::CompiledGraphDisposition::current ||
         !graph.binding) {

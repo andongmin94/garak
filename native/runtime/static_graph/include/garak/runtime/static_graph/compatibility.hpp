@@ -65,41 +65,44 @@ compiled_graph_diagnostic_code(const CompiledGraphDiagnostic diagnostic) noexcep
   return "GARAK_COMPILED_GRAPH_INVALID";
 }
 
-[[nodiscard]] inline CompiledGraphCompatibilityReport classify_compiled_graph_compatibility(
-    const std::optional<std::span<const std::uint8_t>> bytes,
-    const std::uint32_t gain_parameter_id,
-    const std::uint32_t bypass_parameter_id) noexcept {
+[[nodiscard]] inline CompiledGraphCompatibilityReport
+classify_compiled_graph_compatibility(const std::optional<std::span<const std::uint8_t>> bytes,
+                                      const std::uint32_t gain_parameter_id,
+                                      const std::uint32_t bypass_parameter_id) noexcept {
   if (!bytes) {
-    return {CompiledGraphDisposition::rebuild_from_project, CompiledGraphDiagnostic::missing, {},
+    return {CompiledGraphDisposition::rebuild_from_project,
+            CompiledGraphDiagnostic::missing,
+            {},
             std::nullopt};
   }
   if (bytes->size() < kCompiledGraphMagic.size() ||
       !std::equal(kCompiledGraphMagic.begin(), kCompiledGraphMagic.end(), bytes->begin())) {
-    return {CompiledGraphDisposition::reject_invalid, CompiledGraphDiagnostic::invalid_magic, {},
+    return {CompiledGraphDisposition::reject_invalid,
+            CompiledGraphDiagnostic::invalid_magic,
+            {},
             std::nullopt};
   }
   if (bytes->size() < 12) {
-    return {CompiledGraphDisposition::reject_invalid, CompiledGraphDiagnostic::invalid_header, {},
+    return {CompiledGraphDisposition::reject_invalid,
+            CompiledGraphDiagnostic::invalid_header,
+            {},
             std::nullopt};
   }
 
   const CompiledGraphVersion version{detail::read_graph_u16(*bytes, 8),
                                      detail::read_graph_u16(*bytes, 10), true};
   if (version.major < kCompiledGraphMajorVersion ||
-      (version.major == kCompiledGraphMajorVersion &&
-       version.minor < kCompiledGraphMinorVersion)) {
+      (version.major == kCompiledGraphMajorVersion && version.minor < kCompiledGraphMinorVersion)) {
     return {CompiledGraphDisposition::rebuild_from_project,
             CompiledGraphDiagnostic::unsupported_old, version, std::nullopt};
   }
   if (version.major > kCompiledGraphMajorVersion ||
-      (version.major == kCompiledGraphMajorVersion &&
-       version.minor > kCompiledGraphMinorVersion)) {
+      (version.major == kCompiledGraphMajorVersion && version.minor > kCompiledGraphMinorVersion)) {
     return {CompiledGraphDisposition::reject_too_new, CompiledGraphDiagnostic::too_new, version,
             std::nullopt};
   }
 
-  auto binding =
-      parse_compiled_gain_graph(*bytes, gain_parameter_id, bypass_parameter_id);
+  auto binding = parse_compiled_gain_graph(*bytes, gain_parameter_id, bypass_parameter_id);
   if (!binding) {
     return {CompiledGraphDisposition::reject_invalid, CompiledGraphDiagnostic::invalid_current,
             version, std::nullopt};

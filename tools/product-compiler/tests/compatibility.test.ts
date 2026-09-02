@@ -112,10 +112,7 @@ test("compiled graph compatibility distinguishes missing, old, future, and corru
 
   const futureMajor = classifyCompiledGraph(copyWithU16(current, 8, 2));
   assert.equal(futureMajor.disposition, "reject-too-new");
-  assert.equal(
-    futureMajor.diagnosticCode,
-    "GARAK_COMPILED_GRAPH_VERSION_NEW",
-  );
+  assert.equal(futureMajor.diagnosticCode, "GARAK_COMPILED_GRAPH_VERSION_NEW");
   const futureMinor = classifyCompiledGraph(copyWithU16(current, 10, 1));
   assert.equal(futureMinor.disposition, "reject-too-new");
 

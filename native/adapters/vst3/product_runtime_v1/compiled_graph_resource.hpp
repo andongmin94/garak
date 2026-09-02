@@ -28,7 +28,9 @@ read_compiled_graph_resource(const std::filesystem::path& path,
   const auto invalid_resource = []() {
     return runtime::static_graph::CompiledGraphCompatibilityReport{
         runtime::static_graph::CompiledGraphDisposition::reject_invalid,
-        runtime::static_graph::CompiledGraphDiagnostic::unreadable_resource, {}, std::nullopt};
+        runtime::static_graph::CompiledGraphDiagnostic::unreadable_resource,
+        {},
+        std::nullopt};
   };
   if (status_error || !std::filesystem::is_regular_file(status)) {
     return invalid_resource();
@@ -45,8 +47,8 @@ read_compiled_graph_resource(const std::filesystem::path& path,
     return invalid_resource();
   }
   return runtime::static_graph::classify_compiled_graph_compatibility(
-      std::optional<std::span<const std::uint8_t>>(std::span<const std::uint8_t>(
-          bytes.data(), static_cast<std::size_t>(count))),
+      std::optional<std::span<const std::uint8_t>>(
+          std::span<const std::uint8_t>(bytes.data(), static_cast<std::size_t>(count))),
       gain_parameter_id, bypass_parameter_id);
 }
 

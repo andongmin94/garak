@@ -27,10 +27,7 @@ export interface ArtifactVersion {
 }
 
 export type CompiledProductDisposition =
-  | "load-current"
-  | "rebuild-from-project"
-  | "reject-too-new"
-  | "reject-invalid";
+  "load-current" | "rebuild-from-project" | "reject-too-new" | "reject-invalid";
 
 export interface CompiledProductCompatibility {
   readonly artifact: "compiled-product";
@@ -42,10 +39,7 @@ export interface CompiledProductCompatibility {
 }
 
 export type CompiledGraphDisposition =
-  | "load-current"
-  | "rebuild-from-project"
-  | "reject-too-new"
-  | "reject-invalid";
+  "load-current" | "rebuild-from-project" | "reject-too-new" | "reject-invalid";
 
 export interface CompiledGraphCompatibility {
   readonly artifact: "compiled-graph";
