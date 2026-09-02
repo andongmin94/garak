@@ -6,12 +6,14 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 
 namespace garak::runtime::static_graph {
 
 inline constexpr std::uint16_t kNoBuffer = 0xffffU;
+inline constexpr std::uint16_t kGainExecutionBufferCount = 2;
 
-enum class OperationType : std::uint8_t {
+enum class OperationType : std::uint16_t {
   audio_input = 1,
   gain = 2,
   audio_output = 3,
@@ -32,57 +34,89 @@ struct GainExecutionPlan final {
   std::uint32_t latency_samples{};
 };
 
+class GainExecutionBinding final {
+public:
+  [[nodiscard]] constexpr std::uint16_t input_buffer() const noexcept { return input_buffer_; }
+  [[nodiscard]] constexpr std::uint16_t output_buffer() const noexcept { return output_buffer_; }
+  [[nodiscard]] constexpr std::uint32_t gain_parameter_id() const noexcept {
+    return gain_parameter_id_;
+  }
+  [[nodiscard]] constexpr std::uint32_t bypass_parameter_id() const noexcept {
+    return bypass_parameter_id_;
+  }
+
+  [[nodiscard]] friend constexpr bool
+  operator==(const GainExecutionBinding&, const GainExecutionBinding&) noexcept = default;
+
+private:
+  friend constexpr std::optional<GainExecutionBinding>
+  bind_gain_execution_plan(const GainExecutionPlan&, std::uint32_t, std::uint32_t) noexcept;
+
+  constexpr GainExecutionBinding(const std::uint16_t input_buffer,
+                                 const std::uint16_t output_buffer,
+                                 const std::uint32_t gain_parameter_id,
+                                 const std::uint32_t bypass_parameter_id) noexcept
+      : input_buffer_(input_buffer), output_buffer_(output_buffer),
+        gain_parameter_id_(gain_parameter_id), bypass_parameter_id_(bypass_parameter_id) {}
+
+  std::uint16_t input_buffer_{};
+  std::uint16_t output_buffer_{};
+  std::uint32_t gain_parameter_id_{};
+  std::uint32_t bypass_parameter_id_{};
+};
+
+static_assert(sizeof(OperationType) == sizeof(std::uint16_t));
+
 [[nodiscard]] constexpr GainExecutionPlan
 make_gain_execution_plan(const std::uint32_t gain_parameter_id,
                          const std::uint32_t bypass_parameter_id) noexcept {
   return GainExecutionPlan{{{{1, OperationType::audio_input, kNoBuffer, 0, 0, 0},
                              {2, OperationType::gain, 0, 1, gain_parameter_id, bypass_parameter_id},
                              {3, OperationType::audio_output, 1, kNoBuffer, 0, 0}}},
-                           2,
+                           kGainExecutionBufferCount,
                            0};
 }
 
-[[nodiscard]] constexpr bool
-is_supported_gain_execution_plan(const GainExecutionPlan& plan,
-                                 const std::uint32_t gain_parameter_id,
-                                 const std::uint32_t bypass_parameter_id) noexcept {
+[[nodiscard]] constexpr std::optional<GainExecutionBinding>
+bind_gain_execution_plan(const GainExecutionPlan& plan,
+                         const std::uint32_t gain_parameter_id,
+                         const std::uint32_t bypass_parameter_id) noexcept {
   const auto expected = make_gain_execution_plan(gain_parameter_id, bypass_parameter_id);
+  if (plan.buffer_count != expected.buffer_count ||
+      plan.latency_samples != expected.latency_samples) {
+    return std::nullopt;
+  }
+
   for (std::size_t index = 0; index < plan.operations.size(); ++index) {
-    const auto& actual_operation = plan.operations[index];
-    const auto& expected_operation = expected.operations[index];
-    if (actual_operation.instance_id != expected_operation.instance_id ||
-        actual_operation.type != expected_operation.type ||
-        actual_operation.input_buffer != expected_operation.input_buffer ||
-        actual_operation.output_buffer != expected_operation.output_buffer ||
-        actual_operation.primary_parameter_id != expected_operation.primary_parameter_id ||
-        actual_operation.secondary_parameter_id != expected_operation.secondary_parameter_id) {
-      return false;
+    const auto& actual = plan.operations[index];
+    const auto& wanted = expected.operations[index];
+    if (actual.instance_id != wanted.instance_id || actual.type != wanted.type ||
+        actual.input_buffer != wanted.input_buffer ||
+        actual.output_buffer != wanted.output_buffer ||
+        actual.primary_parameter_id != wanted.primary_parameter_id ||
+        actual.secondary_parameter_id != wanted.secondary_parameter_id) {
+      return std::nullopt;
     }
   }
-  return plan.buffer_count == expected.buffer_count &&
-         plan.latency_samples == expected.latency_samples;
+
+  const auto& gain = plan.operations[1];
+  return GainExecutionBinding{gain.input_buffer, gain.output_buffer,
+                              gain.primary_parameter_id, gain.secondary_parameter_id};
 }
 
-template <typename Sample, typename GainSource, typename BypassSource>
-[[nodiscard]] bool execute_gain_plan(
-    const GainExecutionPlan& plan, const std::uint32_t gain_parameter_id,
-    const std::uint32_t bypass_parameter_id,
-    const garak::dsp::gain::ProcessBlockContext<Sample, GainSource, BypassSource>& context) {
-  if (!is_supported_gain_execution_plan(plan, gain_parameter_id, bypass_parameter_id)) {
-    return false;
-  }
 
-  for (const auto& operation : plan.operations) {
-    switch (operation.type) {
-    case OperationType::audio_input:
-    case OperationType::audio_output:
-      break;
-    case OperationType::gain:
-      garak::dsp::gain::process_block(context);
-      break;
-    }
-  }
-  return true;
+template <typename Sample, typename GainSource, typename BypassSource>
+void execute_gain_binding(
+    const GainExecutionBinding& binding,
+    const garak::dsp::gain::ProcessBlockContext<Sample, GainSource, BypassSource>& context) {
+  std::array<Sample* const*, kGainExecutionBufferCount> buffers{};
+  buffers[binding.input_buffer()] = context.inputs;
+  buffers[binding.output_buffer()] = context.outputs;
+
+  auto routed_context = context;
+  routed_context.inputs = buffers[binding.input_buffer()];
+  routed_context.outputs = buffers[binding.output_buffer()];
+  garak::dsp::gain::process_block(routed_context);
 }
 
 } // namespace garak::runtime::static_graph

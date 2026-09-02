@@ -51,7 +51,9 @@ struct ParameterQueues final {
 };
 
 [[nodiscard]] ParameterQueues
-find_parameter_queues(Steinberg::Vst::IParameterChanges* const changes) {
+find_parameter_queues(Steinberg::Vst::IParameterChanges* const changes,
+                      const std::uint32_t gain_parameter_id,
+                      const std::uint32_t bypass_parameter_id) {
   ParameterQueues result{};
   if (changes == nullptr) {
     return result;
@@ -65,12 +67,12 @@ find_parameter_queues(Steinberg::Vst::IParameterChanges* const changes) {
     if (queue == nullptr) {
       continue;
     }
-    if (queue->getParameterId() == garak::runtime::product_v1::kGainParameterId) {
+    if (queue->getParameterId() == gain_parameter_id) {
       result.duplicate_gain = result.gain != nullptr;
       if (result.gain == nullptr) {
         result.gain = queue;
       }
-    } else if (queue->getParameterId() == garak::runtime::product_v1::kBypassParameterId) {
+    } else if (queue->getParameterId() == bypass_parameter_id) {
       result.duplicate_bypass = result.bypass != nullptr;
       if (result.bypass == nullptr) {
         result.bypass = queue;
@@ -93,7 +95,7 @@ find_parameter_queues(Steinberg::Vst::IParameterChanges* const changes) {
 
 template <typename Sample>
 [[nodiscard]] Steinberg::tresult
-process_audio(const garak::runtime::static_graph::GainExecutionPlan& execution_plan,
+process_audio(const garak::runtime::static_graph::GainExecutionBinding& execution_binding,
               Steinberg::Vst::ProcessData& data, QueuePointSource& gain_source,
               QueuePointSource& bypass_source, double& current_gain, bool& current_bypass) {
   auto& input = data.inputs[0];
@@ -122,16 +124,12 @@ process_audio(const garak::runtime::static_graph::GainExecutionPlan& execution_p
   }
 
   std::uint64_t output_silence = 0;
-  const auto executed = garak::runtime::static_graph::execute_gain_plan(
-      execution_plan, garak::runtime::product_v1::kGainParameterId,
-      garak::runtime::product_v1::kBypassParameterId,
+  garak::runtime::static_graph::execute_gain_binding(
+      execution_binding,
       garak::dsp::gain::ProcessBlockContext<Sample, QueuePointSource, QueuePointSource>{
           input_channels.data(), output_channels.data(), channel_count, data.numSamples,
           input.silenceFlags, output_silence, gain_source, bypass_source, current_gain,
           current_bypass});
-  if (!executed) {
-    return Steinberg::kResultFalse;
-  }
   output.silenceFlags = output_silence;
   return Steinberg::kResultTrue;
 }
@@ -141,8 +139,8 @@ process_audio(const garak::runtime::static_graph::GainExecutionPlan& execution_p
 GainProcessor::GainProcessor(
     garak::runtime::product_v1::Identifier product_id, const double default_gain_normalized,
     const garak::runtime::product_v1::Identifier& controller_class_id,
-    garak::runtime::static_graph::GainExecutionPlan execution_plan) noexcept
-    : product_id_(product_id), execution_plan_(execution_plan) {
+    garak::runtime::static_graph::GainExecutionBinding execution_binding) noexcept
+    : product_id_(product_id), execution_binding_(execution_binding) {
   setControllerClass(class_id(controller_class_id));
   const garak::runtime::product_v1::ProductState defaults{default_gain_normalized, false};
   const auto packed = garak::runtime::product_v1::pack_realtime_state(defaults);
@@ -160,7 +158,7 @@ Steinberg::FUnknown* GainProcessor::create_instance(void* const context) {
     const auto& product = runtime->product;
     return static_cast<Steinberg::Vst::IAudioProcessor*>(
         new GainProcessor(product.product_id, product.parameters[0].default_normalized,
-                          product.controller_fuid, runtime->execution_plan));
+                          product.controller_fuid, runtime->execution_binding));
   } catch (...) {
     return nullptr;
   }
@@ -264,7 +262,9 @@ Steinberg::tresult PLUGIN_API GainProcessor::process(Steinberg::Vst::ProcessData
     if (data.numSamples < 0 || data.numSamples > processSetup.maxSamplesPerBlock) {
       return Steinberg::kInvalidArgument;
     }
-    const auto queues = find_parameter_queues(data.inputParameterChanges);
+    const auto queues = find_parameter_queues(
+        data.inputParameterChanges, execution_binding_.gain_parameter_id(),
+        execution_binding_.bypass_parameter_id());
     QueuePointSource gain_source(queues.gain);
     QueuePointSource bypass_source(queues.bypass);
 
@@ -272,16 +272,12 @@ Steinberg::tresult PLUGIN_API GainProcessor::process(Steinberg::Vst::ProcessData
       std::uint64_t unused_silence = 0;
       std::array<Steinberg::Vst::Sample32*, 1> unused_input{};
       std::array<Steinberg::Vst::Sample32*, 1> unused_output{};
-      const auto executed = garak::runtime::static_graph::execute_gain_plan(
-          execution_plan_, garak::runtime::product_v1::kGainParameterId,
-          garak::runtime::product_v1::kBypassParameterId,
+      garak::runtime::static_graph::execute_gain_binding(
+          execution_binding_,
           garak::dsp::gain::ProcessBlockContext<Steinberg::Vst::Sample32, QueuePointSource,
                                                 QueuePointSource>{
               unused_input.data(), unused_output.data(), 0, 0, 0, unused_silence, gain_source,
               bypass_source, current_gain_normalized_, current_bypass_});
-      if (!executed) {
-        return Steinberg::kResultFalse;
-      }
       publish_processed_state(processing_generation);
       return Steinberg::kResultTrue;
     }
@@ -295,13 +291,13 @@ Steinberg::tresult PLUGIN_API GainProcessor::process(Steinberg::Vst::ProcessData
 
     Steinberg::tresult result = Steinberg::kResultFalse;
     if (data.symbolicSampleSize == Steinberg::Vst::kSample32) {
-      result =
-          process_audio<Steinberg::Vst::Sample32>(execution_plan_, data, gain_source, bypass_source,
-                                                  current_gain_normalized_, current_bypass_);
+      result = process_audio<Steinberg::Vst::Sample32>(
+          execution_binding_, data, gain_source, bypass_source, current_gain_normalized_,
+          current_bypass_);
     } else if (data.symbolicSampleSize == Steinberg::Vst::kSample64) {
-      result =
-          process_audio<Steinberg::Vst::Sample64>(execution_plan_, data, gain_source, bypass_source,
-                                                  current_gain_normalized_, current_bypass_);
+      result = process_audio<Steinberg::Vst::Sample64>(
+          execution_binding_, data, gain_source, bypass_source, current_gain_normalized_,
+          current_bypass_);
     }
     if (result == Steinberg::kResultTrue) {
       publish_processed_state(processing_generation);

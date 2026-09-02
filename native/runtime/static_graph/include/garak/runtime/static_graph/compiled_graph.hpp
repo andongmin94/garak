@@ -40,7 +40,7 @@ inline constexpr std::array<std::uint8_t, 8> kCompiledGraphMagic{'G', 'A', 'R', 
 
 } // namespace detail
 
-[[nodiscard]] inline std::optional<GainExecutionPlan>
+[[nodiscard]] inline std::optional<GainExecutionBinding>
 parse_compiled_gain_graph(const std::span<const std::uint8_t> bytes,
                           const std::uint32_t gain_parameter_id,
                           const std::uint32_t bypass_parameter_id) noexcept {
@@ -72,10 +72,7 @@ parse_compiled_gain_graph(const std::span<const std::uint8_t> bytes,
         detail::read_graph_u32(bytes, offset + 12), detail::read_graph_u32(bytes, offset + 16)};
     offset += kCompiledGraphOperationBytes;
   }
-  if (!is_supported_gain_execution_plan(plan, gain_parameter_id, bypass_parameter_id)) {
-    return std::nullopt;
-  }
-  return plan;
+  return bind_gain_execution_plan(plan, gain_parameter_id, bypass_parameter_id);
 }
 
 } // namespace garak::runtime::static_graph

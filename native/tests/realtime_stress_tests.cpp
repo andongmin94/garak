@@ -153,9 +153,10 @@ constexpr std::uint32_t kGainParameterId = 1001;
 constexpr std::uint32_t kBypassParameterId = 1002;
 constexpr auto kPlan =
     garak::runtime::static_graph::make_gain_execution_plan(kGainParameterId, kBypassParameterId);
-static_assert(garak::runtime::static_graph::is_supported_gain_execution_plan(kPlan,
-                                                                             kGainParameterId,
-                                                                             kBypassParameterId));
+constexpr auto kBinding =
+    garak::runtime::static_graph::bind_gain_execution_plan(kPlan, kGainParameterId,
+                                                           kBypassParameterId);
+static_assert(kBinding.has_value());
 
 class Generator final {
 public:
@@ -251,13 +252,13 @@ template <typename Sample>
       }
     }
     std::uint64_t output_silence_flags = 0;
-    const auto executed = garak::runtime::static_graph::execute_gain_plan(
-        kPlan, kGainParameterId, kBypassParameterId,
+    garak::runtime::static_graph::execute_gain_binding(
+        *kBinding,
         garak::dsp::gain::ProcessBlockContext<Sample, SinglePointSource, SinglePointSource>{
             input_channels.data(), output_channels.data(), channel_count, sample_count,
             input_silence_flags, output_silence_flags, gain_source, bypass_source, current_gain,
             current_bypass});
-    if (!executed || current_gain != target_gain || current_bypass != target_bypass ||
+    if (current_gain != target_gain || current_bypass != target_bypass ||
         output_silence_flags != input_silence_flags) {
       result.output_matches = false;
       break;

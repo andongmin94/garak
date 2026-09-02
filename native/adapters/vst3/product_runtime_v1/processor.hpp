@@ -15,7 +15,7 @@ class GainProcessor final : public Steinberg::Vst::AudioEffect {
 public:
   GainProcessor(garak::runtime::product_v1::Identifier product_id, double default_gain_normalized,
                 const garak::runtime::product_v1::Identifier& controller_class_id,
-                garak::runtime::static_graph::GainExecutionPlan execution_plan) noexcept;
+                garak::runtime::static_graph::GainExecutionBinding execution_binding) noexcept;
 
   static Steinberg::FUnknown* create_instance(void* context);
 
@@ -40,7 +40,7 @@ private:
   static_assert(std::atomic<std::uint64_t>::is_always_lock_free);
 
   garak::runtime::product_v1::Identifier product_id_{};
-  garak::runtime::static_graph::GainExecutionPlan execution_plan_{};
+  garak::runtime::static_graph::GainExecutionBinding execution_binding_;
   std::atomic<std::uint64_t> pending_state_{};
   std::atomic<std::uint64_t> pending_generation_{};
   std::atomic<std::uint64_t> snapshot_state_{};
