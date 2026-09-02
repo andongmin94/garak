@@ -51,9 +51,9 @@ struct ParameterQueues final {
 };
 
 [[nodiscard]] ParameterQueues
-find_parameter_queues(Steinberg::Vst::IParameterChanges* const changes,
-                      const std::uint32_t gain_parameter_id,
-                      const std::uint32_t bypass_parameter_id) {
+find_parameter_queues(
+    Steinberg::Vst::IParameterChanges* const changes,
+    const garak::runtime::static_graph::GainExecutionBinding& execution_binding) {
   ParameterQueues result{};
   if (changes == nullptr) {
     return result;
@@ -67,12 +67,12 @@ find_parameter_queues(Steinberg::Vst::IParameterChanges* const changes,
     if (queue == nullptr) {
       continue;
     }
-    if (queue->getParameterId() == gain_parameter_id) {
+    if (queue->getParameterId() == execution_binding.gain_parameter_id()) {
       result.duplicate_gain = result.gain != nullptr;
       if (result.gain == nullptr) {
         result.gain = queue;
       }
-    } else if (queue->getParameterId() == bypass_parameter_id) {
+    } else if (queue->getParameterId() == execution_binding.bypass_parameter_id()) {
       result.duplicate_bypass = result.bypass != nullptr;
       if (result.bypass == nullptr) {
         result.bypass = queue;
@@ -262,9 +262,7 @@ Steinberg::tresult PLUGIN_API GainProcessor::process(Steinberg::Vst::ProcessData
     if (data.numSamples < 0 || data.numSamples > processSetup.maxSamplesPerBlock) {
       return Steinberg::kInvalidArgument;
     }
-    const auto queues =
-        find_parameter_queues(data.inputParameterChanges, execution_binding_.gain_parameter_id(),
-                              execution_binding_.bypass_parameter_id());
+    const auto queues = find_parameter_queues(data.inputParameterChanges, execution_binding_);
     QueuePointSource gain_source(queues.gain);
     QueuePointSource bypass_source(queues.bypass);
 
