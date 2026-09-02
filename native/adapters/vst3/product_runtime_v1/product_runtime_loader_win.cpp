@@ -127,8 +127,7 @@ std::optional<ProductRuntimeContext> load_module_product_runtime() noexcept {
 
     const auto resources_directory = contents_directory / L"Resources";
     auto product = read_compiled_product(resources_directory / kProductResourceFilename);
-    auto execution_binding =
-        read_compiled_graph(resources_directory / kGraphResourceFilename);
+    auto execution_binding = read_compiled_graph(resources_directory / kGraphResourceFilename);
     if (!product || !execution_binding) {
       return std::nullopt;
     }
