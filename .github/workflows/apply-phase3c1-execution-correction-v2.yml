@@ -1,0 +1,505 @@
+name: Apply Phase 3C1 execution correction v2
+
+on:
+  push:
+    branches:
+      - agent/phase-3c1-execution-correction-v2
+    paths:
+      - .github/workflows/apply-phase3c1-execution-correction-v2.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: garak-phase3c1-execution-correction-v2
+  cancel-in-progress: false
+
+jobs:
+  correct-and-verify:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - name: Check out correction branch and recursive SDK graph
+        uses: actions/checkout@v4
+        with:
+          ref: agent/phase-3c1-execution-correction-v2
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.19.0
+
+      - name: Install exact workspace dependencies
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          corepack enable
+          corepack prepare pnpm@11.16.0 --activate
+          pnpm install --frozen-lockfile
+
+      - name: Configure MSVC environment
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Apply the narrow Phase 3C1 source correction
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          @'
+          from pathlib import Path
+
+          ROOT = Path.cwd()
+
+          def read(relative: str) -> str:
+              return (ROOT / relative).read_text(encoding="utf-8")
+
+          def write(relative: str, text: str) -> None:
+              (ROOT / relative).write_text(text, encoding="utf-8", newline="\n")
+
+          def replace_once(text: str, old: str, new: str, label: str) -> str:
+              count = text.count(old)
+              if count != 1:
+                  raise RuntimeError(f"{label}: expected one occurrence, found {count}")
+              return text.replace(old, new, 1)
+
+          gain_plan_path = "native/runtime/static_graph/include/garak/runtime/static_graph/gain_plan.hpp"
+          text = read(gain_plan_path)
+          if "enum class OperationType : std::uint8_t" in text:
+              text = replace_once(
+                  text,
+                  "enum class OperationType : std::uint8_t",
+                  "enum class OperationType : std::uint16_t",
+                  "OperationType width",
+              )
+          elif "enum class OperationType : std::uint16_t" not in text:
+              raise RuntimeError("OperationType declaration not found")
+
+          if "#include <optional>" not in text:
+              include_anchor = "#include <cstdint>\n"
+              if include_anchor not in text:
+                  raise RuntimeError("gain_plan.hpp include anchor not found")
+              text = text.replace(include_anchor, include_anchor + "#include <optional>\n", 1)
+
+          validation_start = text.index(
+              "[[nodiscard]] constexpr bool\nis_supported_gain_execution_plan"
+          )
+          execution_start = text.index(
+              "template <typename Sample, typename GainSource, typename BypassSource>",
+              validation_start,
+          )
+          validation_replacement = r'''struct GainExecutionBinding final {
+            std::uint16_t input_buffer{};
+            std::uint16_t output_buffer{};
+            std::uint32_t gain_parameter_id{};
+            std::uint32_t bypass_parameter_id{};
+
+            [[nodiscard]] friend constexpr bool
+            operator==(const GainExecutionBinding&, const GainExecutionBinding&) noexcept = default;
+          };
+
+          static_assert(sizeof(OperationType) == sizeof(std::uint16_t));
+
+          [[nodiscard]] constexpr std::optional<GainExecutionBinding>
+          bind_gain_execution_plan(const GainExecutionPlan& plan,
+                                   const std::uint32_t gain_parameter_id,
+                                   const std::uint32_t bypass_parameter_id) noexcept {
+            if (plan.buffer_count != 2 || plan.latency_samples != 0) {
+              return std::nullopt;
+            }
+
+            const auto& input = plan.operations[0];
+            const auto& gain = plan.operations[1];
+            const auto& output = plan.operations[2];
+
+            if (input.type != OperationType::audio_input || gain.type != OperationType::gain ||
+                output.type != OperationType::audio_output) {
+              return std::nullopt;
+            }
+            if (input.instance_id == 0 || gain.instance_id == 0 || output.instance_id == 0 ||
+                input.instance_id == gain.instance_id || input.instance_id == output.instance_id ||
+                gain.instance_id == output.instance_id) {
+              return std::nullopt;
+            }
+
+            if (input.input_buffer != kNoBuffer || input.output_buffer >= plan.buffer_count ||
+                input.primary_parameter_id != 0 || input.secondary_parameter_id != 0) {
+              return std::nullopt;
+            }
+            if (gain.input_buffer >= plan.buffer_count || gain.output_buffer >= plan.buffer_count ||
+                gain.input_buffer == gain.output_buffer ||
+                gain.primary_parameter_id != gain_parameter_id ||
+                gain.secondary_parameter_id != bypass_parameter_id) {
+              return std::nullopt;
+            }
+            if (output.input_buffer >= plan.buffer_count || output.output_buffer != kNoBuffer ||
+                output.primary_parameter_id != 0 || output.secondary_parameter_id != 0) {
+              return std::nullopt;
+            }
+            if (input.output_buffer != gain.input_buffer ||
+                gain.output_buffer != output.input_buffer) {
+              return std::nullopt;
+            }
+
+            return GainExecutionBinding{gain.input_buffer, gain.output_buffer,
+                                        gain.primary_parameter_id,
+                                        gain.secondary_parameter_id};
+          }
+
+          [[nodiscard]] constexpr bool
+          is_supported_gain_execution_plan(const GainExecutionPlan& plan,
+                                           const std::uint32_t gain_parameter_id,
+                                           const std::uint32_t bypass_parameter_id) noexcept {
+            return bind_gain_execution_plan(plan, gain_parameter_id, bypass_parameter_id).has_value();
+          }
+
+          '''
+          text = text[:validation_start] + validation_replacement + text[execution_start:]
+
+          execution_start = text.index(
+              "template <typename Sample, typename GainSource, typename BypassSource>\n"
+              "[[nodiscard]] bool execute_gain_plan"
+          )
+          namespace_end = text.index(
+              "\n\n} // namespace garak::runtime::static_graph", execution_start
+          )
+          execution_replacement = r'''template <typename Sample, typename GainSource, typename BypassSource>
+          [[nodiscard]] bool execute_gain_plan(
+              const GainExecutionPlan& plan, const std::uint32_t gain_parameter_id,
+              const std::uint32_t bypass_parameter_id,
+              const garak::dsp::gain::ProcessBlockContext<Sample, GainSource, BypassSource>& context) {
+            const auto binding =
+                bind_gain_execution_plan(plan, gain_parameter_id, bypass_parameter_id);
+            if (!binding.has_value()) {
+              return false;
+            }
+
+            std::array<Sample* const*, 2> buffers{};
+            buffers[binding->input_buffer] = context.inputs;
+            buffers[binding->output_buffer] = context.outputs;
+
+            auto routed_context = context;
+            routed_context.inputs = buffers[binding->input_buffer];
+            routed_context.outputs = buffers[binding->output_buffer];
+            garak::dsp::gain::process_block(routed_context);
+            return true;
+          }'''
+          text = text[:execution_start] + execution_replacement + text[namespace_end:]
+          write(gain_plan_path, text)
+
+          static_test_path = "native/tests/static_graph_tests.cpp"
+          text = read(static_test_path)
+          marker = "test_semantic_binding_uses_plan_fields"
+          if marker in text:
+              raise RuntimeError(f"{marker} already exists")
+          insertion = r'''
+          void test_semantic_binding_uses_plan_fields(TestContext& test) {
+            using namespace garak::runtime::static_graph;
+
+            auto plan = make_gain_execution_plan(1001, 1002);
+            plan.operations[0].instance_id = 17;
+            plan.operations[1].instance_id = 41;
+            plan.operations[2].instance_id = 93;
+            plan.operations[0].output_buffer = 1;
+            plan.operations[1].input_buffer = 1;
+            plan.operations[1].output_buffer = 0;
+            plan.operations[2].input_buffer = 0;
+
+            const auto binding = bind_gain_execution_plan(plan, 1001, 1002);
+            test.expect(binding.has_value() && binding->input_buffer == 1 &&
+                            binding->output_buffer == 0 && binding->gain_parameter_id == 1001 &&
+                            binding->bypass_parameter_id == 1002,
+                        "the module-load binding is derived from validated graph fields");
+
+            auto wide_operation_type = plan;
+            wide_operation_type.operations[0].type = static_cast<OperationType>(0x0101U);
+            test.expect(!bind_gain_execution_plan(wide_operation_type, 1001, 1002).has_value(),
+                        "a 16-bit unknown operation type cannot truncate to audio input");
+
+            auto disconnected = plan;
+            disconnected.operations[1].input_buffer = 0;
+            test.expect(!bind_gain_execution_plan(disconnected, 1001, 1002).has_value(),
+                        "disconnected graph buffers fail closed");
+
+            auto duplicate_instance = plan;
+            duplicate_instance.operations[2].instance_id = duplicate_instance.operations[0].instance_id;
+            test.expect(!bind_gain_execution_plan(duplicate_instance, 1001, 1002).has_value(),
+                        "duplicate graph instance identifiers fail closed");
+          }
+          '''
+          namespace_marker = "\n} // namespace\n"
+          insert_at = text.rfind(namespace_marker)
+          if insert_at < 0:
+              raise RuntimeError("static_graph_tests.cpp namespace end not found")
+          text = text[:insert_at] + "\n" + insertion + text[insert_at:]
+          text = replace_once(
+              text,
+              "  return test.result();",
+              "  test_semantic_binding_uses_plan_fields(test);\n  return test.result();",
+              "static graph main",
+          )
+          write(static_test_path, text)
+
+          gain_test_path = "native/tests/gain_dsp_tests.cpp"
+          text = read(gain_test_path)
+          marker = "test_invalid_automation_is_ignored"
+          if marker in text:
+              raise RuntimeError(f"{marker} already exists")
+          if "#include <limits>" not in text:
+              include_lines = [line for line in text.splitlines() if line.startswith("#include <")]
+              if not include_lines:
+                  raise RuntimeError("gain_dsp_tests.cpp include block not found")
+              anchor = include_lines[-1] + "\n"
+              text = text.replace(anchor, anchor + "#include <limits>\n", 1)
+          insertion = r'''
+          void test_invalid_automation_is_ignored(TestContext& test) {
+            using namespace garak::dsp::gain;
+
+            const std::array non_monotonic_points{AutomationPoint{2, 0.0},
+                                                   AutomationPoint{1, 1.0}};
+            PointSource non_monotonic_source(non_monotonic_points);
+            PointSource no_bypass_points(std::span<const AutomationPoint>{});
+            std::array<float, 4> input{0.25F, -0.5F, 0.75F, -1.0F};
+            std::array<float, 4> output{};
+            float* inputs[] = {input.data()};
+            float* outputs[] = {output.data()};
+            double gain = default_normalized_gain();
+            bool bypass = false;
+            std::uint64_t silence = 0;
+
+            process_block(ProcessBlockContext<float, PointSource, PointSource>{
+                inputs, outputs, 1, static_cast<std::int32_t>(input.size()), 0, silence,
+                non_monotonic_source, no_bypass_points, gain, bypass});
+            test.expect(output == input && gain == default_normalized_gain() && !bypass,
+                        "non-monotonic automation is ignored without changing live state");
+
+            const std::array non_finite_points{
+                AutomationPoint{1, std::numeric_limits<double>::quiet_NaN()}};
+            PointSource non_finite_source(non_finite_points);
+            PointSource no_bypass_points_again(std::span<const AutomationPoint>{});
+            output.fill(0.0F);
+            gain = default_normalized_gain();
+            bypass = false;
+
+            process_block(ProcessBlockContext<float, PointSource, PointSource>{
+                inputs, outputs, 1, static_cast<std::int32_t>(input.size()), 0, silence,
+                non_finite_source, no_bypass_points_again, gain, bypass});
+            test.expect(output == input && gain == default_normalized_gain() && !bypass,
+                        "non-finite automation is ignored without changing live state");
+
+            const std::array out_of_range_points{AutomationPoint{4, 1.0}};
+            PointSource out_of_range_source(out_of_range_points);
+            PointSource no_bypass_points_final(std::span<const AutomationPoint>{});
+            output.fill(0.0F);
+            gain = default_normalized_gain();
+            bypass = false;
+
+            process_block(ProcessBlockContext<float, PointSource, PointSource>{
+                inputs, outputs, 1, static_cast<std::int32_t>(input.size()), 0, silence,
+                out_of_range_source, no_bypass_points_final, gain, bypass});
+            test.expect(output == input && gain == default_normalized_gain() && !bypass,
+                        "out-of-range automation is ignored without changing live state");
+          }
+          '''
+          namespace_marker = "\n} // namespace\n"
+          insert_at = text.rfind(namespace_marker)
+          if insert_at < 0:
+              raise RuntimeError("gain_dsp_tests.cpp namespace end not found")
+          text = text[:insert_at] + "\n" + insertion + text[insert_at:]
+          text = replace_once(
+              text,
+              "  return test.result();",
+              "  test_invalid_automation_is_ignored(test);\n  return test.result();",
+              "gain DSP main",
+          )
+          write(gain_test_path, text)
+
+          plan_path = ROOT / "plans/0015-phase-3c1-graph-execution-correction.md"
+          if plan_path.exists():
+              raise RuntimeError("ExecPlan 0015 already exists")
+          plan_path.write_text(
+              """# ExecPlan 0015 — Phase 3C1 Graph Execution Correction\n\n"
+              "- Status: In Progress — implementation and working-tree Windows gates complete; exact final commit verification pending\n"
+              "- Started: 2026-09-01\n"
+              "- Owner: Native static graph runtime and Phase 3C product contract\n\n"
+              "## 목적\n\n"
+              "Phase 3C1의 fixed `Input → Gain → Output` 범위는 유지하면서, compiled graph를 단순한 canonical-token 검사가 아니라 module-loaded execution binding의 실제 입력으로 만든다. 동시에 16-bit binary operation type이 더 좁은 enum으로 축약될 수 있는 parser 경계를 제거하고 malformed automation 회귀를 복구한다.\n\n"
+              "## 발견된 문제\n\n"
+              "- Runtime은 operation table 전체가 hard-coded expected plan과 같은지만 확인한 뒤 기존 Gain callback을 호출했다.\n"
+              "- `input_buffer`, `output_buffer`와 parameter binding은 plan validation 외의 실행 경계로 축약되지 않았다.\n"
+              "- binary operation type은 16-bit인데 Native enum underlying type은 8-bit여서 high byte가 손실될 수 있었다.\n"
+              "- malformed automation을 parameter별로 무시하는 기존 정책은 유지됐지만 현재 focused regression이 부족했다.\n\n"
+              "## 범위\n\n"
+              "- `OperationType`의 underlying type을 compiled contract와 같은 `uint16_t`로 정렬\n"
+              "- current three-operation topology를 검증하고 `GainExecutionBinding`을 파생하는 module-load-safe 함수\n"
+              "- callback에서 validated binding의 buffer slots를 사용한 bounded routing\n"
+              "- alternate valid slot numbering, unknown high-byte type, disconnected buffer와 duplicate instance 회귀\n"
+              "- non-monotonic, non-finite와 out-of-range automation 회귀\n"
+              "- obsolete one-time source snapshot workflow 제거\n\n"
+              "## 비범위\n\n"
+              "- arbitrary DAG, branching, feedback 또는 dynamic graph mutation\n"
+              "- additional DSP node\n"
+              "- project schema v3와 Studio graph canvas\n"
+              "- `GARAKCPD` 또는 `GARAKPST` 변경\n"
+              "- compatibility layer 또는 legacy fallback\n\n"
+              "## 불변식\n\n"
+              "- current canonical compiler output bytes는 변경하지 않는다.\n"
+              "- Gain `1001`, Bypass `1002`, Product/FUID/state contract를 변경하지 않는다.\n"
+              "- callback은 allocation, lock, I/O, logging와 graph mutation을 수행하지 않는다.\n"
+              "- invalid graph와 automation은 fail closed 또는 documented parameter-local ignore policy를 따른다.\n\n"
+              "## 검증\n\n"
+              "이 correction workflow는 Product Compiler와 Studio format/lint/typecheck/test/build, Debug/Release Product Runtime build, Warm/Bright actual export와 official Validator, CTest, Studio product workflow, warnings-as-errors와 clang-tidy를 수정된 working tree에서 실행한다. 최종 commit은 workflow를 제거한 뒤 생성되므로 exact final commit clean Windows gate는 별도 단계로 남긴다.\n\n"
+              "## 다음 단계\n\n"
+              "1. correction branch의 final commit을 clean Windows에서 다시 검증한다.\n"
+              "2. 그 exact commit이 통과한 뒤 Phase 3C1 correction을 완료 처리한다.\n"
+              "3. 이후에만 ExecPlan 0014의 Phase 3C2 schema v3 작업을 재개한다.\n",
+              encoding="utf-8",
+              newline="\n",
+          )
+
+          for relative in ("README.md", "ROADMAP.md", "docs/status/current.md", "plans/0014-phase-3c-editable-static-graph-contract.md"):
+              path = ROOT / relative
+              if not path.exists():
+                  continue
+              doc = path.read_text(encoding="utf-8")
+              doc = doc.replace(
+                  "Phase 3C1 status: **PASS / Complete**",
+                  "Phase 3C1 status: **CORRECTION IN PROGRESS**",
+              )
+              doc = doc.replace(
+                  "Current Phase 3C status: **IN PROGRESS — Phase 3C2 and Phase 3C3 pending**",
+                  "Current Phase 3C status: **IN PROGRESS — Phase 3C1 execution correction, Phase 3C2 and Phase 3C3 pending**",
+              )
+              doc = doc.replace(
+                  "다음 increment: **Phase 3C2 — Editable project schema v3**",
+                  "다음 increment: **Phase 3C1 graph execution correction**",
+              )
+              doc = doc.replace(
+                  "- Status: In Progress — Phase 3C1 Complete, Phase 3C2 next",
+                  "- Status: In Progress — Phase 3C1 execution correction, Phase 3C2 blocked",
+              )
+              doc = doc.replace(
+                  "### 3C1 — Runtime-consumed compiled graph resource — Complete",
+                  "### 3C1 — Runtime-consumed compiled graph resource — Correction in progress",
+              )
+              doc = doc.replace(
+                  "#### Phase 3C1 — Runtime-consumed compiled graph resource — Complete",
+                  "#### Phase 3C1 — Runtime-consumed compiled graph resource — Correction in progress",
+              )
+              path.write_text(doc, encoding="utf-8", newline="\n")
+          '@ | python -
+
+      - name: Format modified first-party source
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          pnpm product:format
+          pnpm studio:format
+          clang-format -i --style=file `
+            native/runtime/static_graph/include/garak/runtime/static_graph/gain_plan.hpp `
+            native/tests/static_graph_tests.cpp `
+            native/tests/gain_dsp_tests.cpp
+
+      - name: Verify repository text and whitespace
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          git diff --check
+          $badEol = @(git ls-files --eol | Select-String 'w/(crlf|mixed)')
+          if ($badEol.Count -ne 0) {
+            $badEol | ForEach-Object { Write-Error $_.Line }
+            throw 'Tracked first-party text must use LF working-tree line endings.'
+          }
+
+      - name: Verify Product Compiler and Studio
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          pnpm product:format:check
+          pnpm product:lint
+          pnpm product:typecheck
+          pnpm product:test
+          pnpm studio:format:check
+          pnpm studio:lint
+          pnpm studio:typecheck
+          pnpm studio:test
+          pnpm studio:build
+
+      - name: Configure and build Debug Product Runtime
+        run: cmake --preset product-runtime-debug --fresh
+
+      - name: Build Debug Product Runtime
+        run: cmake --build --preset product-runtime-debug-build --clean-first
+
+      - name: Export and officially validate Debug products
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          pnpm product:export --project examples/products/artist-gain-warm.garak --configuration Debug --output out/exports/phase-3c1-correction/debug --force --validate
+          pnpm product:export --project examples/products/artist-gain-bright.garak --configuration Debug --output out/exports/phase-3c1-correction/debug --force --validate
+
+      - name: Test Debug Product Runtime and Studio workflow
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          ctest --preset product-runtime-debug-test --no-tests=error
+          pnpm --dir studio verify:product-workflow --configuration Debug
+
+      - name: Configure and build Release Product Runtime
+        run: cmake --preset product-runtime-release --fresh
+
+      - name: Build Release Product Runtime
+        run: cmake --build --preset product-runtime-release-build --clean-first
+
+      - name: Export and officially validate Release products
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          pnpm product:export --project examples/products/artist-gain-warm.garak --configuration Release --output out/exports/phase-3c1-correction/release --force --validate
+          pnpm product:export --project examples/products/artist-gain-bright.garak --configuration Release --output out/exports/phase-3c1-correction/release --force --validate
+
+      - name: Test Release Product Runtime and Studio workflow
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          ctest --preset product-runtime-release-test --no-tests=error
+          pnpm --dir studio verify:product-workflow --configuration Release
+
+      - name: Build with first-party warnings as errors
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          cmake --preset product-runtime-werror --fresh
+          cmake --build --preset product-runtime-werror-build --clean-first
+
+      - name: Build with first-party clang-tidy
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          cmake --preset product-runtime-clang-tidy --fresh
+          cmake --build --preset product-runtime-clang-tidy-build --clean-first
+
+      - name: Remove obsolete and one-time workflow files
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          git rm -f --ignore-unmatch .github/workflows/source-snapshot-once.yml
+          git rm -f --ignore-unmatch .github/workflows/apply-phase3c1-execution-correction-v2.yml
+
+      - name: Commit the corrected verified tree
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          git diff --check
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          if (git diff --cached --quiet) {
+            throw 'Phase 3C1 correction produced no changes.'
+          }
+          git commit -m 'fix: make Phase 3C1 graph binding executable'
+          git push origin HEAD:agent/phase-3c1-execution-correction-v2
