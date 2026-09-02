@@ -32,6 +32,23 @@ import {
 } from "./validation.ts";
 import type { LoadedProductProject } from "./validation.ts";
 
+export {
+  classifyCompiledGraph,
+  classifyCompiledProduct,
+  classifyProductState,
+  inspectCompatibilityFiles,
+} from "./compatibility.ts";
+export type {
+  ArtifactVersion,
+  CompatibilityInspection,
+  CompiledGraphCompatibility,
+  CompiledGraphDisposition,
+  CompiledProductCompatibility,
+  CompiledProductDisposition,
+  InspectCompatibilityFilesOptions,
+  ProductStateCompatibility,
+  ProductStateDisposition,
+} from "./compatibility.ts";
 export { ProductCompilerError, diagnosticFor } from "./errors.ts";
 export {
   canonicalProductGraphSource,

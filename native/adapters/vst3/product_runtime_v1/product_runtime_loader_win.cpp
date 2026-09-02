@@ -1,6 +1,6 @@
 #include "product_runtime_loader_win.hpp"
 
-#include "garak/runtime/static_graph/compiled_graph.hpp"
+#include "compiled_graph_resource.hpp"
 #include "public.sdk/source/main/moduleinit.h"
 
 #ifndef NOMINMAX
@@ -87,24 +87,7 @@ read_compiled_product(const std::filesystem::path& path) {
       std::span<const std::uint8_t>(bytes.data(), static_cast<std::size_t>(count)));
 }
 
-[[nodiscard]] std::optional<garak::runtime::static_graph::GainExecutionBinding>
-read_compiled_graph(const std::filesystem::path& path) {
-  std::ifstream input(path, std::ios::binary);
-  if (!input.is_open()) {
-    return std::nullopt;
-  }
-  std::array<std::uint8_t, garak::runtime::static_graph::kCompiledGraphTotalBytes + 1> bytes{};
-  input.read(reinterpret_cast<char*>(bytes.data()), static_cast<std::streamsize>(bytes.size()));
-  const auto count = input.gcount();
-  if (input.bad() || (input.fail() && !input.eof()) ||
-      count !=
-          static_cast<std::streamsize>(garak::runtime::static_graph::kCompiledGraphTotalBytes)) {
-    return std::nullopt;
-  }
-  return garak::runtime::static_graph::parse_compiled_gain_graph(
-      std::span<const std::uint8_t>(bytes.data(), static_cast<std::size_t>(count)),
-      garak::runtime::product_v1::kGainParameterId, garak::runtime::product_v1::kBypassParameterId);
-}
+
 
 } // namespace
 
@@ -127,15 +110,20 @@ std::optional<ProductRuntimeContext> load_module_product_runtime() noexcept {
 
     const auto resources_directory = contents_directory / L"Resources";
     auto product = read_compiled_product(resources_directory / kProductResourceFilename);
-    auto execution_binding = read_compiled_graph(resources_directory / kGraphResourceFilename);
-    if (!product || !execution_binding) {
+    const auto graph = read_compiled_graph_resource(
+        resources_directory / kGraphResourceFilename,
+        garak::runtime::product_v1::kGainParameterId,
+        garak::runtime::product_v1::kBypassParameterId);
+    if (!product ||
+        graph.disposition != garak::runtime::static_graph::CompiledGraphDisposition::current ||
+        !graph.binding) {
       return std::nullopt;
     }
     const auto product_name = utf8_to_wide(product->name);
     if (!product_name || inner_filename != std::filesystem::path(*product_name + L".vst3")) {
       return std::nullopt;
     }
-    return ProductRuntimeContext{std::move(*product), *execution_binding};
+    return ProductRuntimeContext{std::move(*product), *graph.binding};
   } catch (...) {
     return std::nullopt;
   }

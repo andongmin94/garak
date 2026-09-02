@@ -4,10 +4,15 @@ import path from "node:path";
 import test from "node:test";
 
 import {
+  classifyCompiledGraph,
   classifyCompiledProduct,
   classifyProductState,
   inspectCompatibilityFiles,
 } from "../src/compatibility.ts";
+import {
+  canonicalGainGraphPlan,
+  encodeCompiledGraph,
+} from "../src/compiled_graph.ts";
 import { encodeCompiledProduct } from "../src/compiled_product.ts";
 import { loadTemporaryWarmProject, withTemporaryDirectory } from "./helpers.ts";
 
@@ -33,7 +38,11 @@ function copyWithU16(
   return result;
 }
 
-test("current compiled product and same-product state are loadable together", async () => {
+function currentGraph(): Buffer {
+  return encodeCompiledGraph(canonicalGainGraphPlan());
+}
+
+test("current compiled product, graph, and same-product state are loadable together", async () => {
   await withTemporaryDirectory(async (temporary) => {
     const project = await loadTemporaryWarmProject(temporary);
     const compiled = encodeCompiledProduct(project);
@@ -44,6 +53,13 @@ test("current compiled product and same-product state are loadable together", as
       productId: WARM_PRODUCT_ID,
       diagnosticCode: null,
       action: "Load the compiled product with the current Runtime v1 contract.",
+    });
+    assert.deepEqual(classifyCompiledGraph(currentGraph()), {
+      artifact: "compiled-graph",
+      disposition: "load-current",
+      version: { major: 1, minor: 0 },
+      diagnosticCode: null,
+      action: "Load the exact current GARAKGRF v1 execution plan.",
     });
     assert.deepEqual(
       classifyProductState(WARM_DEFAULT_STATE, WARM_PRODUCT_ID),
@@ -59,7 +75,7 @@ test("current compiled product and same-product state are loadable together", as
   });
 });
 
-test("compiled compatibility distinguishes rebuild, future, and corruption", async () => {
+test("compiled product compatibility distinguishes rebuild, future, and corruption", async () => {
   await withTemporaryDirectory(async (temporary) => {
     const current = encodeCompiledProduct(
       await loadTemporaryWarmProject(temporary),
@@ -79,6 +95,43 @@ test("compiled compatibility distinguishes rebuild, future, and corruption", asy
     assert.equal(invalid.disposition, "reject-invalid");
     assert.equal(invalid.diagnosticCode, "GARAK_COMPILED_TOTAL_SIZE");
   });
+});
+
+test("compiled graph compatibility distinguishes missing, old, future, and corruption", () => {
+  const current = currentGraph();
+
+  const missing = classifyCompiledGraph(null);
+  assert.equal(missing.disposition, "rebuild-from-project");
+  assert.equal(missing.version, null);
+  assert.equal(missing.diagnosticCode, "GARAK_COMPILED_GRAPH_MISSING");
+
+  const old = classifyCompiledGraph(copyWithU16(current, 8, 0));
+  assert.equal(old.disposition, "rebuild-from-project");
+  assert.deepEqual(old.version, { major: 0, minor: 0 });
+  assert.equal(old.diagnosticCode, "GARAK_COMPILED_GRAPH_VERSION_OLD");
+
+  const futureMajor = classifyCompiledGraph(copyWithU16(current, 8, 2));
+  assert.equal(futureMajor.disposition, "reject-too-new");
+  assert.equal(
+    futureMajor.diagnosticCode,
+    "GARAK_COMPILED_GRAPH_VERSION_NEW",
+  );
+  const futureMinor = classifyCompiledGraph(copyWithU16(current, 10, 1));
+  assert.equal(futureMinor.disposition, "reject-too-new");
+
+  const corrupt = Buffer.from(current);
+  corrupt.writeUInt32LE(1, 28);
+  const invalid = classifyCompiledGraph(corrupt);
+  assert.equal(invalid.disposition, "reject-invalid");
+  assert.deepEqual(invalid.version, { major: 1, minor: 0 });
+  assert.equal(invalid.diagnosticCode, "GARAK_COMPILED_GRAPH_RESERVED");
+
+  const badMagic = Buffer.from(current);
+  badMagic[0] = 0;
+  const invalidMagic = classifyCompiledGraph(badMagic);
+  assert.equal(invalidMagic.disposition, "reject-invalid");
+  assert.equal(invalidMagic.version, null);
+  assert.equal(invalidMagic.diagnosticCode, "GARAK_COMPILED_GRAPH_MAGIC");
 });
 
 test("state compatibility rejects old, future, foreign, and malformed state", () => {
@@ -110,25 +163,49 @@ test("state compatibility rejects old, future, foreign, and malformed state", ()
   assert.equal(invalid.diagnosticCode, "GARAK_STATE_INVALID");
 });
 
-test("file inspection derives the state Product ID boundary from current compiled data", async () => {
+test("file inspection requires current compiled product and graph", async () => {
   await withTemporaryDirectory(async (temporary) => {
     const project = await loadTemporaryWarmProject(temporary);
     const compiledFile = path.join(temporary, "product.garakbin");
+    const graphFile = path.join(temporary, "graph.garakbin");
     const stateFile = path.join(temporary, "state.bin");
     await writeFile(compiledFile, encodeCompiledProduct(project));
+    await writeFile(graphFile, currentGraph());
     await writeFile(stateFile, WARM_DEFAULT_STATE);
 
     const report = await inspectCompatibilityFiles({
       compiledFile,
+      graphFile,
       stateFile,
     });
     assert.equal(report.loadable, true);
     assert.equal(report.compiled.disposition, "load-current");
+    assert.equal(report.graph.disposition, "load-current");
     assert.equal(report.state?.disposition, "restore-current");
+
+    const omittedGraph = await inspectCompatibilityFiles({
+      compiledFile,
+      stateFile,
+    });
+    assert.equal(omittedGraph.loadable, false);
+    assert.equal(omittedGraph.graph.disposition, "rebuild-from-project");
+    assert.equal(
+      omittedGraph.graph.diagnosticCode,
+      "GARAK_COMPILED_GRAPH_MISSING",
+    );
+
+    const absentGraph = await inspectCompatibilityFiles({
+      compiledFile,
+      graphFile: path.join(temporary, "absent.garakbin"),
+      stateFile,
+    });
+    assert.equal(absentGraph.loadable, false);
+    assert.equal(absentGraph.graph.disposition, "rebuild-from-project");
 
     await writeFile(stateFile, copyWithU16(WARM_DEFAULT_STATE, 10, 1));
     const future = await inspectCompatibilityFiles({
       compiledFile,
+      graphFile,
       stateFile,
     });
     assert.equal(future.loadable, false);

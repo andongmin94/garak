@@ -1,3 +1,5 @@
+#include "compiled_graph_resource.hpp"
+
 #include "garak/runtime/product_v1/compiled_product.hpp"
 
 #include "pluginterfaces/base/funknown.h"
@@ -404,6 +406,15 @@ int wmain(const int argc, wchar_t* argv[]) {
     if (!expected_compiled_product(*arguments, *product)) {
       std::fputs("Product parity inspection failed at compiled product parity\n", stderr);
       return 3;
+    }
+    const auto graph = garak::adapter::vst3::product_runtime_v1::read_compiled_graph_resource(
+        resources / L"graph.garakbin", garak::runtime::product_v1::kGainParameterId,
+        garak::runtime::product_v1::kBypassParameterId);
+    if (graph.disposition != garak::runtime::static_graph::CompiledGraphDisposition::current ||
+        !graph.binding) {
+      std::fprintf(stderr, "Product parity inspection failed at compiled graph compatibility (%s)\n",
+                   garak::runtime::static_graph::compiled_graph_diagnostic_code(graph.diagnostic));
+      return 5;
     }
     if (!check_module_info(resources / L"moduleinfo.json", *arguments)) {
       std::fputs("Product parity inspection failed at moduleinfo parity\n", stderr);

@@ -1,5 +1,11 @@
 import { readFile } from "node:fs/promises";
 
+import {
+  COMPILED_GRAPH_MAJOR_VERSION,
+  COMPILED_GRAPH_MAGIC,
+  COMPILED_GRAPH_MINOR_VERSION,
+  decodeCompiledGraph,
+} from "./compiled_graph.ts";
 import { decodeCompiledProduct } from "./compiled_product.ts";
 import { ProductCompilerError } from "./errors.ts";
 
@@ -21,13 +27,30 @@ export interface ArtifactVersion {
 }
 
 export type CompiledProductDisposition =
-  "load-current" | "rebuild-from-project" | "reject-too-new" | "reject-invalid";
+  | "load-current"
+  | "rebuild-from-project"
+  | "reject-too-new"
+  | "reject-invalid";
 
 export interface CompiledProductCompatibility {
   readonly artifact: "compiled-product";
   readonly disposition: CompiledProductDisposition;
   readonly version: ArtifactVersion | null;
   readonly productId: string | null;
+  readonly diagnosticCode: string | null;
+  readonly action: string;
+}
+
+export type CompiledGraphDisposition =
+  | "load-current"
+  | "rebuild-from-project"
+  | "reject-too-new"
+  | "reject-invalid";
+
+export interface CompiledGraphCompatibility {
+  readonly artifact: "compiled-graph";
+  readonly disposition: CompiledGraphDisposition;
+  readonly version: ArtifactVersion | null;
   readonly diagnosticCode: string | null;
   readonly action: string;
 }
@@ -50,12 +73,14 @@ export interface ProductStateCompatibility {
 
 export interface CompatibilityInspection {
   readonly compiled: CompiledProductCompatibility;
+  readonly graph: CompiledGraphCompatibility;
   readonly state: ProductStateCompatibility | null;
   readonly loadable: boolean;
 }
 
 export interface InspectCompatibilityFilesOptions {
   readonly compiledFile: string;
+  readonly graphFile?: string;
   readonly stateFile?: string;
   readonly expectedProductId?: string;
 }
@@ -160,6 +185,91 @@ export function classifyCompiledProduct(
         ? error.diagnostic.code
         : "GARAK_COMPILED_INVALID";
     return invalidCompiled(version, diagnosticCode);
+  }
+}
+
+function missingGraph(): CompiledGraphCompatibility {
+  return {
+    artifact: "compiled-graph",
+    disposition: "rebuild-from-project",
+    version: null,
+    diagnosticCode: "GARAK_COMPILED_GRAPH_MISSING",
+    action:
+      "Rebuild the missing derived graph deterministically from the validated editable .garak project.",
+  };
+}
+
+function invalidGraph(
+  version: ArtifactVersion | null,
+  diagnosticCode: string,
+): CompiledGraphCompatibility {
+  return {
+    artifact: "compiled-graph",
+    disposition: "reject-invalid",
+    version,
+    diagnosticCode,
+    action:
+      "Reject the compiled graph and preserve both artifact and editable source for diagnosis.",
+  };
+}
+
+export function classifyCompiledGraph(
+  bytes: Uint8Array | null,
+): CompiledGraphCompatibility {
+  if (bytes === null) {
+    return missingGraph();
+  }
+  if (!hasMagic(bytes, COMPILED_GRAPH_MAGIC)) {
+    return invalidGraph(null, "GARAK_COMPILED_GRAPH_MAGIC");
+  }
+  const version = readVersion(bytes);
+  if (version === null) {
+    return invalidGraph(null, "GARAK_COMPILED_GRAPH_SIZE");
+  }
+  if (
+    version.major < COMPILED_GRAPH_MAJOR_VERSION ||
+    (version.major === COMPILED_GRAPH_MAJOR_VERSION &&
+      version.minor < COMPILED_GRAPH_MINOR_VERSION)
+  ) {
+    return {
+      artifact: "compiled-graph",
+      disposition: "rebuild-from-project",
+      version,
+      diagnosticCode: "GARAK_COMPILED_GRAPH_VERSION_OLD",
+      action:
+        "Discard this old derived graph and rebuild it deterministically from the validated editable .garak project.",
+    };
+  }
+  if (
+    version.major > COMPILED_GRAPH_MAJOR_VERSION ||
+    (version.major === COMPILED_GRAPH_MAJOR_VERSION &&
+      version.minor > COMPILED_GRAPH_MINOR_VERSION)
+  ) {
+    return {
+      artifact: "compiled-graph",
+      disposition: "reject-too-new",
+      version,
+      diagnosticCode: "GARAK_COMPILED_GRAPH_VERSION_NEW",
+      action:
+        "Do not overwrite or reinterpret the graph; preserve it for a compatible newer Garak compiler and Runtime.",
+    };
+  }
+
+  try {
+    decodeCompiledGraph(bytes);
+    return {
+      artifact: "compiled-graph",
+      disposition: "load-current",
+      version,
+      diagnosticCode: null,
+      action: "Load the exact current GARAKGRF v1 execution plan.",
+    };
+  } catch (error: unknown) {
+    const diagnosticCode =
+      error instanceof ProductCompilerError
+        ? error.diagnostic.code
+        : "GARAK_COMPILED_GRAPH_INVALID";
+    return invalidGraph(version, diagnosticCode);
   }
 }
 
@@ -280,11 +390,38 @@ export function classifyProductState(
   };
 }
 
+function isMissingFileError(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    "code" in error &&
+    (error as Error & { readonly code?: unknown }).code === "ENOENT"
+  );
+}
+
+async function readOptionalDerivedFile(
+  file: string | undefined,
+): Promise<Uint8Array | null> {
+  if (file === undefined) {
+    return null;
+  }
+  try {
+    return await readFile(file);
+  } catch (error: unknown) {
+    if (isMissingFileError(error)) {
+      return null;
+    }
+    throw error;
+  }
+}
+
 export async function inspectCompatibilityFiles(
   options: InspectCompatibilityFilesOptions,
 ): Promise<CompatibilityInspection> {
   const compiled = classifyCompiledProduct(
     await readFile(options.compiledFile),
+  );
+  const graph = classifyCompiledGraph(
+    await readOptionalDerivedFile(options.graphFile),
   );
   let state: ProductStateCompatibility | null = null;
   if (options.stateFile !== undefined) {
@@ -295,9 +432,11 @@ export async function inspectCompatibilityFiles(
   }
   return {
     compiled,
+    graph,
     state,
     loadable:
       compiled.disposition === "load-current" &&
+      graph.disposition === "load-current" &&
       (state === null || state.disposition === "restore-current"),
   };
 }

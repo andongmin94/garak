@@ -13,7 +13,11 @@ garak_apply_warnings(garak_gain_dsp_tests)
 garak_apply_clang_tidy(garak_gain_dsp_tests)
 add_test(NAME garak_gain_dsp_tests COMMAND garak_gain_dsp_tests)
 
-add_executable(garak_static_graph_tests static_graph_tests.cpp)
+add_executable(
+  garak_static_graph_tests
+  static_graph_tests.cpp
+  compiled_graph_test_fixture.hpp
+)
 target_link_libraries(garak_static_graph_tests PRIVATE garak::static_graph)
 garak_apply_warnings(garak_static_graph_tests)
 garak_apply_clang_tidy(garak_static_graph_tests)
@@ -54,6 +58,26 @@ if(GARAK_BUILD_PRODUCT_RUNTIME_V1)
   add_test(
     NAME garak_product_compatibility_tests
     COMMAND garak_product_compatibility_tests
+  )
+
+  add_executable(
+    garak_compiled_graph_resource_tests
+    compiled_graph_resource_tests.cpp
+    compiled_graph_test_fixture.hpp
+  )
+  target_link_libraries(
+    garak_compiled_graph_resource_tests
+    PRIVATE garak::static_graph
+  )
+  target_include_directories(
+    garak_compiled_graph_resource_tests
+    PRIVATE "${CMAKE_SOURCE_DIR}/native/adapters/vst3/product_runtime_v1"
+  )
+  garak_apply_warnings(garak_compiled_graph_resource_tests)
+  garak_apply_clang_tidy(garak_compiled_graph_resource_tests)
+  add_test(
+    NAME garak_compiled_graph_resource_tests
+    COMMAND garak_compiled_graph_resource_tests
   )
 
   add_executable(
