@@ -8,9 +8,11 @@
 - Phase 3C1 exact verified source: `837e01ef96c11800b246a50eff92c4599e630080`
 - Phase 3C1 clean Windows run: `33610351357`
 - Phase 3C1 status: **PASS / Complete**
-- Phase 3C2 status: **IN PROGRESS — implementation candidate, clean Windows acceptance pending**
-- Current Phase 3C status: **IN PROGRESS — Phase 3C2 acceptance and Phase 3C3 pending**
-- 다음 gate: **Phase 3C2 exact-source clean Windows verification**
+- Phase 3C2 exact verified source: `b727afb4cd1471dbd61ce775355be60e040c7000`
+- Phase 3C2 clean Windows run: `33622226202`
+- Phase 3C2 status: **PASS / Complete**
+- Current Phase 3C status: **IN PROGRESS — Phase 3C3 pending**
+- 다음 gate: **Phase 3C3 compatibility matrix and final product gate**
 
 이 roadmap은 기능 목록을 미리 쌓는 문서가 아니다. 각 milestone은 직전의 실제 end-to-end 제품 경로가 clean checkout에서 통과한 뒤에만 다음 층으로 진행한다.
 
@@ -260,9 +262,9 @@ Phase 3C는 [`plans/0014-phase-3c-editable-static-graph-contract.md`](plans/0014
 
 Correction 이후 Runtime은 graph를 module load에서 private immutable binding으로 준비하고 callback은 해당 binding의 buffer slot과 Parameter ID를 실제 dispatch에 사용한다. Phase 3C1은 **Complete**다. 다음 increment는 schema v3 editable graph source다.
 
-### Phase 3C2 — Editable project schema v3 — In Progress
+### Phase 3C2 — Editable project schema v3 — Complete
 
-구현 후보:
+구현:
 
 - project schema v3와 embedded graph source v1
 - exact three-node/two-connection validator
@@ -272,19 +274,18 @@ Correction 이후 Runtime은 graph를 module load에서 private immutable bindin
 - Studio main-owned graph create/open/save/reopen/migrate round-trip
 - invalid current graph의 export-before-output fail-closed
 
-현재 근거:
+검증 근거:
 
-- Product Compiler local typecheck success
-- Product Compiler tests: 98 total, 97 pass, 1 Windows-only skip, 0 fail
-- Studio typed tests: 15/15 pass
-- `git diff --check` success
+- exact verified source: `b727afb4cd1471dbd61ce775355be60e040c7000`
+- clean Windows run: `33622226202`
+- Product Compiler와 Studio format/lint/typecheck/test/build success
+- Debug/Release Runtime clean build, actual Warm/Bright export와 official Validator success
+- Debug/Release CTest와 Studio product workflow success
+- warnings-as-errors와 clang-tidy success
+- tracked-source mutation `0`
 
-수용 전 남은 gate:
-
-- exact source commit의 clean Windows Product Compiler/Studio full quality gate
-- Debug/Release Runtime build, actual export와 official Validator
-- Debug/Release CTest와 Studio product workflow
-- warnings-as-errors, clang-tidy와 tracked-source mutation `0`
+Phase 3C2는 **Complete**다. Phase 3C 전체는 Phase 3C3 compatibility와 final product gate가 남아 있어
+계속 In Progress다.
 
 ### Phase 3C3 — Compatibility and full product gate — Pending
 

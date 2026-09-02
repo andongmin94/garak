@@ -42,11 +42,13 @@ Phase 3C1은 PR `#103`으로 `main`에 squash merge됐다.
 - warnings-as-errors와 clang-tidy success
 - tracked source mutation `0`
 
-Phase 3C2 source tree에는 current schema v3, embedded graph source v1, strict v1/v2 migration, source-derived
-`graph.garakbin`과 Studio main-owned graph round-trip 구현이 있다. Product Compiler local typecheck와 98개
-테스트 중 97개가 통과했고 Windows-only junction test 1개만 skip됐으며, Studio typed service/API 테스트는
-15/15 통과했다. **Exact source commit의 clean Windows full gate는 아직 실행 전이므로 Phase 3C2는 수용
-대기 상태**다. 현재 사실은 [`docs/status/current.md`](docs/status/current.md)를 따른다.
+Phase 3C2는 current schema v3, embedded graph source v1, strict v1/v2 migration, source-derived
+`graph.garakbin`과 Studio main-owned graph round-trip을 실제 제품 경로에 연결했다. Exact source
+`b727afb4cd1471dbd61ce775355be60e040c7000`의 clean Windows run `33622226202`에서 Product Compiler/Studio format·lint·typecheck·test·build,
+Debug/Release Runtime build, Warm/Bright actual export와 official Validator, CTest, Studio workflow,
+warnings-as-errors, clang-tidy와 tracked-source mutation `0`이 모두 통과했다. 따라서 **Phase 3C2는 PASS /
+Complete**다. Phase 3C 전체는 Phase 3C3 compatibility/final gate가 남아 있어 계속 In Progress다. 현재
+사실은 [`docs/status/current.md`](docs/status/current.md)를 따른다.
 
 ## 빠른 시작
 
@@ -178,9 +180,9 @@ Phase 3A는 production Gain DSP를 실제 processor dispatch와 연결하는 최
 - missing/corrupt/unsupported resource fail-closed 기반
 - resource foundation commit `510f906f45924ad4ef035f6598fc193c25eed245`와 corrected implementation commit `8d3461f2e79f38b6e4268d852614eed496b46c82`의 clean Windows full gate success
 
-#### Phase 3C2 — Editable project schema v3 — In Progress
+#### Phase 3C2 — Editable project schema v3 — Complete
 
-현재 구현 후보:
+수용된 구현:
 
 - current project schema v3와 embedded graph source v1
 - strict graph/node/port/connection validation
@@ -188,12 +190,19 @@ Phase 3A는 production Gain DSP를 실제 processor dispatch와 연결하는 최
 - canonical v3 serialization과 exact legacy/current fixture oracle
 - valid authoring ID/order에 독립적인 source-derived `graph.garakbin`
 - Studio main-owned read-only graph create/open/save/reopen/migrate round-trip
-- Product Compiler local typecheck와 97 pass / 1 Windows-only skip
-- Studio service/API tests 15/15 pass
+- invalid current graph의 export-before-output fail-closed
 
-남은 수용 조건은 exact source commit의 clean Windows format/lint/typecheck/test/build, Debug/Release actual
-export와 official Validator, CTest, Studio workflow, Werror, clang-tidy와 tracked-source mutation `0`이다.
-Phase 3C2가 수용된 뒤 **Phase 3C3 — compiled graph compatibility matrix and final product gate**로 진행한다.
+검증 근거:
+
+- exact verified source: `b727afb4cd1471dbd61ce775355be60e040c7000`
+- clean Windows run: `33622226202`
+- Product Compiler와 Studio format/lint/typecheck/test/build success
+- Debug/Release Runtime clean build, Warm/Bright actual export와 official Validator success
+- Debug/Release CTest와 Studio product workflow success
+- warnings-as-errors, clang-tidy와 tracked-source mutation `0`
+
+Phase 3C2는 **Complete**다. 다음 increment는 **Phase 3C3 — compiled graph compatibility matrix and final
+product gate**다.
 
 ## 제거된 기술 spike
 

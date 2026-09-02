@@ -1,8 +1,8 @@
 # ExecPlan 0014 — Phase 3C Editable Static Graph Project Contract and Compiled Plan
 
-- Status: In Progress — Phase 3C1 Complete, Phase 3C2 implementation candidate awaiting acceptance
+- Status: In Progress — Phase 3C1 and Phase 3C2 Complete, Phase 3C3 pending
 - Started: 2026-08-23
-- Updated: 2026-09-01
+- Updated: 2026-09-02
 - Owner: Product Compiler, Native Runtime and Studio product workflow
 
 ## 목적
@@ -63,7 +63,7 @@ Valid first graph는 `Input → Gain → Output` 한 chain이다. Generic node r
 
 Exact source commit `510f906f45924ad4ef035f6598fc193c25eed245`의 clean Windows verification run `33455352188`에서 전체 Phase 3C1 product path가 통과했다.
 
-### 3C2 — Editable project schema v3
+### 3C2 — Editable project schema v3 — Complete
 
 Project schema v3에 versioned graph source를 추가한다. v2→v3 migration은 current canonical Gain graph를 명시적으로 생성하며 Product ID, FUID, Parameter ID, defaults와 state contract를 보존한다.
 
@@ -156,19 +156,19 @@ Compiled graph의 current/missing/corrupt/too-old/too-new disposition을 명시�
 - 2026-08-30: GitHub Actions 검증 workflow를 제거하고, exact source commit의 clean Windows command 결과를 권위 있는 검증 기준으로 전환했다. Phase 3C1 이후 full Windows gate는 아직 실행하지 않았으므로 단계 1–6을 완료 표시하지 않았다.
 - 2026-09-01: 일회성 verification wrapper를 통해 두 job이 gate 실행 전 exact source commit `510f906f45924ad4ef035f6598fc193c25eed245`를 직접 checkout하고 SHA를 확인했다. Run `33455352188`에서 Product Compiler와 Studio의 format/lint/typecheck/test/build, Debug/Release Runtime build, Warm/Bright actual export와 official Validator, CTest, Studio workflow, warnings-as-errors, clang-tidy, tracked source mutation `0`이 모두 통과했다. 결과 확인 후 workflow는 제거했으며 단계 1–6과 Phase 3C1을 완료 처리했다.
 - 2026-09-02: code audit correction에서 raw plan의 callback-time canonical 재검증을 module-load prepared `GainExecutionBinding`으로 교체하고 binding의 buffer slot과 Parameter ID를 actual dispatch에 연결했다. Final product head `837e01ef96c11800b246a50eff92c4599e630080`는 clean Windows run `33610351357`에서 전체 gate를 통과했고 PR `#103`이 main commit `1666c667e6e635447b387a5e25bcce7ef1ee42e5`로 squash merge됐다.
-- 2026-09-02: Phase 3C2 implementation candidate가 schema v3 embedded graph source, strict validation, v1→v2→v3/v2→v3 migration, source-derived `GARAKGRF`와 Studio main-owned round-trip을 연결했다. Local Product Compiler typecheck와 tests 97 pass/1 Windows-only skip, Studio tests 15/15, `git diff --check`가 성공했다. Exact source clean Windows acceptance는 아직 pending이다.
+- 2026-09-02: Phase 3C2가 schema v3 embedded graph source, strict validation, v1→v2→v3/v2→v3 migration, source-derived `GARAKGRF`와 Studio main-owned round-trip을 연결했다. Exact source `b727afb4cd1471dbd61ce775355be60e040c7000`의 clean Windows run `33622226202`에서 Product Compiler/Studio quality gate, Debug/Release actual export와 official Validator, CTest, Studio workflow, Werror, clang-tidy와 tracked-source mutation `0`이 모두 통과했다. Phase 3C2를 Complete로 수용했다.
 
 ## 완료 기록
 
-Phase 3C1은 완료됐다. `graph.garakbin`은 실제 export bundle에 포함되고 deployed Runtime이 module load에서 검증한 private immutable execution binding을 processor가 사용하며, resource foundation과 corrected direct-source implementation의 clean Windows full gate가 성공했다.
+Phase 3C1과 Phase 3C2는 완료됐다. `graph.garakbin`은 실제 export bundle에 포함되고 deployed Runtime이
+module load에서 검증한 private immutable execution binding을 processor가 사용한다. Schema v3 project는
+versioned graph source를 소유하고 exact source `b727afb4cd1471dbd61ce775355be60e040c7000`의 clean Windows run `33622226202`에서 전체 Phase 3C2
+acceptance matrix가 성공했다.
 
-전체 ExecPlan은 계속 진행 중이다. Phase 3C2 source implementation은 존재하지만 exact source clean Windows
-full gate 전에는 Complete로 표시하지 않는다. Phase 3C3 compatibility/final gate가 완료되기 전에는 Phase 3C
-전체도 Complete로 표시하지 않는다.
+전체 ExecPlan은 계속 진행 중이다. Phase 3C3 compatibility/final gate가 완료되기 전에는 Phase 3C 전체를
+Complete로 표시하지 않는다.
 
 ## 다음 단계
 
-1. Phase 3C2 implementation candidate를 exact source commit으로 만들고 clean Windows full gate를 통과시킨다.
-2. Green exact commit만 Phase 3C2 Complete로 수용한다.
-3. Phase 3C3 compatibility matrix와 final clean Windows gate를 완료한다.
-4. Phase 3C가 Complete가 된 뒤 `Phase 3D — Initial DSP Node Set`을 별도 ExecPlan으로 시작한다.
+1. Phase 3C3 compatibility matrix와 final clean Windows gate를 완료한다.
+2. Phase 3C가 Complete가 된 뒤 `Phase 3D — Initial DSP Node Set`을 별도 ExecPlan으로 시작한다.

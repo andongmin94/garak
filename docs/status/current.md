@@ -1,7 +1,8 @@
 # Garak Current Status
 
 - 기준일: 2026-09-02
-- Branch: `agent/phase-3c2-editable-project-schema-v3` implementation candidate
+- Phase 3C2 exact verified source: `b727afb4cd1471dbd61ce775355be60e040c7000`
+- Phase 3C2 clean Windows run: `33622226202`
 - Source of truth: current source tree, this file and `ROADMAP.md`
 
 ## 현재 판단
@@ -51,10 +52,11 @@ Runtime은 module load에서 `graph.garakbin`을 private immutable `GainExecutio
 callback은 binding의 buffer slot과 Gain/Bypass Parameter ID를 routing과 queue lookup에 사용한다. 따라서
 **Phase 3C1은 PASS / Complete**다.
 
-Phase 3C2 implementation candidate는 current schema v3과 embedded graph source v1을 Product Compiler,
-migration, export와 Studio session에 연결했다. Product Compiler local typecheck와 98개 테스트 중 97개가
-통과했고 Windows-only junction test 1개만 skip됐으며 Studio typed tests는 15/15 통과했다. Exact source
-commit의 clean Windows full gate 전이므로 **Phase 3C2는 아직 수용되지 않았다**.
+Phase 3C2는 current schema v3과 embedded graph source v1을 Product Compiler, migration, export와
+Studio session에 연결했다. Exact source `b727afb4cd1471dbd61ce775355be60e040c7000`의 clean Windows run `33622226202`에서 Product Compiler와
+Studio quality gate, Debug/Release actual export와 official Validator, CTest, Studio workflow,
+warnings-as-errors, clang-tidy와 tracked-source mutation `0`이 모두 통과했다. 따라서 **Phase 3C2는 PASS /
+Complete**다. Phase 3C 전체는 Phase 3C3가 남아 있어 계속 In Progress다.
 
 ## 현재 지원 계약
 
@@ -152,7 +154,7 @@ Separate realtime stress target이 production static plan/Gain DSP의 output/sta
 - missing/corrupt/unsupported graph fail-closed
 - resource foundation commit `510f906f45924ad4ef035f6598fc193c25eed245`와 corrected implementation commit `8d3461f2e79f38b6e4268d852614eed496b46c82`의 clean Windows full gate success
 
-#### 3C2 — Editable project schema v3 — In Progress
+#### 3C2 — Editable project schema v3 — Complete
 
 - current schema v3와 embedded graph source v1 구현
 - strict node/type/version/port/connection/topology validator 구현
@@ -160,8 +162,12 @@ Separate realtime stress target이 production static plan/Gain DSP의 output/sta
 - canonical v3 serializer와 exact v1/v2/v3 fixture oracle 구현
 - source-derived `graph.garakbin` export와 invalid-current fail-closed 구현
 - Studio main-owned graph create/open/save/reopen/migrate round-trip 구현
-- local Product Compiler 97 pass / 1 Windows-only skip, Studio 15/15 pass
-- exact source clean Windows acceptance gate pending
+- exact verified source `b727afb4cd1471dbd61ce775355be60e040c7000`
+- clean Windows run `33622226202`
+- Product Compiler와 Studio format/lint/typecheck/test/build success
+- Debug/Release Runtime build, Warm/Bright actual export와 official Validator success
+- Debug/Release CTest와 Studio workflow success
+- warnings-as-errors, clang-tidy와 tracked-source mutation `0`
 
 #### 3C3 — Compatibility and full product gate — Pending
 
@@ -185,8 +191,6 @@ Separate realtime stress target이 production static plan/Gain DSP의 output/sta
 
 ## 다음 작업
 
-1. Phase 3C2 implementation candidate를 exact source commit으로 정리한다.
-2. Clean Windows에서 Product Compiler/Studio, Debug/Release export/Validator, CTest, Werror, clang-tidy와 source-mutation gate를 실행한다.
-3. Green exact commit만 Phase 3C2 Complete로 수용한다.
-4. Phase 3C3 compatibility matrix와 final full Windows product gate를 완료한다.
-5. Phase 3C 완료 뒤 별도 ExecPlan으로 Phase 3D initial DSP node set을 시작한다.
+1. Phase 3C3에서 compiled graph compatibility disposition을 Product Compiler, Runtime, inspector와 fixture에 통일한다.
+2. Phase 3C3 exact final source의 clean Windows full product gate를 통과시킨다.
+3. Phase 3C 완료 뒤 별도 ExecPlan으로 Phase 3D initial DSP node set을 시작한다.
