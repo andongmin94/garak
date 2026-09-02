@@ -7,7 +7,6 @@
 #include <cstdint>
 #include <optional>
 #include <span>
-#include <utility>
 
 namespace garak::runtime::static_graph {
 
@@ -102,13 +101,12 @@ classify_compiled_graph_compatibility(const std::optional<std::span<const std::u
             std::nullopt};
   }
 
-  auto binding = parse_compiled_gain_graph(*bytes, gain_parameter_id, bypass_parameter_id);
+  const auto binding = parse_compiled_gain_graph(*bytes, gain_parameter_id, bypass_parameter_id);
   if (!binding) {
     return {CompiledGraphDisposition::reject_invalid, CompiledGraphDiagnostic::invalid_current,
             version, std::nullopt};
   }
-  return {CompiledGraphDisposition::current, CompiledGraphDiagnostic::none, version,
-          std::move(binding)};
+  return {CompiledGraphDisposition::current, CompiledGraphDiagnostic::none, version, binding};
 }
 
 } // namespace garak::runtime::static_graph
