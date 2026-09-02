@@ -50,29 +50,29 @@ public:
 
   auto invalid_parameter = plan;
   invalid_parameter.operations[1].primary_parameter_id = 9999;
-  if (garak::runtime::static_graph::bind_gain_execution_plan(
-          invalid_parameter, kGainParameterId, kBypassParameterId)) {
+  if (garak::runtime::static_graph::bind_gain_execution_plan(invalid_parameter, kGainParameterId,
+                                                             kBypassParameterId)) {
     return false;
   }
 
   auto invalid_buffer = plan;
   invalid_buffer.operations[1].output_buffer = 0;
-  if (garak::runtime::static_graph::bind_gain_execution_plan(
-          invalid_buffer, kGainParameterId, kBypassParameterId)) {
+  if (garak::runtime::static_graph::bind_gain_execution_plan(invalid_buffer, kGainParameterId,
+                                                             kBypassParameterId)) {
     return false;
   }
 
   auto invalid_endpoint = plan;
   invalid_endpoint.operations[0].input_buffer = 0;
-  if (garak::runtime::static_graph::bind_gain_execution_plan(
-          invalid_endpoint, kGainParameterId, kBypassParameterId)) {
+  if (garak::runtime::static_graph::bind_gain_execution_plan(invalid_endpoint, kGainParameterId,
+                                                             kBypassParameterId)) {
     return false;
   }
 
   auto invalid_instance = plan;
   invalid_instance.operations[2].instance_id = invalid_instance.operations[1].instance_id;
-  if (garak::runtime::static_graph::bind_gain_execution_plan(
-          invalid_instance, kGainParameterId, kBypassParameterId)) {
+  if (garak::runtime::static_graph::bind_gain_execution_plan(invalid_instance, kGainParameterId,
+                                                             kBypassParameterId)) {
     return false;
   }
 
@@ -80,30 +80,30 @@ public:
   const auto first = invalid_order.operations[0];
   invalid_order.operations[0] = invalid_order.operations[1];
   invalid_order.operations[1] = first;
-  if (garak::runtime::static_graph::bind_gain_execution_plan(
-          invalid_order, kGainParameterId, kBypassParameterId)) {
+  if (garak::runtime::static_graph::bind_gain_execution_plan(invalid_order, kGainParameterId,
+                                                             kBypassParameterId)) {
     return false;
   }
 
   auto invalid_latency = plan;
   invalid_latency.latency_samples = 1;
-  if (garak::runtime::static_graph::bind_gain_execution_plan(
-          invalid_latency, kGainParameterId, kBypassParameterId)) {
+  if (garak::runtime::static_graph::bind_gain_execution_plan(invalid_latency, kGainParameterId,
+                                                             kBypassParameterId)) {
     return false;
   }
 
   auto invalid_buffer_count = plan;
   invalid_buffer_count.buffer_count = 1;
-  if (garak::runtime::static_graph::bind_gain_execution_plan(
-          invalid_buffer_count, kGainParameterId, kBypassParameterId)) {
+  if (garak::runtime::static_graph::bind_gain_execution_plan(invalid_buffer_count, kGainParameterId,
+                                                             kBypassParameterId)) {
     return false;
   }
 
   auto invalid_type = plan;
   invalid_type.operations[0].type =
       static_cast<garak::runtime::static_graph::OperationType>(0x0101U);
-  return !garak::runtime::static_graph::bind_gain_execution_plan(
-      invalid_type, kGainParameterId, kBypassParameterId);
+  return !garak::runtime::static_graph::bind_gain_execution_plan(invalid_type, kGainParameterId,
+                                                                 kBypassParameterId);
 }
 
 [[nodiscard]] bool test_compiled_graph_fixture() {
@@ -139,8 +139,8 @@ public:
   auto unknown_wide_type = kCompiledGraphFixture;
   unknown_wide_type[36] = 0x01U;
   unknown_wide_type[37] = 0x01U;
-  if (garak::runtime::static_graph::parse_compiled_gain_graph(
-          unknown_wide_type, kGainParameterId, kBypassParameterId)) {
+  if (garak::runtime::static_graph::parse_compiled_gain_graph(unknown_wide_type, kGainParameterId,
+                                                              kBypassParameterId)) {
     return false;
   }
 
