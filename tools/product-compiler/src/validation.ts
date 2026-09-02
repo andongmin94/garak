@@ -4,8 +4,13 @@ import path from "node:path";
 import { TextDecoder } from "node:util";
 
 import { fail } from "./errors.ts";
+import {
+  cloneProductGraphSource,
+  validateProductGraphSource,
+} from "./graph_source.ts";
 import { deriveProductIdentity } from "./identity.ts";
 import {
+  LEGACY_PRODUCT_TEMPLATE,
   PRODUCT_CATEGORY,
   PRODUCT_JSON_FILENAME,
   PRODUCT_JSON_MAXIMUM_BYTES,
@@ -14,11 +19,11 @@ import {
   PRODUCT_NAME_MAXIMUM_BYTES,
   PRODUCT_SCHEMA_V1,
   PRODUCT_SCHEMA_V2,
+  PRODUCT_SCHEMA_V3,
   PRODUCT_SCHEMA_VERSION,
   PRODUCT_TEMPLATE,
   PRODUCT_TEMPLATE_ID,
   PRODUCT_TEMPLATE_VERSION,
-  LEGACY_PRODUCT_TEMPLATE,
   PRODUCT_VENDOR_MAXIMUM_BYTES,
   containsControlCharacter,
   isJsonObject,
@@ -28,15 +33,18 @@ import {
 import type {
   ProductIdentity,
   ProductProject,
+  ProductProjectSource,
   ProductProjectSourceV1,
+  ProductProjectSourceV2,
   ProductVersion,
   ProjectSchemaDetection,
   ProjectSchemaStatus,
+  SupportedProductSchemaVersion,
 } from "./project_model.ts";
 import { migrateValidatedProjectToCurrent } from "./project_migration_core.ts";
 import { parseStrictJsonWithNumberTokens } from "./strict_json.ts";
 
-const TOP_LEVEL_KEYS = Object.freeze([
+const TOP_LEVEL_KEYS_V1_V2 = Object.freeze([
   "schemaVersion",
   "productId",
   "vendor",
@@ -46,6 +54,7 @@ const TOP_LEVEL_KEYS = Object.freeze([
   "template",
   "defaults",
 ]);
+const TOP_LEVEL_KEYS_V3 = Object.freeze([...TOP_LEVEL_KEYS_V1_V2, "graph"]);
 const DEFAULT_KEYS = Object.freeze(["gainDb"]);
 const TEMPLATE_KEYS = Object.freeze(["id", "version"]);
 const CANONICAL_UUID =
@@ -266,8 +275,15 @@ export function detectProjectSchemaVersion(
   }
   if (schemaVersion === PRODUCT_SCHEMA_V2) {
     return {
-      kind: "current",
+      kind: "supported-legacy",
       schemaVersion: PRODUCT_SCHEMA_V2,
+      currentSchemaVersion: PRODUCT_SCHEMA_VERSION,
+    };
+  }
+  if (schemaVersion === PRODUCT_SCHEMA_V3) {
+    return {
+      kind: "current",
+      schemaVersion: PRODUCT_SCHEMA_V3,
       currentSchemaVersion: PRODUCT_SCHEMA_VERSION,
     };
   }
@@ -276,7 +292,7 @@ export function detectProjectSchemaVersion(
 
 function requireSupportedProjectSchemaVersion(
   value: unknown,
-): typeof PRODUCT_SCHEMA_V1 | typeof PRODUCT_SCHEMA_V2 {
+): SupportedProductSchemaVersion {
   const detection = detectProjectSchemaVersion(value);
   switch (detection.kind) {
     case "supported-legacy":
@@ -309,7 +325,7 @@ function requireSupportedProjectSchemaVersion(
           "Required field 'schemaVersion' is missing.",
         );
       }
-      projectFailure(
+      return projectFailure(
         "GARAK_PROJECT_VERSION_INVALID",
         "schemaVersion",
         "schemaVersion must be a safe integer.",
@@ -328,9 +344,10 @@ interface ValidatedCommonFields {
 
 function validateCommonFields(
   value: Record<string, unknown>,
-  schemaVersion: typeof PRODUCT_SCHEMA_V1 | typeof PRODUCT_SCHEMA_V2,
+  schemaVersion: SupportedProductSchemaVersion,
+  topLevelKeys: readonly string[],
 ): ValidatedCommonFields {
-  assertExactKeys(value, TOP_LEVEL_KEYS, "", schemaVersion);
+  assertExactKeys(value, topLevelKeys, "", schemaVersion);
 
   const productId = requireString(value.productId, "productId");
   if (!CANONICAL_UUID.test(productId)) {
@@ -406,6 +423,34 @@ function validateCommonFields(
   };
 }
 
+function validateStructuredTemplate(
+  value: unknown,
+  schemaVersion: typeof PRODUCT_SCHEMA_V2 | typeof PRODUCT_SCHEMA_V3,
+): void {
+  if (!isJsonObject(value)) {
+    projectFailure(
+      "GARAK_PROJECT_WRONG_TYPE",
+      "template",
+      `schema v${schemaVersion} template must be a JSON object.`,
+    );
+  }
+  assertExactKeys(value, TEMPLATE_KEYS, "template", schemaVersion);
+  if (value.id !== PRODUCT_TEMPLATE_ID) {
+    projectFailure(
+      "GARAK_PROJECT_INVALID_TEMPLATE",
+      "template.id",
+      `template.id must be exactly '${PRODUCT_TEMPLATE_ID}'.`,
+    );
+  }
+  if (value.version !== PRODUCT_TEMPLATE_VERSION) {
+    projectFailure(
+      "GARAK_PROJECT_INVALID_TEMPLATE",
+      "template.version",
+      `template.version must be exactly ${PRODUCT_TEMPLATE_VERSION}.`,
+    );
+  }
+}
+
 export function validateProjectSchemaV1(
   value: unknown,
   sourceDirectory: string,
@@ -422,7 +467,11 @@ export function validateProjectSchemaV1(
   if (!isJsonObject(value)) {
     throw new Error("Unreachable project root validation state.");
   }
-  const common = validateCommonFields(value, PRODUCT_SCHEMA_V1);
+  const common = validateCommonFields(
+    value,
+    PRODUCT_SCHEMA_V1,
+    TOP_LEVEL_KEYS_V1_V2,
+  );
   if (value.template !== LEGACY_PRODUCT_TEMPLATE) {
     projectFailure(
       "GARAK_PROJECT_INVALID_TEMPLATE",
@@ -446,7 +495,7 @@ export function validateProjectSchemaV1(
 export function validateProjectSchemaV2(
   value: unknown,
   sourceDirectory: string,
-): ProductProject {
+): ProductProjectSourceV2 {
   void sourceDirectory;
   const detectedVersion = requireSupportedProjectSchemaVersion(value);
   if (detectedVersion !== PRODUCT_SCHEMA_V2) {
@@ -459,30 +508,12 @@ export function validateProjectSchemaV2(
   if (!isJsonObject(value)) {
     throw new Error("Unreachable project root validation state.");
   }
-  const common = validateCommonFields(value, PRODUCT_SCHEMA_V2);
-  if (!isJsonObject(value.template)) {
-    projectFailure(
-      "GARAK_PROJECT_WRONG_TYPE",
-      "template",
-      "schema v2 template must be a JSON object.",
-    );
-  }
-  assertExactKeys(value.template, TEMPLATE_KEYS, "template", PRODUCT_SCHEMA_V2);
-  if (value.template.id !== PRODUCT_TEMPLATE_ID) {
-    projectFailure(
-      "GARAK_PROJECT_INVALID_TEMPLATE",
-      "template.id",
-      `template.id must be exactly '${PRODUCT_TEMPLATE_ID}'.`,
-    );
-  }
-  if (value.template.version !== PRODUCT_TEMPLATE_VERSION) {
-    projectFailure(
-      "GARAK_PROJECT_INVALID_TEMPLATE",
-      "template.version",
-      `template.version must be exactly ${PRODUCT_TEMPLATE_VERSION}.`,
-    );
-  }
-
+  const common = validateCommonFields(
+    value,
+    PRODUCT_SCHEMA_V2,
+    TOP_LEVEL_KEYS_V1_V2,
+  );
+  validateStructuredTemplate(value.template, PRODUCT_SCHEMA_V2);
   return {
     schemaVersion: PRODUCT_SCHEMA_V2,
     productId: common.productId,
@@ -496,11 +527,47 @@ export function validateProjectSchemaV2(
   };
 }
 
+export function validateProjectSchemaV3(
+  value: unknown,
+  sourceDirectory: string,
+): ProductProject {
+  void sourceDirectory;
+  const detectedVersion = requireSupportedProjectSchemaVersion(value);
+  if (detectedVersion !== PRODUCT_SCHEMA_V3) {
+    projectFailure(
+      "GARAK_PROJECT_SCHEMA_VERSION",
+      "schemaVersion",
+      `schemaVersion must be exactly ${PRODUCT_SCHEMA_V3} for a v3 source validator.`,
+    );
+  }
+  if (!isJsonObject(value)) {
+    throw new Error("Unreachable project root validation state.");
+  }
+  const common = validateCommonFields(
+    value,
+    PRODUCT_SCHEMA_V3,
+    TOP_LEVEL_KEYS_V3,
+  );
+  validateStructuredTemplate(value.template, PRODUCT_SCHEMA_V3);
+  return {
+    schemaVersion: PRODUCT_SCHEMA_V3,
+    productId: common.productId,
+    vendor: common.vendor,
+    name: common.name,
+    version: common.version,
+    versionParts: common.versionParts,
+    category: PRODUCT_CATEGORY,
+    template: { ...PRODUCT_TEMPLATE },
+    defaults: { gainDb: common.gainDb },
+    graph: validateProductGraphSource(value.graph),
+  };
+}
+
 function sourceValueForCurrentProject(
   project: ProductProject,
 ): Record<string, unknown> {
   return {
-    schemaVersion: PRODUCT_SCHEMA_V2,
+    schemaVersion: PRODUCT_SCHEMA_V3,
     productId: project.productId,
     vendor: project.vendor,
     name: project.name,
@@ -508,11 +575,12 @@ function sourceValueForCurrentProject(
     category: PRODUCT_CATEGORY,
     template: { ...project.template },
     defaults: { gainDb: project.defaults.gainDb },
+    graph: cloneProductGraphSource(project.graph),
   };
 }
 
 export interface ValidatedProductProject {
-  readonly sourceProject: ProductProjectSourceV1 | ProductProject;
+  readonly sourceProject: ProductProjectSource;
   readonly project: ProductProject;
   readonly schemaStatus: ProjectSchemaStatus;
 }
@@ -522,22 +590,24 @@ export function validateVersionedProjectValue(
   sourceDirectory: string,
 ): ValidatedProductProject {
   const schemaVersion = requireSupportedProjectSchemaVersion(value);
+  let source: ProductProjectSource;
   if (schemaVersion === PRODUCT_SCHEMA_V1) {
-    const source = validateProjectSchemaV1(value, sourceDirectory);
-    const migrated = migrateValidatedProjectToCurrent(source);
-    const project = validateProjectSchemaV2(
-      sourceValueForCurrentProject(migrated.project),
-      sourceDirectory,
-    );
-    return {
-      sourceProject: source,
-      project,
-      schemaStatus: migrated.schemaStatus,
-    };
+    source = validateProjectSchemaV1(value, sourceDirectory);
+  } else if (schemaVersion === PRODUCT_SCHEMA_V2) {
+    source = validateProjectSchemaV2(value, sourceDirectory);
+  } else {
+    source = validateProjectSchemaV3(value, sourceDirectory);
   }
-  const project = validateProjectSchemaV2(value, sourceDirectory);
-  const current = migrateValidatedProjectToCurrent(project);
-  return { sourceProject: project, ...current };
+  const migrated = migrateValidatedProjectToCurrent(source);
+  const project = validateProjectSchemaV3(
+    sourceValueForCurrentProject(migrated.project),
+    sourceDirectory,
+  );
+  return {
+    sourceProject: source,
+    project,
+    schemaStatus: migrated.schemaStatus,
+  };
 }
 
 export function validateProjectValue(
@@ -550,7 +620,7 @@ export function validateProjectValue(
 export interface LoadedProductProject {
   readonly sourceDirectory: string;
   readonly physicalSourceDirectory: string;
-  readonly sourceProject: ProductProjectSourceV1 | ProductProject;
+  readonly sourceProject: ProductProjectSource;
   readonly project: ProductProject;
   readonly sourceBytes: Buffer;
   readonly schemaStatus: ProjectSchemaStatus;

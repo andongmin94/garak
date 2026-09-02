@@ -980,6 +980,7 @@ function draftForDocument(
     name: document.name,
     version: document.version,
     gainDb: document.defaults.gainDb,
+    graph: document.graph,
   };
 }
 

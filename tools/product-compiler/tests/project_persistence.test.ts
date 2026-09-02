@@ -11,6 +11,7 @@ import path from "node:path";
 import test from "node:test";
 
 import { ProductCompilerError } from "../src/errors.ts";
+import { canonicalProductGraphSource } from "../src/graph_source.ts";
 import {
   createDurableProductProject,
   fingerprintProjectTree,
@@ -35,6 +36,7 @@ const DRAFT = Object.freeze({
   name: "Artist Gain Warm",
   version: "0.1.0",
   gainDb: -6,
+  graph: canonicalProductGraphSource(),
 });
 
 async function captureProductError(
@@ -125,7 +127,7 @@ test("external future schema and Product ID replacement fail before publication"
       createInnerTransactionId: () => "create-a-inner",
     });
     const future = mutableWarmProduct();
-    future.schemaVersion = 3;
+    future.schemaVersion = 4;
     await writeFile(
       path.join(projectDirectory, "product.json"),
       `${JSON.stringify(future, undefined, 2)}\n`,
@@ -317,7 +319,7 @@ test("explicit in-place migration keeps identity and retains the exact legacy ba
       createPersistenceTransactionId: () => "migrate",
       createInnerTransactionId: () => "migrate-inner",
     });
-    assert.equal(migrated.document.schemaVersion, 2);
+    assert.equal(migrated.document.schemaVersion, 3);
     assert.equal(migrated.document.productId, PRODUCT_ID);
     assert.equal(
       migrated.inspection.processorFuid,
@@ -347,7 +349,9 @@ test("a lock without a transaction manifest fails closed as ambiguous recovery",
       .createHash("sha256")
       .update("garak.persistence-target.v1\0", "utf8")
       .update(
-        path.normalize(await realpath(projectDirectory)).toUpperCase(),
+        process.platform === "win32"
+          ? path.normalize(await realpath(projectDirectory)).toUpperCase()
+          : path.normalize(await realpath(projectDirectory)),
         "utf8",
       )
       .digest("hex")

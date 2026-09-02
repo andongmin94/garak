@@ -12,6 +12,7 @@ import path from "node:path";
 import test from "node:test";
 
 import { ProductCompilerError } from "../src/errors.ts";
+import { canonicalProductGraphSource } from "../src/graph_source.ts";
 import {
   createProductProject,
   inspectProductProjectDraft,
@@ -35,6 +36,7 @@ function warmDraft(): ProductProjectDraft {
     name: "Artist Gain Warm",
     version: "0.1.0",
     gainDb: -6,
+    graph: canonicalProductGraphSource(),
   };
 }
 
@@ -55,7 +57,7 @@ async function captureProductError(
 test("draft validation owns the canonical document and inspection contract", () => {
   const document = validateProductProjectDraft(PRODUCT_ID, warmDraft());
   assert.deepEqual(document, {
-    schemaVersion: 2,
+    schemaVersion: 3,
     productId: PRODUCT_ID,
     vendor: "Garak Test Artist",
     name: "Artist Gain Warm",
@@ -63,6 +65,7 @@ test("draft validation owns the canonical document and inspection contract", () 
     category: "Fx",
     template: { id: "garak.gain", version: 1 },
     defaults: { gainDb: -6 },
+    graph: canonicalProductGraphSource(),
   });
   const inspection = inspectProductProjectDraft(PRODUCT_ID, warmDraft());
   assert.equal(inspection.productId, PRODUCT_ID);
@@ -74,22 +77,7 @@ test("draft validation owns the canonical document and inspection contract", () 
 
   assert.equal(
     serializeProductProjectDocument(document),
-    `{
-  "schemaVersion": 2,
-  "productId": "${PRODUCT_ID}",
-  "vendor": "Garak Test Artist",
-  "name": "Artist Gain Warm",
-  "version": "0.1.0",
-  "category": "Fx",
-  "template": {
-    "id": "garak.gain",
-    "version": 1
-  },
-  "defaults": {
-    "gainDb": -6
-  }
-}
-`,
+    `${JSON.stringify(document, undefined, 2)}\n`,
   );
 });
 

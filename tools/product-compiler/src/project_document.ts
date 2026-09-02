@@ -4,6 +4,8 @@ import path from "node:path";
 
 import { sha256Hex } from "./compiled_product.ts";
 import { ProductCompilerError, fail } from "./errors.ts";
+import { validateProductGraphSource } from "./graph_source.ts";
+import type { ProductGraphSource } from "./graph_source.ts";
 import { deriveProductIdentity } from "./identity.ts";
 import {
   PRODUCT_CATEGORY,
@@ -24,7 +26,7 @@ import { ownedCleanupDiagnostic } from "./owned_cleanup.ts";
 import type { OwnedCleanupDiagnostic } from "./owned_cleanup.ts";
 import {
   loadProductProjectSource,
-  validateProjectSchemaV2,
+  validateProjectSchemaV3,
 } from "./validation.ts";
 
 export interface ProductProjectDraft {
@@ -32,6 +34,7 @@ export interface ProductProjectDraft {
   readonly name: string;
   readonly version: string;
   readonly gainDb: number;
+  readonly graph: ProductGraphSource;
 }
 
 export interface ProductProjectDocument {
@@ -43,6 +46,7 @@ export interface ProductProjectDocument {
   readonly category: typeof PRODUCT_CATEGORY;
   readonly template: typeof PRODUCT_TEMPLATE;
   readonly defaults: ProductDefaults;
+  readonly graph: ProductGraphSource;
 }
 
 export interface ProductProjectSnapshot {
@@ -80,7 +84,7 @@ export interface SaveProductProjectOptions extends ProjectMutationHooks {
   readonly draft: unknown;
 }
 
-const DRAFT_KEYS = Object.freeze(["vendor", "name", "version", "gainDb"]);
+const DRAFT_KEYS = Object.freeze(["vendor", "name", "version", "gainDb", "graph"]);
 const REVISION = /^[0-9a-f]{64}$/u;
 const TRANSACTION_ID = /^[0-9A-Za-z-]+$/u;
 const DEFAULT_TRANSACTION_FILE_SYSTEM: ProjectTransactionFileSystem = {
@@ -120,7 +124,7 @@ function assertExactDraft(
     projectFailure(
       "GARAK_PROJECT_UNKNOWN_FIELD",
       unknown[0],
-      `Unknown draft field '${unknown[0]}' is not allowed by product schema v2.`,
+      `Unknown draft field '${unknown[0]}' is not allowed by product schema v3.`,
     );
   }
   for (const key of DRAFT_KEYS) {
@@ -146,6 +150,7 @@ export function documentForProject(
     category: PRODUCT_CATEGORY,
     template: PRODUCT_TEMPLATE,
     defaults: { gainDb: project.defaults.gainDb },
+    graph: validateProductGraphSource(project.graph),
   };
 }
 
@@ -153,7 +158,7 @@ export function validateProductProjectDocument(
   value: unknown,
   sourceDirectory = "document.garak",
 ): ProductProjectDocument {
-  return documentForProject(validateProjectSchemaV2(value, sourceDirectory));
+  return documentForProject(validateProjectSchemaV3(value, sourceDirectory));
 }
 
 function projectForDraft(
@@ -162,7 +167,7 @@ function projectForDraft(
   sourceDirectory: string,
 ): ProductProject {
   assertExactDraft(draft);
-  return validateProjectSchemaV2(
+  return validateProjectSchemaV3(
     {
       schemaVersion: PRODUCT_SCHEMA_VERSION,
       productId,
@@ -172,6 +177,7 @@ function projectForDraft(
       category: PRODUCT_CATEGORY,
       template: PRODUCT_TEMPLATE,
       defaults: { gainDb: draft.gainDb },
+      graph: draft.graph,
     },
     sourceDirectory,
   );
@@ -200,7 +206,7 @@ export function serializeProductProjectDocument(
 ): string {
   const document = validateProductProjectDocument(value, sourceDirectory);
   return serializeCanonicalProductProject(
-    validateProjectSchemaV2(document, sourceDirectory),
+    validateProjectSchemaV3(document, sourceDirectory),
   );
 }
 

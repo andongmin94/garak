@@ -10,6 +10,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 
 import { ProductCompilerError } from "../src/errors.ts";
+import { canonicalProductGraphSource } from "../src/graph_source.ts";
 import { deriveProductIdentity } from "../src/identity.ts";
 import type { ProductRuntimeArtifacts } from "../src/export_windows.ts";
 import {
@@ -39,7 +40,7 @@ export interface MutableProductJson {
 }
 
 export const WARM_PRODUCT_JSON: Readonly<MutableProductJson> = Object.freeze({
-  schemaVersion: 2,
+  schemaVersion: 3,
   productId: "6f0e50f1-a2d4-4b37-8c9e-1f2a3b4c5d6e",
   vendor: "Garak Test Artist",
   name: "Artist Gain Warm",
@@ -47,7 +48,21 @@ export const WARM_PRODUCT_JSON: Readonly<MutableProductJson> = Object.freeze({
   category: "Fx",
   template: Object.freeze({ id: "garak.gain", version: 1 }),
   defaults: Object.freeze({ gainDb: -6 }),
+  graph: Object.freeze(canonicalProductGraphSource()),
 });
+
+
+export const LEGACY_V2_WARM_PRODUCT_JSON: Readonly<MutableProductJson> =
+  Object.freeze({
+    schemaVersion: 2,
+    productId: "6f0e50f1-a2d4-4b37-8c9e-1f2a3b4c5d6e",
+    vendor: "Garak Test Artist",
+    name: "Artist Gain Warm",
+    version: "0.1.0",
+    category: "Fx",
+    template: Object.freeze({ id: "garak.gain", version: 1 }),
+    defaults: Object.freeze({ gainDb: -6 }),
+  });
 
 export const LEGACY_WARM_PRODUCT_JSON: Readonly<MutableProductJson> =
   Object.freeze({
@@ -69,6 +84,20 @@ export function mutableWarmProduct(): MutableProductJson {
     name: WARM_PRODUCT_JSON.name,
     version: WARM_PRODUCT_JSON.version,
     category: WARM_PRODUCT_JSON.category,
+    template: { id: "garak.gain", version: 1 },
+    defaults: { gainDb: -6 },
+    graph: canonicalProductGraphSource(),
+  };
+}
+
+export function mutableLegacyV2WarmProduct(): MutableProductJson {
+  return {
+    schemaVersion: LEGACY_V2_WARM_PRODUCT_JSON.schemaVersion,
+    productId: LEGACY_V2_WARM_PRODUCT_JSON.productId,
+    vendor: LEGACY_V2_WARM_PRODUCT_JSON.vendor,
+    name: LEGACY_V2_WARM_PRODUCT_JSON.name,
+    version: LEGACY_V2_WARM_PRODUCT_JSON.version,
+    category: LEGACY_V2_WARM_PRODUCT_JSON.category,
     template: { id: "garak.gain", version: 1 },
     defaults: { gainDb: -6 },
   };

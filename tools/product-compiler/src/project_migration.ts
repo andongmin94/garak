@@ -9,7 +9,7 @@ import type {
   ProjectMigrationStepId,
   ProjectSchemaStatus,
   ProductProject,
-  ProductProjectSourceV1,
+  ProductProjectSource,
 } from "./project_model.ts";
 import {
   assertProjectMigrationInvariants,
@@ -89,7 +89,7 @@ function migrationStatus(
 
 function reportFor(
   status: ProjectSchemaStatus,
-  source: ProductProjectSourceV1 | ProductProject,
+  source: ProductProjectSource,
   project: ProductProject,
   options: {
     readonly dryRun: boolean;
@@ -129,12 +129,14 @@ function canonicalDraft(project: ProductProject): {
   readonly name: string;
   readonly version: string;
   readonly gainDb: number;
+  readonly graph: ProductProject["graph"];
 } {
   return {
     vendor: project.vendor,
     name: project.name,
     version: project.version,
     gainDb: project.defaults.gainDb,
+    graph: project.graph,
   };
 }
 

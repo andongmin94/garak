@@ -33,6 +33,18 @@ import {
 import type { LoadedProductProject } from "./validation.ts";
 
 export { ProductCompilerError, diagnosticFor } from "./errors.ts";
+export {
+  canonicalProductGraphSource,
+  cloneProductGraphSource,
+  validateProductGraphSource,
+} from "./graph_source.ts";
+export type {
+  ProductGraphConnection,
+  ProductGraphEndpoint,
+  ProductGraphNode,
+  ProductGraphNodeType,
+  ProductGraphSource,
+} from "./graph_source.ts";
 export type { Diagnostic } from "./errors.ts";
 export type {
   ChildProcessLog,

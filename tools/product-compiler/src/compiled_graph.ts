@@ -1,4 +1,6 @@
 import { fail } from "./errors.ts";
+import { canonicalProductGraphSource, validateProductGraphSource } from "./graph_source.ts";
+import type { ProductGraphSource } from "./graph_source.ts";
 import { BYPASS_PARAMETER_ID, GAIN_PARAMETER_ID } from "./project_model.ts";
 
 export const COMPILED_GRAPH_FILENAME = "graph.garakbin";
@@ -44,7 +46,10 @@ function graphFailure(code: string, field: string, message: string): never {
   );
 }
 
-export function canonicalGainGraphPlan(): CompiledGraphPlan {
+export function compileProductGraph(
+  source: ProductGraphSource,
+): CompiledGraphPlan {
+  validateProductGraphSource(source);
   return {
     operations: [
       {
@@ -75,6 +80,10 @@ export function canonicalGainGraphPlan(): CompiledGraphPlan {
     bufferCount: 2,
     latencySamples: 0,
   };
+}
+
+export function canonicalGainGraphPlan(): CompiledGraphPlan {
+  return compileProductGraph(canonicalProductGraphSource());
 }
 
 function assertCanonicalGainGraph(plan: CompiledGraphPlan): void {
