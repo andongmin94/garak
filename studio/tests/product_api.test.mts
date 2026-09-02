@@ -11,6 +11,25 @@ import {
   isValidateProductRequest,
 } from '../src/shared/product_api.mts';
 
+const GRAPH = {
+  schemaVersion: 1,
+  nodes: [
+    { id: 'input', type: 'garak.audio-input', implementationVersion: 1 },
+    { id: 'gain', type: 'garak.gain', implementationVersion: 1 },
+    { id: 'output', type: 'garak.audio-output', implementationVersion: 1 },
+  ],
+  connections: [
+    {
+      from: { nodeId: 'input', port: 'audio' },
+      to: { nodeId: 'gain', port: 'audio' },
+    },
+    {
+      from: { nodeId: 'gain', port: 'audio' },
+      to: { nodeId: 'output', port: 'audio' },
+    },
+  ],
+} as const;
+
 test('Product IPC request guards require exact finite payloads', () => {
   const draft = {
     vendor: 'Artist',
@@ -21,6 +40,7 @@ test('Product IPC request guards require exact finite payloads', () => {
   assert.equal(isProductDraft(draft), true);
   assert.equal(isProductDraft({ ...draft, productId: 'forged' }), false);
   assert.equal(isProductDraft({ ...draft, gainDb: Number.NaN }), false);
+  assert.equal(isProductDraft({ ...draft, graph: GRAPH }), false);
   assert.equal(isValidateProductRequest({ documentId: 'document-1', draft }), true);
   assert.equal(
     isValidateProductRequest({
@@ -61,16 +81,17 @@ test('Product IPC response guards reject malformed or authority-bearing results'
     documentId: 'document-1',
     locationLabel: null,
     saved: false,
-    schemaVersion: 2,
+    schemaVersion: 3,
     schemaStatus: {
-      sourceSchemaVersion: 2,
-      currentSchemaVersion: 2,
+      sourceSchemaVersion: 3,
+      currentSchemaVersion: 3,
       migrationRequired: false,
       steps: [],
     },
     productId: '6f0e50f1-a2d4-4b37-8c9e-1f2a3b4c5d6e',
     category: 'Fx',
     template: { id: 'garak.gain', version: 1 },
+    graph: GRAPH,
     draft: {
       vendor: 'Artist',
       name: 'Gain',
@@ -85,11 +106,10 @@ test('Product IPC response guards reject malformed or authority-bearing results'
       status: 'ok',
       value: {
         ...document,
-        schemaStatus: {
-          sourceSchemaVersion: 1,
-          currentSchemaVersion: 2,
-          migrationRequired: true,
-          steps: ['project-schema-1-to-2'],
+        graph: {
+          ...GRAPH,
+          nodes: [...GRAPH.nodes].reverse(),
+          connections: [...GRAPH.connections].reverse(),
         },
       },
     }),
@@ -102,7 +122,37 @@ test('Product IPC response guards reject malformed or authority-bearing results'
         ...document,
         schemaStatus: {
           sourceSchemaVersion: 1,
-          currentSchemaVersion: 2,
+          currentSchemaVersion: 3,
+          migrationRequired: true,
+          steps: ['project-schema-1-to-2', 'project-schema-2-to-3'],
+        },
+      },
+    }),
+    true,
+  );
+  assert.equal(
+    isProductDocumentResult({
+      status: 'ok',
+      value: {
+        ...document,
+        schemaStatus: {
+          sourceSchemaVersion: 2,
+          currentSchemaVersion: 3,
+          migrationRequired: true,
+          steps: ['project-schema-2-to-3'],
+        },
+      },
+    }),
+    true,
+  );
+  assert.equal(
+    isProductDocumentResult({
+      status: 'ok',
+      value: {
+        ...document,
+        schemaStatus: {
+          sourceSchemaVersion: 1,
+          currentSchemaVersion: 3,
           migrationRequired: false,
           steps: [],
         },
@@ -114,6 +164,26 @@ test('Product IPC response guards reject malformed or authority-bearing results'
     isProductDocumentResult({
       status: 'ok',
       value: { ...document, template: 'garak.gain-v1' },
+    }),
+    false,
+  );
+  assert.equal(
+    isProductDocumentResult({
+      status: 'ok',
+      value: { ...document, graph: { ...GRAPH, nodes: [] } },
+    }),
+    false,
+  );
+  assert.equal(
+    isProductDocumentResult({
+      status: 'ok',
+      value: {
+        ...document,
+        graph: {
+          ...GRAPH,
+          connections: [GRAPH.connections[0], GRAPH.connections[0]],
+        },
+      },
     }),
     false,
   );

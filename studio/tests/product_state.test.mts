@@ -9,20 +9,40 @@ import {
   productDraftFrom,
 } from '../src/features/product/product_state.mts';
 
+const GRAPH = {
+  schemaVersion: 1,
+  nodes: [
+    { id: 'input', type: 'garak.audio-input', implementationVersion: 1 },
+    { id: 'gain', type: 'garak.gain', implementationVersion: 1 },
+    { id: 'output', type: 'garak.audio-output', implementationVersion: 1 },
+  ],
+  connections: [
+    {
+      from: { nodeId: 'input', port: 'audio' },
+      to: { nodeId: 'gain', port: 'audio' },
+    },
+    {
+      from: { nodeId: 'gain', port: 'audio' },
+      to: { nodeId: 'output', port: 'audio' },
+    },
+  ],
+} as const;
+
 const document: ProductDocument = {
   documentId: 'document-1',
   locationLabel: 'Artist Gain.garak',
   saved: true,
-  schemaVersion: 2,
+  schemaVersion: 3,
   schemaStatus: {
-    sourceSchemaVersion: 2,
-    currentSchemaVersion: 2,
+    sourceSchemaVersion: 3,
+    currentSchemaVersion: 3,
     migrationRequired: false,
     steps: [],
   },
   productId: '6f0e50f1-a2d4-4b37-8c9e-1f2a3b4c5d6e',
   category: 'Fx',
   template: { id: 'garak.gain', version: 1 },
+  graph: GRAPH,
   cleanupWarnings: [],
   draft: {
     vendor: 'Garak Test Artist',

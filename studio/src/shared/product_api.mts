@@ -1,5 +1,24 @@
-export const LEGACY_PRODUCT_SCHEMA_VERSION = 1 as const;
-export const PRODUCT_SCHEMA_VERSION = 2 as const;
+import { isProductGraphSource } from './product_graph.mts';
+import type { ProductGraphSource } from './product_graph.mts';
+
+export {
+  PRODUCT_GRAPH_AUDIO_PORT,
+  PRODUCT_GRAPH_IMPLEMENTATION_VERSION,
+  PRODUCT_GRAPH_NODE_TYPE,
+  PRODUCT_GRAPH_SCHEMA_VERSION,
+  isProductGraphSource,
+} from './product_graph.mts';
+export type {
+  ProductGraphConnection,
+  ProductGraphEndpoint,
+  ProductGraphNode,
+  ProductGraphNodeType,
+  ProductGraphSource,
+} from './product_graph.mts';
+
+export const PRODUCT_SCHEMA_V1 = 1 as const;
+export const PRODUCT_SCHEMA_V2 = 2 as const;
+export const PRODUCT_SCHEMA_VERSION = 3 as const;
 export const PRODUCT_CATEGORY = 'Fx' as const;
 export const PRODUCT_TEMPLATE_ID = 'garak.gain' as const;
 export const PRODUCT_TEMPLATE_VERSION = 1 as const;
@@ -8,6 +27,7 @@ export const PRODUCT_TEMPLATE = Object.freeze({
   version: PRODUCT_TEMPLATE_VERSION,
 });
 export const PROJECT_MIGRATION_STEP_V1_TO_V2 = 'project-schema-1-to-2' as const;
+export const PROJECT_MIGRATION_STEP_V2_TO_V3 = 'project-schema-2-to-3' as const;
 
 export type ProductConfiguration = 'Debug' | 'Release';
 
@@ -26,10 +46,15 @@ export interface ProductDraft {
 
 export interface ProductSchemaStatus {
   readonly sourceSchemaVersion:
-    typeof LEGACY_PRODUCT_SCHEMA_VERSION | typeof PRODUCT_SCHEMA_VERSION;
+    | typeof PRODUCT_SCHEMA_V1
+    | typeof PRODUCT_SCHEMA_V2
+    | typeof PRODUCT_SCHEMA_VERSION;
   readonly currentSchemaVersion: typeof PRODUCT_SCHEMA_VERSION;
   readonly migrationRequired: boolean;
-  readonly steps: readonly (typeof PROJECT_MIGRATION_STEP_V1_TO_V2)[];
+  readonly steps: readonly (
+    | typeof PROJECT_MIGRATION_STEP_V1_TO_V2
+    | typeof PROJECT_MIGRATION_STEP_V2_TO_V3
+  )[];
 }
 
 export interface ProductDocument {
@@ -41,6 +66,7 @@ export interface ProductDocument {
   readonly productId: string;
   readonly category: typeof PRODUCT_CATEGORY;
   readonly template: typeof PRODUCT_TEMPLATE;
+  readonly graph: ProductGraphSource;
   readonly draft: ProductDraft;
   readonly cleanupWarnings: readonly ProductCleanupWarning[];
 }
@@ -169,11 +195,19 @@ function isProductSchemaStatus(value: unknown): value is ProductSchemaStatus {
   ) {
     return false;
   }
-  if (value.sourceSchemaVersion === LEGACY_PRODUCT_SCHEMA_VERSION) {
+  if (value.sourceSchemaVersion === PRODUCT_SCHEMA_V1) {
+    return (
+      value.migrationRequired === true &&
+      value.steps.length === 2 &&
+      value.steps[0] === PROJECT_MIGRATION_STEP_V1_TO_V2 &&
+      value.steps[1] === PROJECT_MIGRATION_STEP_V2_TO_V3
+    );
+  }
+  if (value.sourceSchemaVersion === PRODUCT_SCHEMA_V2) {
     return (
       value.migrationRequired === true &&
       value.steps.length === 1 &&
-      value.steps[0] === PROJECT_MIGRATION_STEP_V1_TO_V2
+      value.steps[0] === PROJECT_MIGRATION_STEP_V2_TO_V3
     );
   }
   return (
@@ -259,6 +293,7 @@ function isProductDocument(value: unknown): value is ProductDocument {
       'productId',
       'category',
       'template',
+      'graph',
       'draft',
       'cleanupWarnings',
     ]) &&
@@ -271,6 +306,7 @@ function isProductDocument(value: unknown): value is ProductDocument {
     CANONICAL_PRODUCT_ID.test(value.productId) &&
     value.category === PRODUCT_CATEGORY &&
     isProductTemplate(value.template) &&
+    isProductGraphSource(value.graph) &&
     isProductDraft(value.draft) &&
     Array.isArray(value.cleanupWarnings) &&
     value.cleanupWarnings.every(isProductCleanupWarning)
