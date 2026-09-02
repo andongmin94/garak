@@ -88,15 +88,15 @@ Schema v1 migrates through v2 and then v3. Schema v2 migrates directly to v3. Bo
 ## 구현 단계
 
 1. [x] Write this ExecPlan before source implementation.
-2. [ ] Add schema v3 graph types, constants and canonical source factory.
-3. [ ] Add strict graph validation and deterministic compiled-plan derivation.
-4. [ ] Extend version detection, migration chain and canonical serialization to v3.
-5. [ ] Extend Product document/draft/persistence APIs while preserving immutable identity.
-6. [ ] Move Warm/Bright current fixtures to v3 and retain explicit v2 migration fixtures.
-7. [ ] Extend Studio typed API and main-owned session round-trip.
-8. [ ] Add focused graph, migration, document, export and Studio regressions.
-9. [ ] Run available local format/type/test checks and fix all failures.
-10. [ ] Update ExecPlan 0014, architecture, current status and roadmap to the verified Phase 3C2 state.
+2. [x] Add schema v3 graph types, constants and canonical source factory.
+3. [x] Add strict graph validation and deterministic compiled-plan derivation.
+4. [x] Extend version detection, migration chain and canonical serialization to v3.
+5. [x] Extend Product document/draft/persistence APIs while preserving immutable identity.
+6. [x] Move Warm/Bright current fixtures to v3 and retain explicit v2 migration fixtures.
+7. [x] Extend Studio typed API and main-owned session round-trip.
+8. [x] Add focused graph, migration, document, export and Studio regressions.
+9. [x] Run locally available type/test/diff checks and fix all failures; dependency-backed format/lint/build remains for clean Windows verification.
+10. [x] Update ExecPlan 0014, architecture, current status and roadmap to the acceptance-pending Phase 3C2 state.
 11. [ ] Record exact source commit and prepare a clean Windows verifier for the source commit without allowing the verifier to mutate source.
 
 ## 변경 대상 파일
@@ -159,6 +159,7 @@ Authoritative acceptance remains a clean Windows x64 checkout of the exact sourc
 
 - 2026-09-02: The preceding automation report did not correspond to a real Phase 3C2 branch. GitHub `main` was still at the pre-3C1 baseline until PR #103 was accepted.
 - 2026-09-02: PR #103 subsequently merged as `1666c667e6e635447b387a5e25bcce7ef1ee42e5`; this plan starts from that accepted baseline.
+- 2026-09-02: The local environment could not reach the npm registry, so dependency-backed Prettier, ESLint, Studio typecheck and Vite/Electron build were not authoritative locally. Product Compiler global-`tsc` typecheck, Product Compiler tests (97 pass, one Windows-only skip), Studio typed tests (15/15) and `git diff --check` passed. Full dependency-backed gates remain mandatory in the clean Windows verifier.
 
 ## 의사결정 로그
 
@@ -168,8 +169,13 @@ Authoritative acceptance remains a clean Windows x64 checkout of the exact sourc
 
 ## 완료 기록
 
-In progress. Completion will list actual files, checks and any unverified platform gates. Phase 3C3 must not be reported complete from this work.
+Implementation candidate complete locally; acceptance remains in progress. Current source contains schema v3,
+embedded graph source v1, strict migration/serialization/export and Studio main-owned graph round-trip. Exact source
+commit, dependency-backed format/lint/typecheck/build, Windows actual export/Validator, CTest, Werror, clang-tidy and
+tracked-source mutation evidence are not yet recorded. Phase 3C3 must not be reported complete from this work.
 
 ## 다음 단계
 
-After Phase 3C2 is accepted, execute Phase 3C3: compiled graph compatibility matrix and the final clean Windows product gate for Phase 3C.
+Create the exact Phase 3C2 source commit, run the clean Windows acceptance matrix, fix any failure and accept only the
+green exact head. After Phase 3C2 is accepted, execute Phase 3C3: compiled graph compatibility matrix and the final
+clean Windows product gate for Phase 3C.

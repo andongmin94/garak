@@ -4,7 +4,7 @@ Garak(가락)은 음악가와 창작자가 자기 사운드, control language, i
 
 ## 현재 제품 경로
 
-현재 `main`의 Windows x64 기준 경로는 다음 하나다.
+현재 source tree의 Windows x64 기준 경로는 다음 하나다.
 
 ```text
 unpacked .garak project
@@ -30,11 +30,11 @@ Phase 3B의 전체 Windows 검증은 historical realtime-safety 기준선으로 
 - historical workflow run: `32634527751`
 - result: Product Compiler, Studio, Debug/Release export, Validator, CTest, Werror와 clang-tidy success
 
-Phase 3C1의 export/resource foundation은 commit `48807fd56e72fdae7192956bf90d6a4ed4b83572`에 반영됐고, exact source commit `510f906f45924ad4ef035f6598fc193c25eed245`를 clean Windows checkout에서 검증했다.
+Phase 3C1은 PR `#103`으로 `main`에 squash merge됐다.
 
-- historical foundation run: `33455352188`
-- corrected execution-binding implementation: `8d3461f2e79f38b6e4268d852614eed496b46c82`
-- correction clean Windows run: `33602728928`
+- accepted main commit: `1666c667e6e635447b387a5e25bcce7ef1ee42e5`
+- exact verified product head: `837e01ef96c11800b246a50eff92c4599e630080`
+- clean Windows run: `33610351357`
 - Product Compiler와 Studio format/lint/typecheck/test/build success
 - Debug/Release Product Runtime clean build success
 - Warm/Bright actual export와 official VST3 Validator success
@@ -42,7 +42,11 @@ Phase 3C1의 export/resource foundation은 commit `48807fd56e72fdae7192956bf90d6
 - warnings-as-errors와 clang-tidy success
 - tracked source mutation `0`
 
-Correction 이후 Runtime은 module load에서 compiled graph를 private immutable execution binding으로 준비하고 callback은 해당 binding의 buffer slot과 Gain/Bypass Parameter ID를 실제 dispatch에 사용한다. 따라서 **Phase 3C1 corrected implementation은 PASS / Complete**다. Phase 3C 전체는 editable schema v3와 compatibility/full product gate가 남아 있어 여전히 In Progress다. 현재 사실은 [`docs/status/current.md`](docs/status/current.md)를 따른다.
+Phase 3C2 source tree에는 current schema v3, embedded graph source v1, strict v1/v2 migration, source-derived
+`graph.garakbin`과 Studio main-owned graph round-trip 구현이 있다. Product Compiler local typecheck와 98개
+테스트 중 97개가 통과했고 Windows-only junction test 1개만 skip됐으며, Studio typed service/API 테스트는
+15/15 통과했다. **Exact source commit의 clean Windows full gate는 아직 실행 전이므로 Phase 3C2는 수용
+대기 상태**다. 현재 사실은 [`docs/status/current.md`](docs/status/current.md)를 따른다.
 
 ## 빠른 시작
 
@@ -138,11 +142,11 @@ cmake --build --preset product-runtime-clang-tidy-build --clean-first
 
 ## 현재 구현된 계약
 
-- editable project schema v2와 strict legacy v1 migration
+- editable project schema v3, embedded graph source v1과 strict legacy v1/v2 migration
 - immutable Product ID와 deterministic processor/controller FUID derivation
 - permanent Gain `1001` / Bypass `1002` Parameter IDs
 - deterministic `GARAKCPD` v1 compiled product data
-- deterministic `GARAKGRF` v1 compiled graph data
+- validated `project.graph`에서 파생되는 deterministic `GARAKGRF` v1 compiled graph data
 - product-bound `GARAKPST` v1 plug-in state
 - durable project save, persistent verified backup와 crash recovery core
 - main-owned migration/conflict/recovery decisions
@@ -174,14 +178,22 @@ Phase 3A는 production Gain DSP를 실제 processor dispatch와 연결하는 최
 - missing/corrupt/unsupported resource fail-closed 기반
 - resource foundation commit `510f906f45924ad4ef035f6598fc193c25eed245`와 corrected implementation commit `8d3461f2e79f38b6e4268d852614eed496b46c82`의 clean Windows full gate success
 
-아직 남은 단계:
+#### Phase 3C2 — Editable project schema v3 — In Progress
 
-- project schema v3의 versioned editable graph source
-- strict v2→v3 migration
-- Studio document/draft round-trip
-- compiled graph compatibility matrix와 final full product gate
+현재 구현 후보:
 
-다음 구현 increment는 **Phase 3C2 — Editable project schema v3**다. 상세 계획은 [`plans/0014-phase-3c-editable-static-graph-contract.md`](plans/0014-phase-3c-editable-static-graph-contract.md)를 따른다.
+- current project schema v3와 embedded graph source v1
+- strict graph/node/port/connection validation
+- ordered v1→v2→v3와 v2→v3 migration
+- canonical v3 serialization과 exact legacy/current fixture oracle
+- valid authoring ID/order에 독립적인 source-derived `graph.garakbin`
+- Studio main-owned read-only graph create/open/save/reopen/migrate round-trip
+- Product Compiler local typecheck와 97 pass / 1 Windows-only skip
+- Studio service/API tests 15/15 pass
+
+남은 수용 조건은 exact source commit의 clean Windows format/lint/typecheck/test/build, Debug/Release actual
+export와 official Validator, CTest, Studio workflow, Werror, clang-tidy와 tracked-source mutation `0`이다.
+Phase 3C2가 수용된 뒤 **Phase 3C3 — compiled graph compatibility matrix and final product gate**로 진행한다.
 
 ## 제거된 기술 spike
 
@@ -191,7 +203,7 @@ Phase 1A의 fixed Gain module과 Phase 1B의 Data/Thin A/B runtime-strategy 구�
 
 현재 Garak은 repository-local Windows vertical slice다. 다음은 아직 완료되지 않았다.
 
-- editable graph source와 schema v3 migration
+- compiled graph compatibility disposition matrix와 final Phase 3C gate
 - additional DSP node library
 - cross-thread automation/state handoff 및 kernel-level blocking 계측
 - macro mapping과 functional Sound/Control workspaces
@@ -210,6 +222,8 @@ Phase 1A의 fixed Gain module과 Phase 1B의 Data/Thin A/B runtime-strategy 구�
 - [Current status](docs/status/current.md)
 - [Phase 3C ExecPlan](plans/0014-phase-3c-editable-static-graph-contract.md)
 - [Phase 3C1 execution correction](plans/0015-phase-3c1-graph-execution-correction.md)
+- [Phase 3C2 editable schema v3](plans/0016-phase-3c2-editable-project-schema-v3.md)
+- [Editable Project Schema v3](docs/architecture/editable-project-schema-v3.md)
 - [System overview](docs/architecture/system-overview.md)
 - [Runtime and export](docs/architecture/runtime-and-export.md)
 - [VST3 adapter](docs/architecture/vst3-adapter.md)
