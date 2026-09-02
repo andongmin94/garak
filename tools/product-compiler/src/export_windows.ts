@@ -738,7 +738,9 @@ export async function exportWindowsProduct(
   const identity = deriveProductIdentity(options.project.productId);
   const compiledBytes = encodeCompiledProduct(options.project);
   assertCompiledParity(options.project, compiledBytes);
-  const graphBytes = encodeCompiledGraph(compileProductGraph(options.project.graph));
+  const graphBytes = encodeCompiledGraph(
+    compileProductGraph(options.project.graph),
+  );
   decodeCompiledGraph(graphBytes);
   const artifacts =
     options.artifacts ??

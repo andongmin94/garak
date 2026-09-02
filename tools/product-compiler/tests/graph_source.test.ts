@@ -87,19 +87,13 @@ test("graph source rejects unknown and missing fields at every structural layer"
 
   const unknownEndpointField = mutableGraph();
   Object.assign(unknownEndpointField.connections[0]!.from, { channel: 0 });
-  expectGraphError(
-    unknownEndpointField,
-    "GARAK_PROJECT_GRAPH_UNKNOWN_FIELD",
-  );
+  expectGraphError(unknownEndpointField, "GARAK_PROJECT_GRAPH_UNKNOWN_FIELD");
 });
 
 test("graph source rejects duplicate nodes, node types, and connections", () => {
   const duplicateNodeId = mutableGraph();
   duplicateNodeId.nodes[1]!.id = duplicateNodeId.nodes[0]!.id;
-  expectGraphError(
-    duplicateNodeId,
-    "GARAK_PROJECT_GRAPH_DUPLICATE_NODE_ID",
-  );
+  expectGraphError(duplicateNodeId, "GARAK_PROJECT_GRAPH_DUPLICATE_NODE_ID");
 
   const duplicateNodeType = mutableGraph();
   duplicateNodeType.nodes[1]!.type = duplicateNodeType.nodes[0]!.type;
@@ -147,10 +141,7 @@ test("graph source rejects unsupported versions, node IDs, types, and ports", ()
 test("graph source rejects missing endpoints, cycles, and disconnected output", () => {
   const missingEndpoint = mutableGraph();
   missingEndpoint.connections[0]!.to.nodeId = "missing";
-  expectGraphError(
-    missingEndpoint,
-    "GARAK_PROJECT_GRAPH_MISSING_ENDPOINT",
-  );
+  expectGraphError(missingEndpoint, "GARAK_PROJECT_GRAPH_MISSING_ENDPOINT");
 
   const cycle = mutableGraph();
   cycle.connections = [

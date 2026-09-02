@@ -125,8 +125,7 @@ async function main(): Promise<void> {
   try {
     await cp(legacyV2Fixture, migrationProject, { recursive: true, errorOnExist: true });
     let backupNotice:
-      | { readonly projectDirectory: string; readonly fingerprint: string }
-      | undefined;
+      { readonly projectDirectory: string; readonly fingerprint: string } | undefined;
     const migrationService = new ProductService({
       repositoryRoot,
       dialogs: {

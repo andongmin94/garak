@@ -46,14 +46,11 @@ export interface ProductDraft {
 
 export interface ProductSchemaStatus {
   readonly sourceSchemaVersion:
-    | typeof PRODUCT_SCHEMA_V1
-    | typeof PRODUCT_SCHEMA_V2
-    | typeof PRODUCT_SCHEMA_VERSION;
+    typeof PRODUCT_SCHEMA_V1 | typeof PRODUCT_SCHEMA_V2 | typeof PRODUCT_SCHEMA_VERSION;
   readonly currentSchemaVersion: typeof PRODUCT_SCHEMA_VERSION;
   readonly migrationRequired: boolean;
   readonly steps: readonly (
-    | typeof PROJECT_MIGRATION_STEP_V1_TO_V2
-    | typeof PROJECT_MIGRATION_STEP_V2_TO_V3
+    typeof PROJECT_MIGRATION_STEP_V1_TO_V2 | typeof PROJECT_MIGRATION_STEP_V2_TO_V3
   )[];
 }
 

@@ -1,5 +1,8 @@
 import { fail } from "./errors.ts";
-import { canonicalProductGraphSource, validateProductGraphSource } from "./graph_source.ts";
+import {
+  canonicalProductGraphSource,
+  validateProductGraphSource,
+} from "./graph_source.ts";
 import type { ProductGraphSource } from "./graph_source.ts";
 import { BYPASS_PARAMETER_ID, GAIN_PARAMETER_ID } from "./project_model.ts";
 

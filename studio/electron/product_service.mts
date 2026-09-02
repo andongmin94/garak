@@ -300,10 +300,7 @@ export class ProductService {
   async saveProduct(request: SaveProductRequest): Promise<ProductOperationResult<ProductDocument>> {
     return this.#run(async () => {
       const session = this.#requireSession(request.documentId);
-      if (
-        session.kind === 'saved' &&
-        session.sourceSchemaVersion !== PRODUCT_SCHEMA_VERSION
-      ) {
+      if (session.kind === 'saved' && session.sourceSchemaVersion !== PRODUCT_SCHEMA_VERSION) {
         studioFailure(
           'GARAK_PROJECT_MIGRATION_REQUIRED',
           'project.schemaVersion',

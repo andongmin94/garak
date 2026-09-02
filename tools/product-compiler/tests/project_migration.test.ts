@@ -129,10 +129,7 @@ test("migration status classifies legacy and current projects without mutation",
       detectedSchemaVersion: 1,
       currentSchemaVersion: 3,
       migrationRequired: true,
-      migrationPath: [
-        "project-schema-1-to-2",
-        "project-schema-2-to-3",
-      ],
+      migrationPath: ["project-schema-1-to-2", "project-schema-2-to-3"],
       identity: {
         productId: PRODUCT_ID,
         processorFuid: PROCESSOR_FUID,

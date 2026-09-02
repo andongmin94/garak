@@ -84,10 +84,7 @@ function assertExactKeys(
   }
 }
 
-function requireObject(
-  value: unknown,
-  field: string,
-): Record<string, unknown> {
+function requireObject(value: unknown, field: string): Record<string, unknown> {
   if (!isJsonObject(value)) {
     graphFailure(
       "GARAK_PROJECT_GRAPH_WRONG_TYPE",
@@ -144,10 +141,7 @@ function validateNode(value: unknown, index: number): ProductGraphNode {
   };
 }
 
-function validateEndpoint(
-  value: unknown,
-  field: string,
-): ProductGraphEndpoint {
+function validateEndpoint(value: unknown, field: string): ProductGraphEndpoint {
   const endpoint = requireObject(value, field);
   assertExactKeys(endpoint, ENDPOINT_KEYS, field);
   const nodeId = requireNodeId(endpoint.nodeId, `${field}.nodeId`);
@@ -310,7 +304,10 @@ export function canonicalProductGraphSource(): ProductGraphSource {
         implementationVersion: PRODUCT_GRAPH_IMPLEMENTATION_VERSION,
       },
     ],
-    connections: [copyConnection("input", "gain"), copyConnection("gain", "output")],
+    connections: [
+      copyConnection("input", "gain"),
+      copyConnection("gain", "output"),
+    ],
   };
 }
 
@@ -378,7 +375,11 @@ export function validateProductGraphSource(value: unknown): ProductGraphSource {
   const audioInput = nodesByType.get(PRODUCT_GRAPH_NODE_TYPE.audioInput);
   const gain = nodesByType.get(PRODUCT_GRAPH_NODE_TYPE.gain);
   const audioOutput = nodesByType.get(PRODUCT_GRAPH_NODE_TYPE.audioOutput);
-  if (audioInput === undefined || gain === undefined || audioOutput === undefined) {
+  if (
+    audioInput === undefined ||
+    gain === undefined ||
+    audioOutput === undefined
+  ) {
     graphFailure(
       "GARAK_PROJECT_GRAPH_MISSING_NODE_TYPE",
       "nodes",

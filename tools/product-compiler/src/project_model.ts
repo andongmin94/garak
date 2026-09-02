@@ -65,12 +65,9 @@ export interface ProductProjectSourceV3 extends ProductProjectSourceCommon {
 
 export type ProductProject = ProductProjectSourceV3;
 export type ProductProjectSource =
-  | ProductProjectSourceV1
-  | ProductProjectSourceV2
-  | ProductProjectSourceV3;
+  ProductProjectSourceV1 | ProductProjectSourceV2 | ProductProjectSourceV3;
 export type ProjectMigrationStepId =
-  | "project-schema-1-to-2"
-  | "project-schema-2-to-3";
+  "project-schema-1-to-2" | "project-schema-2-to-3";
 export type SupportedProductSchemaVersion =
   | typeof PRODUCT_SCHEMA_V1
   | typeof PRODUCT_SCHEMA_V2
@@ -80,8 +77,7 @@ export type ProjectSchemaDetection =
   | {
       readonly kind: "supported-legacy";
       readonly schemaVersion:
-        | typeof PRODUCT_SCHEMA_V1
-        | typeof PRODUCT_SCHEMA_V2;
+        typeof PRODUCT_SCHEMA_V1 | typeof PRODUCT_SCHEMA_V2;
       readonly currentSchemaVersion: typeof PRODUCT_SCHEMA_VERSION;
     }
   | {

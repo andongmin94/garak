@@ -51,7 +51,6 @@ export const WARM_PRODUCT_JSON: Readonly<MutableProductJson> = Object.freeze({
   graph: Object.freeze(canonicalProductGraphSource()),
 });
 
-
 export const LEGACY_V2_WARM_PRODUCT_JSON: Readonly<MutableProductJson> =
   Object.freeze({
     schemaVersion: 2,

@@ -84,7 +84,13 @@ export interface SaveProductProjectOptions extends ProjectMutationHooks {
   readonly draft: unknown;
 }
 
-const DRAFT_KEYS = Object.freeze(["vendor", "name", "version", "gainDb", "graph"]);
+const DRAFT_KEYS = Object.freeze([
+  "vendor",
+  "name",
+  "version",
+  "gainDb",
+  "graph",
+]);
 const REVISION = /^[0-9a-f]{64}$/u;
 const TRANSACTION_ID = /^[0-9A-Za-z-]+$/u;
 const DEFAULT_TRANSACTION_FILE_SYSTEM: ProjectTransactionFileSystem = {

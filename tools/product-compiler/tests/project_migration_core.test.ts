@@ -167,10 +167,7 @@ test("migration chain reports ordered v1 and v2 steps and a v3 no-op", () => {
     sourceSchemaVersion: 1,
     currentSchemaVersion: 3,
     migrationRequired: true,
-    steps: [
-      PROJECT_MIGRATION_STEP_V1_TO_V2,
-      PROJECT_MIGRATION_STEP_V2_TO_V3,
-    ],
+    steps: [PROJECT_MIGRATION_STEP_V1_TO_V2, PROJECT_MIGRATION_STEP_V2_TO_V3],
   });
 
   const legacyV2 = validateProjectSchemaV2(
@@ -228,8 +225,10 @@ test("migration invariants reject identity, defaults, metadata, and graph drift"
     );
   }
   assert.equal(
-    assertProjectMigrationInvariants(source, { ...target, graph: customIdGraph() })
-      .productSemanticsChanged,
+    assertProjectMigrationInvariants(source, {
+      ...target,
+      graph: customIdGraph(),
+    }).productSemanticsChanged,
     false,
   );
 });
@@ -286,10 +285,16 @@ test("Warm and Bright tracked v3 fixtures are exact canonical SHA-256 oracles", 
 test("graph cloning preserves authoring identity without sharing nested objects", () => {
   const graph = customIdGraph();
   const cloned = cloneProductGraphSource(graph);
-  assert.deepEqual(cloned, validateProjectSchemaV3({
-    ...mutableWarmProduct(),
-    graph,
-  }, "clone.garak").graph);
+  assert.deepEqual(
+    cloned,
+    validateProjectSchemaV3(
+      {
+        ...mutableWarmProduct(),
+        graph,
+      },
+      "clone.garak",
+    ).graph,
+  );
   assert.notStrictEqual(cloned, graph);
   assert.notStrictEqual(cloned.nodes[0], graph.nodes[0]);
 });
