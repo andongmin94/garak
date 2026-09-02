@@ -4,6 +4,7 @@ import { diagnosticFor, fail } from "./errors.ts";
 
 interface ParsedArguments {
   readonly compiledFile: string;
+  readonly graphFile: string | undefined;
   readonly stateFile: string | undefined;
   readonly productId: string | undefined;
   readonly json: boolean;
@@ -13,12 +14,13 @@ function usageFailure(message: string): never {
   fail(
     "GARAK_COMPATIBILITY_CLI_USAGE",
     "compatibility.command",
-    `${message} Usage: product:compatibility --compiled <product.garakbin> [--state <state.bin>] [--product-id <uuid>] [--json]`,
+    `${message} Usage: product:compatibility --compiled <product.garakbin> [--graph <graph.garakbin>] [--state <state.bin>] [--product-id <uuid>] [--json]`,
   );
 }
 
 function parseArguments(arguments_: readonly string[]): ParsedArguments {
   let compiledFile: string | undefined;
+  let graphFile: string | undefined;
   let stateFile: string | undefined;
   let productId: string | undefined;
   let json = false;
@@ -34,6 +36,7 @@ function parseArguments(arguments_: readonly string[]): ParsedArguments {
     }
     if (
       option !== "--compiled" &&
+      option !== "--graph" &&
       option !== "--state" &&
       option !== "--product-id"
     ) {
@@ -49,6 +52,11 @@ function parseArguments(arguments_: readonly string[]): ParsedArguments {
         usageFailure("Option '--compiled' must not be repeated.");
       }
       compiledFile = value;
+    } else if (option === "--graph") {
+      if (graphFile !== undefined) {
+        usageFailure("Option '--graph' must not be repeated.");
+      }
+      graphFile = value;
     } else if (option === "--state") {
       if (stateFile !== undefined) {
         usageFailure("Option '--state' must not be repeated.");
@@ -68,7 +76,7 @@ function parseArguments(arguments_: readonly string[]): ParsedArguments {
   if (productId !== undefined && stateFile === undefined) {
     usageFailure("Option '--product-id' requires --state.");
   }
-  return { compiledFile, stateFile, productId, json };
+  return { compiledFile, graphFile, stateFile, productId, json };
 }
 
 function versionText(
@@ -83,6 +91,10 @@ function writeHuman(report: CompatibilityInspection): void {
     `Compiled version: ${versionText(report.compiled.version)}`,
     `Compiled Product ID: ${report.compiled.productId ?? "unavailable"}`,
     `Compiled action: ${report.compiled.action}`,
+    `Graph disposition: ${report.graph.disposition}`,
+    `Graph version: ${versionText(report.graph.version)}`,
+    `Graph diagnostic: ${report.graph.diagnosticCode ?? "none"}`,
+    `Graph action: ${report.graph.action}`,
   ];
   if (report.state !== null) {
     lines.push(
@@ -101,6 +113,9 @@ async function main(): Promise<void> {
     const arguments_ = parseArguments(process.argv.slice(2));
     const report = await inspectCompatibilityFiles({
       compiledFile: arguments_.compiledFile,
+      ...(arguments_.graphFile === undefined
+        ? {}
+        : { graphFile: arguments_.graphFile }),
       ...(arguments_.stateFile === undefined
         ? {}
         : { stateFile: arguments_.stateFile }),

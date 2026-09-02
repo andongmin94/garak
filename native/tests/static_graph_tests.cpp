@@ -1,5 +1,8 @@
+#include "garak/runtime/static_graph/compatibility.hpp"
 #include "garak/runtime/static_graph/compiled_graph.hpp"
 #include "garak/runtime/static_graph/gain_plan.hpp"
+
+#include "compiled_graph_test_fixture.hpp"
 
 #include "garak/dsp/gain/gain.hpp"
 
@@ -7,22 +10,14 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
+#include <optional>
 #include <span>
 
 namespace {
 
 constexpr std::uint32_t kGainParameterId = 1001;
 constexpr std::uint32_t kBypassParameterId = 1002;
-constexpr std::array<std::uint8_t, garak::runtime::static_graph::kCompiledGraphTotalBytes>
-    kCompiledGraphFixture{
-        0x47U, 0x41U, 0x52U, 0x41U, 0x4BU, 0x47U, 0x52U, 0x46U, 0x01U, 0x00U, 0x00U, 0x00U,
-        0x20U, 0x00U, 0x00U, 0x00U, 0x5CU, 0x00U, 0x00U, 0x00U, 0x03U, 0x00U, 0x02U, 0x00U,
-        0x00U, 0x00U, 0x00U, 0x00U, 0x00U, 0x00U, 0x00U, 0x00U, 0x01U, 0x00U, 0x00U, 0x00U,
-        0x01U, 0x00U, 0x00U, 0x00U, 0xFFU, 0xFFU, 0x00U, 0x00U, 0x00U, 0x00U, 0x00U, 0x00U,
-        0x00U, 0x00U, 0x00U, 0x00U, 0x02U, 0x00U, 0x00U, 0x00U, 0x02U, 0x00U, 0x00U, 0x00U,
-        0x00U, 0x00U, 0x01U, 0x00U, 0xE9U, 0x03U, 0x00U, 0x00U, 0xEAU, 0x03U, 0x00U, 0x00U,
-        0x03U, 0x00U, 0x00U, 0x00U, 0x03U, 0x00U, 0x00U, 0x00U, 0x01U, 0x00U, 0xFFU, 0xFFU,
-        0x00U, 0x00U, 0x00U, 0x00U, 0x00U, 0x00U, 0x00U, 0x00U};
+constexpr auto& kCompiledGraphFixture = garak::test::kCompiledGraphFixture;
 
 class EmptyPointSource final {
 public:
@@ -151,6 +146,82 @@ public:
                                                                   kBypassParameterId);
 }
 
+[[nodiscard]] bool test_compiled_graph_compatibility() {
+  using garak::runtime::static_graph::classify_compiled_graph_compatibility;
+  using garak::runtime::static_graph::CompiledGraphDiagnostic;
+  using garak::runtime::static_graph::CompiledGraphDisposition;
+
+  const auto current = classify_compiled_graph_compatibility(
+      std::optional<std::span<const std::uint8_t>>(kCompiledGraphFixture), kGainParameterId,
+      kBypassParameterId);
+  if (current.disposition != CompiledGraphDisposition::current ||
+      current.diagnostic != CompiledGraphDiagnostic::none || !current.version.available ||
+      current.version.major != 1 || current.version.minor != 0 || !current.binding ||
+      current.binding->gain_parameter_id() != kGainParameterId ||
+      current.binding->bypass_parameter_id() != kBypassParameterId) {
+    return false;
+  }
+
+  const auto missing =
+      classify_compiled_graph_compatibility(std::nullopt, kGainParameterId, kBypassParameterId);
+  if (missing.disposition != CompiledGraphDisposition::rebuild_from_project ||
+      missing.diagnostic != CompiledGraphDiagnostic::missing || missing.version.available ||
+      missing.binding) {
+    return false;
+  }
+
+  auto old = kCompiledGraphFixture;
+  old[8] = 0;
+  old[9] = 0;
+  const auto old_report = classify_compiled_graph_compatibility(
+      std::optional<std::span<const std::uint8_t>>(old), kGainParameterId, kBypassParameterId);
+  if (old_report.disposition != CompiledGraphDisposition::rebuild_from_project ||
+      old_report.diagnostic != CompiledGraphDiagnostic::unsupported_old ||
+      !old_report.version.available || old_report.version.major != 0 || old_report.binding) {
+    return false;
+  }
+
+  auto future_major = kCompiledGraphFixture;
+  future_major[8] = 2;
+  const auto future_major_report = classify_compiled_graph_compatibility(
+      std::optional<std::span<const std::uint8_t>>(future_major), kGainParameterId,
+      kBypassParameterId);
+  if (future_major_report.disposition != CompiledGraphDisposition::reject_too_new ||
+      future_major_report.diagnostic != CompiledGraphDiagnostic::too_new ||
+      future_major_report.version.major != 2 || future_major_report.binding) {
+    return false;
+  }
+
+  auto future_minor = kCompiledGraphFixture;
+  future_minor[10] = 1;
+  const auto future_minor_report = classify_compiled_graph_compatibility(
+      std::optional<std::span<const std::uint8_t>>(future_minor), kGainParameterId,
+      kBypassParameterId);
+  if (future_minor_report.disposition != CompiledGraphDisposition::reject_too_new ||
+      future_minor_report.version.major != 1 || future_minor_report.version.minor != 1) {
+    return false;
+  }
+
+  auto corrupt = kCompiledGraphFixture;
+  corrupt[28] = 1;
+  const auto corrupt_report = classify_compiled_graph_compatibility(
+      std::optional<std::span<const std::uint8_t>>(corrupt), kGainParameterId, kBypassParameterId);
+  if (corrupt_report.disposition != CompiledGraphDisposition::reject_invalid ||
+      corrupt_report.diagnostic != CompiledGraphDiagnostic::invalid_current ||
+      !corrupt_report.version.available || corrupt_report.binding) {
+    return false;
+  }
+
+  auto bad_magic = kCompiledGraphFixture;
+  bad_magic[0] = 0;
+  const auto bad_magic_report =
+      classify_compiled_graph_compatibility(std::optional<std::span<const std::uint8_t>>(bad_magic),
+                                            kGainParameterId, kBypassParameterId);
+  return bad_magic_report.disposition == CompiledGraphDisposition::reject_invalid &&
+         bad_magic_report.diagnostic == CompiledGraphDiagnostic::invalid_magic &&
+         !bad_magic_report.version.available && !bad_magic_report.binding;
+}
+
 [[nodiscard]] bool test_execution() {
   constexpr auto plan =
       garak::runtime::static_graph::make_gain_execution_plan(kGainParameterId, kBypassParameterId);
@@ -188,9 +259,13 @@ int main() {
     std::fputs("Compiled graph fixture validation failed\n", stderr);
     return 2;
   }
+  if (!test_compiled_graph_compatibility()) {
+    std::fputs("Compiled graph compatibility validation failed\n", stderr);
+    return 3;
+  }
   if (!test_execution()) {
     std::fputs("Static graph execution failed\n", stderr);
-    return 3;
+    return 4;
   }
   return 0;
 }

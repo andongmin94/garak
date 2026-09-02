@@ -2,6 +2,7 @@ project(GarakProductRuntimeV1 VERSION 0.1.0 LANGUAGES CXX)
 
 set(
   garak_product_runtime_v1_sources
+  compiled_graph_resource.hpp
   product_runtime_context.hpp
   product_runtime_loader_win.cpp
   product_runtime_loader_win.hpp
@@ -88,7 +89,11 @@ target_sources(
 )
 target_link_libraries(
   garak_product_inspector
-  PRIVATE garak::product_contract_v1 vst3_sdk_product_runtime_host_support sdk_hosting
+  PRIVATE
+    garak::product_contract_v1
+    garak::static_graph
+    vst3_sdk_product_runtime_host_support
+    sdk_hosting
 )
 target_include_directories(
   garak_product_inspector
