@@ -13,21 +13,21 @@ namespace garak::runtime::static_graph {
 inline constexpr std::uint16_t kNoBuffer = 0xffffU;
 inline constexpr std::uint16_t kGainExecutionBufferCount = 2;
 
-enum class OperationType : std::uint8_t {
+enum class OperationKind : std::uint8_t {
   audio_input = 1,
   gain = 2,
   audio_output = 3,
 };
 
-using OperationTypeCode = std::uint16_t;
+using OperationType = std::uint16_t;
 
-[[nodiscard]] constexpr OperationTypeCode operation_type_code(const OperationType type) noexcept {
-  return static_cast<OperationTypeCode>(type);
+[[nodiscard]] constexpr OperationType operation_type_code(const OperationKind kind) noexcept {
+  return static_cast<OperationType>(kind);
 }
 
 struct Operation final {
   std::uint32_t instance_id{};
-  OperationTypeCode type_code{};
+  OperationType type{};
   std::uint16_t input_buffer{};
   std::uint16_t output_buffer{};
   std::uint32_t primary_parameter_id{};
@@ -72,11 +72,11 @@ private:
 [[nodiscard]] constexpr GainExecutionPlan
 make_gain_execution_plan(const std::uint32_t gain_parameter_id,
                          const std::uint32_t bypass_parameter_id) noexcept {
-  return GainExecutionPlan{{{{1, operation_type_code(OperationType::audio_input), kNoBuffer, 0, 0,
+  return GainExecutionPlan{{{{1, operation_type_code(OperationKind::audio_input), kNoBuffer, 0, 0,
                               0},
-                             {2, operation_type_code(OperationType::gain), 0, 1,
+                             {2, operation_type_code(OperationKind::gain), 0, 1,
                               gain_parameter_id, bypass_parameter_id},
-                             {3, operation_type_code(OperationType::audio_output), 1, kNoBuffer, 0,
+                             {3, operation_type_code(OperationKind::audio_output), 1, kNoBuffer, 0,
                               0}}},
                            kGainExecutionBufferCount,
                            0};
@@ -94,7 +94,7 @@ bind_gain_execution_plan(const GainExecutionPlan& plan, const std::uint32_t gain
   for (std::size_t index = 0; index < plan.operations.size(); ++index) {
     const auto& actual = plan.operations[index];
     const auto& wanted = expected.operations[index];
-    if (actual.instance_id != wanted.instance_id || actual.type_code != wanted.type_code ||
+    if (actual.instance_id != wanted.instance_id || actual.type != wanted.type ||
         actual.input_buffer != wanted.input_buffer ||
         actual.output_buffer != wanted.output_buffer ||
         actual.primary_parameter_id != wanted.primary_parameter_id ||
