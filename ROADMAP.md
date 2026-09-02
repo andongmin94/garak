@@ -7,237 +7,414 @@
 - Phase 3C1 implementation: `48807fd56e72fdae7192956bf90d6a4ed4b83572`
 - Phase 3C1 verified source: `510f906f45924ad4ef035f6598fc193c25eed245`
 - Phase 3C1 verification run: `33455352188`
+- Phase 3C1 corrected implementation: `8d3461f2e79f38b6e4268d852614eed496b46c82`
+- Phase 3C1 correction verification run: `33602728928`
 - Phase 3C1 status: **PASS / Complete**
 - Current Phase 3C status: **IN PROGRESS — Phase 3C2 and Phase 3C3 pending**
 - 다음 increment: **Phase 3C2 — Editable project schema v3**
 
 이 roadmap은 기능 목록을 미리 쌓는 문서가 아니다. 각 milestone은 직전의 실제 end-to-end 제품 경로가 clean checkout에서 통과한 뒤에만 다음 층으로 진행한다.
 
-## 운영 원칙
+## 실행 원칙
 
-- 가장 작은 working product path를 유지하면서 한 capability 층씩 추가한다.
-- 새 기능보다 깨진 current path 복구가 우선이다.
-- 실행하지 않은 platform, host와 distribution gate를 완료로 표시하지 않는다.
-- obsolete internal path를 compatibility shim이나 fallback으로 보존하지 않는다.
+- 현재 Windows x64 VST3 vertical slice를 항상 동작 가능한 상태로 유지한다.
+- editable source, compiled data와 runtime execution의 경계를 분리한다.
+- Product Runtime은 process-wide이고 product data만 제품별로 compile한다.
 - persistent Product/FUID/Parameter ID와 지원 schema/state는 명시적 migration으로 보존한다.
 - 사용하지 않는 serializer, resource와 abstraction을 미래 기능이라는 이유로 먼저 추가하지 않는다.
 - 큰 변경 전 별도 ExecPlan을 작성한다.
 - 검증 근거는 exact source commit의 clean Windows command 결과로 남긴다.
 
-## 완료된 foundation
+---
 
-### Phase 0 — Repository와 build foundation
+## Phase 0A — Repository Foundation — Complete
 
-- 제품/architecture/운영 계약
-- C++20 CMake/Ninja core와 tests
-- Electron/React/strict TypeScript Studio shell
-- Windows native와 Studio development loop
+목표:
 
-### Phase 1 — Windows product creation foundation
+- repository layout
+- `AGENTS.md`, `PLANS.md`, architecture/ADR 문서
+- CMake와 pnpm workspace
+- CI/build/test foundation
 
-#### Phase 1A — VST3 Gain 기술 spike
+완료 기준:
 
-공식 Steinberg SDK, editorless VST3 processor/controller, Gain/Bypass automation, state와 validator 경계를 검증한 역사적 spike다. 실행 구현은 current source tree에서 제거됐고 ExecPlan·ADR·status report만 증거로 남는다.
+- Native, Studio와 Product Compiler source boundary가 분리됨
+- 기본 quality scripts가 동작함
 
-#### Phase 1B — Runtime strategy A/B 기술 spike
+---
 
-Windows x64에서 same-binary data-driven Runtime과 product-specific thin wrapper를 비교했다. 실험 구현, CMake option/preset, Data/Thin bundle과 packager는 current source tree에서 제거됐다. Cross-platform runtime strategy ADR 0003은 Proposed이고, Windows v0.x current path는 ADR 0005의 prebuilt Product Runtime 방식이다.
+## Phase 0B — Buildable Native and Studio Scaffolds — Complete
 
-#### Phase 1C — Windows Product Creation Vertical Slice
+목표:
 
-- strict unpacked `.garak` project
-- immutable Product ID와 deterministic VST3 FUID
-- permanent Gain/Bypass Parameter IDs
-- deterministic `GARAKCPD` v1와 product-bound `GARAKPST` v1
-- headless Product Compiler
-- prebuilt Product Runtime 기반 compiler-free local VST3 export
-- Studio create/open/validate/save/reopen/export workflow
-- Warm/Bright identity, inspector, validator와 loaded-module tests
+- C++20 Native scaffold
+- Electron + React + TypeScript Studio scaffold
+- first-party warning policy
+- pinned VST3 SDK dependency
 
-### Phase 2 — Project evolution과 persistence
+완료 기준:
 
-#### Phase 2A — Editable schema migration
+- Native Debug/Release build와 test
+- Studio lint/typecheck/test/build
+- dependency provenance와 notice record
 
-- current schema v2
-- strict legacy v1 detection/validation
-- pure deterministic v1→v2 migration
-- Product/FUID/Parameter ID와 compiled/export parity 보존
-- future/too-old schema fail closed
+---
 
-#### Phase 2B — Durable persistence와 user decisions
+## Phase 1A — Minimal Windows VST3 Gain Shell — Historical only
 
-- deterministic project revisions와 physical path identity
-- exclusive writer lock
-- transaction manifest와 verified persistent backup
+결론:
+
+- fixed Gain VST3 spike
+- mono/stereo Float32/Float64
+- Gain/Bypass automation
+- state round-trip
+- official Validator
+
+현재 상태:
+
+- spike source와 build target은 제거됨
+- historical validation 문서만 보존
+
+---
+
+## Phase 1B — Generated Runtime Strategy A/B Spike — Historical only
+
+결론:
+
+- Data / Thin A/B 실험 완료
+- Phase 2B에서 prebuilt Product Runtime data strategy 선택
+
+현재 상태:
+
+- spike source, packaging scripts와 FUID reservations 제거
+- historical plans와 status만 보존
+
+---
+
+## Phase 1C1 — Product Contracts and Headless Windows Export — Complete
+
+목표:
+
+- unpacked `.garak` project
+- immutable Product ID
+- deterministic processor/controller FUID
+- permanent Gain `1001` / Bypass `1002`
+- `GARAKCPD` v1 compiled product data
+- prebuilt Product Runtime bundle export
+- first-party inspector + official Validator
+
+완료 기준:
+
+- Warm/Bright fixtures export independently
+- Product/FUID/default/state isolation
+- exact bundle inventory/hash parity
+- atomic publish와 failure rollback
+
+---
+
+## Phase 1C2 — Studio Product Workspace and Export UX — Complete
+
+목표:
+
+- Studio create/open/export workflow
+- main-owned filesystem and child-process boundary
+- product metadata/default editing
+- structured validation/export errors
+
+완료 기준:
+
+- renderer는 typed capability만 사용
+- Studio product workflow가 Debug/Release actual export를 검증
+
+---
+
+## Phase 2A — Editable Project Schema and Deterministic Migration — Complete
+
+목표:
+
+- schema v2
+- explicit `schema` object와 immutable Product ID
+- strict v1→v2 migration
+- canonical serializer
+- fixture/output/hash oracle
+
+완료 기준:
+
+- legacy open은 source를 자동 overwrite하지 않음
+- Product/FUID/Parameter/default/export parity 유지
+
+---
+
+## Phase 2B1 — Durable Project Persistence Core — Complete
+
+목표:
+
+- atomic temp-write/replace
+- verified backup
 - crash recovery
-- main-owned legacy migration, external-change conflict와 ambiguous recovery UX
-- renderer filesystem/raw IPC authority 0
+- exact saved bytes와 persisted fingerprint
 
-#### Phase 2C — Compiled/state compatibility
+완료 기준:
 
-- current exact compiled artifact reuse
-- missing/stale/corrupt same-product artifact rebuild
-- foreign Product/FUID collision reject
-- deployed Runtime의 unsupported/corrupt compiled data fail closed
-- exact same-product plug-in state restore와 prior-state preservation on failure
-- removed Parameter ID tombstone policy
+- save failure 시 existing source와 verified backup 보존
+- recovery는 strict project validator 재통과
 
-### Current baseline cleanup — Complete
+---
 
-[ExecPlan 0011](plans/0011-remove-obsolete-runtime-spikes.md)에 따라 current product 경로를 과거 기술 spike에서 분리했다.
+## Phase 2B2 — Studio-owned Evolution UX — Complete
 
-- Product Runtime preset/target에서 Phase 1A/1B dependency 제거
-- reusable Gain DSP를 `native/dsp/gain` production module로 승격
-- obsolete Gain/Data/Thin adapter, tests와 packaging tools 제거
-- Warm/Bright actual export/validator/loaded-module gate만 current build graph에 유지
-- active README/AGENTS/architecture/status를 current commands로 동기화
+목표:
 
-## Phase 3 — Static DSP Runtime Foundation
+- main-owned migration decision
+- external modification conflict
+- recovery source disclosure
+- Save/Save As 명시성
 
-### Phase 3A — Minimal Native Static Execution Plan — Complete
+완료 기준:
 
-[ExecPlan 0012](plans/0012-phase-3a-minimal-static-dsp-graph.md)에 따라 current Gain path를 immutable native execution plan 경계로 옮겼다.
+- renderer는 source path와 backup path를 직접 조작하지 않음
+- migration/conflict/recovery UI가 product service result를 그대로 반영
 
-실제 산출물:
+---
 
-- fixed operation sequence `Input → Gain → Output`
-- immutable operation/parameter/buffer binding
-- latency `0`
-- production Gain DSP 재사용
-- Product Runtime processor의 actual plan dispatch
-- invalid-plan unit regression
+## Phase 2C — Compiled Artifact and Plug-in State Compatibility — Complete
 
-Phase 3A 당시 의도적으로 범위 밖이었던 것:
+목표:
 
-- `graph.garakbin`
-- TypeScript graph compiler/serializer
-- editable `.garak` graph source
-- generic node registry와 dynamic buffer planner
+- compiled product current/legacy/future disposition
+- state current/product mismatch/future rejection
+- `use-existing` / `rebuild` / `reject`
 
-역사적 수용 근거:
+완료 기준:
 
-- implementation commit `27e21307830edf5a6849a3bc96d6ef7ad044cacd`
-- historical run `32617339447`
+- capability/CLI/test fixture가 같은 disposition 사용
+- Product ID와 Parameter ID contract 유지
 
-### Phase 3B — Realtime Safety Instrumentation and Long-run Runtime Stress — Complete
+---
 
-[ExecPlan 0013](plans/0013-phase-3b-realtime-safety-stress.md)에 따라 current static Gain process window에 first-party allocation/deallocation 계측과 deterministic long-run stress를 추가했다.
+## Phase 3A — Minimal Native Static DSP Execution Plan — Complete
 
-실제 산출물:
+목표:
 
-- same-thread standard aligned/unaligned C++ `new`/`delete` 계측
-- tracking 시작 전 fixed-size stack storage 준비
-- Float32/Float64 각각 20,000 blocks와 1,919,504 channel-samples
-- block size `0..128`, mono/stereo와 in-place/out-of-place 반복
-- Gain/Bypass offset-0 automation, silence flag, output와 current-state 검증
-- allocation `0`, deallocation `0`, mismatch `0`
-- fixed seed와 120-second CTest timeout
-- current Warm/Bright Debug/Release export/validator 전체 regression
+- SDK-independent Gain DSP module
+- immutable Input→Gain→Output plan
+- actual processor dispatch
+- mono/stereo Float32/Float64 parity
+- Gain interpolation, exact-offset Bypass와 silence propagation
 
-역사적 수용 근거:
+완료 기준:
 
-- implementation commit `4b2535deba302eddab86c5c02b165e8d4f168cf4`
-- historical run `32634527751`
+- production Product Runtime이 plan을 실제 사용
+- direct kernel/plan/loaded module inspector test
+- Debug/Release actual export/Validator 통과
 
-완료 근거로 일반화하지 않는 항목:
+---
 
-- raw C heap, Windows allocator, Steinberg SDK와 host thread 내부 allocation
-- kernel-level blocking/wait와 실제 DAW deadline
-- cross-thread state handoff concurrency
-- NaN/Inf/subnormal automation 입력
-- representative DAW performance 또는 audio-quality claim
+## Phase 3B — Realtime Safety Instrumentation and Long-run Runtime Stress — Complete
 
-### Phase 3C — Editable Static Graph Project Contract and Compiled Plan — In Progress
+목표:
 
-[ExecPlan 0014](plans/0014-phase-3c-editable-static-graph-contract.md)에 따라 단계별로 진행한다.
+- first-party allocation instrumentation
+- process-window allocation/deallocation `0`
+- deterministic long-run Float32/Float64 stress
+- output/state/silence parity
+- timeout-bounded CTest registration
 
-#### Phase 3C1 — Runtime-consumed compiled graph resource — Complete
+검증 근거:
 
-Commit `48807fd56e72fdae7192956bf90d6a4ed4b83572`에 다음 implementation이 반영됐다.
+- exact source commit: `4b2535deba302eddab86c5c02b165e8d4f168cf4`
+- historical Windows run: `32634527751`
+- Float32: 20,000 blocks, 1,919,504 channel-samples, allocation/deallocation `0`
+- Float64: 20,000 blocks, 1,919,504 channel-samples, allocation/deallocation `0`
 
-- deterministic `GARAKGRF` v1 `graph.garakbin`
-- canonical Gain graph compile
-- Windows export의 required graph resource와 inventory/hash parity
-- Native module-load parser와 fail-closed 경계
-- Product Runtime context에 loaded immutable plan 전달
-- processor가 loaded plan을 실제 실행
-- one-time patch runner와 patch source 제거
+Phase 3B는 **Complete**다.
 
-Exact source commit `510f906f45924ad4ef035f6598fc193c25eed245`를 고정한 clean Windows run `33455352188`에서 Product Compiler, Studio, Debug/Release actual export와 Validator, CTest, Studio workflow, Werror, clang-tidy 및 tracked source mutation 검사가 모두 통과했다. 검증용 workflow는 결과 확인 후 제거했다.
+---
 
-#### Phase 3C2 — Editable project schema v3 — Pending
+## Phase 3C — Editable Static Graph Project Contract and Compiled Plan — In Progress
 
+Phase 3C는 [`plans/0014-phase-3c-editable-static-graph-contract.md`](plans/0014-phase-3c-editable-static-graph-contract.md)를 따른다.
+
+### Phase 3C1 — Runtime-consumed compiled graph resource — Complete
+
+구현:
+
+- deterministic `graph.garakbin` v1
+- export bundle required graph resource
+- first-party inventory/hash parity
+- Native module-load parser
+- product+graph shared immutable Runtime context
+- actual processor dispatch가 loaded graph plan 사용
+- missing/truncated/trailing/reserved/future/noncanonical graph fail-closed
+
+검증 근거:
+
+- resource foundation exact source: `510f906f45924ad4ef035f6598fc193c25eed245`
+- foundation clean Windows run: `33455352188`
+- corrected execution-binding implementation: `8d3461f2e79f38b6e4268d852614eed496b46c82`
+- correction clean Windows run: `33602728928`
+- Product Compiler와 Studio format/lint/typecheck/test/build success
+- Debug/Release Product Runtime build, actual Warm/Bright export, official Validator success
+- Debug/Release CTest와 Studio product workflow success
+- warnings-as-errors와 clang-tidy success
+- Float32/Float64 realtime allocation/deallocation `0`
+- tracked source mutation `0`
+
+Correction 이후 Runtime은 graph를 module load에서 private immutable binding으로 준비하고 callback은 해당 binding의 buffer slot과 Parameter ID를 실제 dispatch에 사용한다. Phase 3C1은 **Complete**다. 다음 increment는 schema v3 editable graph source다.
+
+### Phase 3C2 — Editable project schema v3 — Next
+
+목표:
+
+- project schema v3
 - versioned editable graph source
-- strict node/version/port/connection validation
+- strict node/port/connection validator
 - deterministic v2→v3 migration
-- Studio typed document/draft round-trip
-- Product/FUID/Parameter/default parity 보존
+- canonical serializer
+- Studio document/draft round-trip
+- Warm/Bright fixture migration
 
-#### Phase 3C3 — Compatibility와 full product gate — Pending
+수용 기준:
 
-- current/missing/corrupt/too-old/too-new graph disposition
-- Product Compiler, Runtime, inspector와 fixture의 동일 판정
-- Debug/Release export, Validator, CTest, Studio workflow, Werror와 clang-tidy
-- exact commit의 clean Windows verification record
+- source order variation은 canonical compiled graph bytes에 영향 없음
+- Product ID/FUID/Parameter/default/state parity 유지
+- legacy/current create/open/save/reopen/export regression success
 
-### Phase 3D — Initial DSP Node Set
+### Phase 3C3 — Compatibility and full product gate — Pending
 
-- Input/Output
-- Gain/Pan/Polarity/Dry-Wet
-- Biquad/Tilt EQ
-- basic saturation
-- per-node implementation version과 sound fixture
+목표:
 
-## Phase 4 — Parameter and Macro System
+- graph current/missing/corrupt/too-old/too-new disposition
+- Product Compiler/Runtime/inspector parity
+- final cross-layer documentation
 
-- realtime smoothing
-- host automation through static graph
-- versioned range/curve mapping
-- one public macro to multiple internal targets
-- preset/DAW state migration and Parameter ID tombstones
+수용 기준:
 
-## Phase 5 — Studio Sound and Control
+- Debug/Release actual export와 official Validator
+- CTest와 Studio workflow
+- warnings-as-errors와 clang-tidy
+- tracked source mutation `0`
+- exact final commit clean Windows gate
 
-- visual graph authoring
-- project persistence
-- audio audition/preview
-- macro authoring
-- native runtime parity measurement path
+---
 
-## Phase 6 — Interface Scene and Designer
+## Phase 3D — Initial DSP Node Set — Planned
 
-- plugin-focused design canvas
-- compiled interface scene
-- reusable components/instances
-- parameter/macro/meter binding
-- Studio preview와 native runtime parity
+Phase 3C 완료 뒤 별도 ExecPlan으로 시작한다.
 
-## Phase 7 — Commercial Cross-platform Export and Release Gate
+목표:
 
-- Windows packaged Studio/installer
-- clean-system VST3 installation and representative DAW matrix
-- macOS Universal VST3
-- AU after VST3 validation
-- signing, notarization and installer
-- preset/assets and release notices
-- cross-platform runtime strategy ADR decision
+- Pan
+- Polarity
+- Dry/Wet
+- Biquad
+- Tilt EQ
+- Saturation
+- node metadata와 parameter declaration
 
-Windows 결과는 이 release gate의 macOS/AU 완료 증거가 아니다.
+수용 기준:
 
-## Phase 8 — ANDONGMIN — BLOOM Vertical Product
+- 각 node direct DSP test
+- graph compilation/execution regression
+- no-allocation realtime stress
+- actual exported product verification
 
-- versioned `.garak` reference project
-- Bloom/Warmth/Softness/Mix/Output controls
-- compression, saturation, softening와 density graph
-- reference audio and measurable acceptance criteria
-- full authoring-to-package demonstration
+---
 
-## 계속 비범위인 항목
+## Phase 4 — Parameter and Macro System — Planned
 
-- AAX와 mobile
-- cloud collaboration와 marketplace
-- AI automatic product generation
-- external VST repackaging
-- DRM/license server
-- Figma 완전 호환
-- repository license의 법률 검토 없는 확정
+목표:
+
+- stable exposed Parameter IDs
+- node/internal parameter mapping
+- macro source → target transforms
+- renamed display text와 immutable identity 분리
+- preset/state compatibility
+
+---
+
+## Phase 5 — Visual Sound and Control Studio — Planned
+
+목표:
+
+- graph canvas
+- node palette
+- typed ports
+- selection, pan/zoom, undo/redo
+- inspector
+- internal control/macro authoring
+- product workspace integration
+
+---
+
+## Phase 6 — Interface Designer and Native Generated UI — Planned
+
+목표:
+
+- native plug-in editor
+- generated interface resources
+- control mapping
+- branding, typography, assets와 responsive layout
+- editorless fallback policy 또는 supported UI requirement
+
+---
+
+## Phase 7 — Presets and Product Packaging — Planned
+
+목표:
+
+- preset schema와 browser
+- migration-aware product preset state
+- embedded assets
+- user content location
+- white-label metadata and product packaging
+
+---
+
+## Phase 8 — Studio Packaging and Windows Productization — Planned
+
+목표:
+
+- packaged Studio artifact
+- clean-system Windows installer
+- runtime toolchain discovery
+- signing-ready export
+- support diagnostics와 redistribution review
+
+---
+
+## Phase 9 — DAW Matrix and Audio Quality — Planned
+
+목표:
+
+- representative Windows DAWs
+- plug-in scan/rescan
+- automation and preset restore
+- block-size/sample-rate variation
+- denormal/NaN/extreme automation
+- subjective and objective audio checks
+
+---
+
+## Phase 10 — macOS Universal VST3 and AU — Planned
+
+목표:
+
+- Universal Binary
+- VST3
+- AUv2 or AUv3 decision
+- signing, hardened runtime and notarization
+- platform-specific bundle validation
+
+---
+
+## Backlog — Later Product Layers
+
+- AAX feasibility
+- offline render and batch audition
+- cloud preset/library exchange
+- collaboration/version history
+- generated SDK/extensions
+- large-graph optimization and multithread scheduling
+
+이 backlog는 현재 architecture를 미리 복잡하게 만들 이유가 아니다.
