@@ -1,6 +1,6 @@
 # ExecPlan 0017 — Phase 3C3 Compiled Graph Compatibility and Final Product Gate
 
-- Status: In Progress
+- Status: Complete
 - Started: 2026-09-02
 - Updated: 2026-09-02
 - Owner: Product Compiler, Native static graph Runtime and VST3 product inspector
@@ -110,8 +110,8 @@ The first-party inspector reads the exact graph resource, runs the same Native c
 8. [x] Add C++ fixture-parity tests and shared inspector/Runtime resource-reader regressions.
 9. [x] Update architecture/status/roadmap to the Phase 3C3 acceptance-pending state.
 10. [x] Run locally available syntax, focused C++ builds, Debug/Release non-SDK CTest and diff checks.
-11. [ ] Run exact-source clean Windows full product gate, fix every failure and re-run the exact final head.
-12. [ ] Merge only the green final head and remove obsolete temporary verification paths.
+11. [x] Run exact-source clean Windows full product gate, fix every failure and re-run the exact final head.
+12. [x] Merge only the green final head and remove obsolete temporary verification paths.
 
 ## 변경 대상 파일
 
@@ -185,6 +185,8 @@ Authoritative acceptance:
 - 2026-09-02: The source archive does not contain workspace dependencies and the local Node 22 runtime cannot execute the repository's Node 24 TypeScript test runner. TypeScript compiler syntax transpilation passed, while dependency-backed format/lint/typecheck/tests remain mandatory in the exact-source Windows verifier.
 - 2026-09-02: `std::filesystem::symlink_status` reports a missing path through `no_such_file_or_directory` in the local standard library. The shared resource reader handles both `file_type::not_found` and that portable error condition as missing; directories, links and other unreadable resources remain invalid.
 - 2026-09-02: GCC and Clang focused graph compatibility/resource tests passed with `-Wall -Wextra -Wpedantic -Werror`. Debug and Release non-SDK CMake builds and CTest passed 4/4 while preserving the Phase 3B realtime stress path.
+- 2026-09-02: The first exact Windows run exposed six unformatted C++ files; a direct formatter commit corrected them. A later Debug CTest failure came from the verifier exporting outside the repository's canonical `phase-1c1` test path, so the verifier—not product code—was corrected. The strict clang-tidy gate then found one ineffective `std::move` on a trivially copyable optional binding; the move and unused include were removed.
+- 2026-09-02: Exact source `d60667d8806e5dac7963ae928dcf98dc377cf0f7` passed clean Windows run `33657806095`, including Product Compiler/Studio quality, Debug/Release export and Validator, CTest, Studio workflow, Werror, clang-tidy and tracked-source mutation `0`.
 
 ## 의사결정 로그
 
@@ -195,8 +197,12 @@ Authoritative acceptance:
 
 ## 완료 기록
 
-Implementation candidate complete locally. Direct source now contains the Product Compiler graph report, Native binding-bearing classifier, shared Runtime/inspector resource reader, exact fixture matrix and acceptance-pending documentation. Dependency-backed TypeScript gates and the full Windows VST3 product matrix have not yet run on the exact candidate, so Phase 3C remains In Progress.
-
+Phase 3C3 is complete at exact source `d60667d8806e5dac7963ae928dcf98dc377cf0f7`. Clean Windows run `33657806095` passed Product Compiler and
+Studio quality gates, Debug/Release actual Warm/Bright exports and official Validator, CTest, Studio workflows,
+warnings-as-errors, clang-tidy and tracked-source mutation `0`. Product Compiler, Native Runtime and the
+first-party inspector now distinguish current, missing, corrupt, too-old and too-new `GARAKGRF` artifacts
+through explicit shared compatibility semantics. Runtime remains read-only and fail-closed; repair and rebuild
+decisions remain outside the loaded plug-in.
 ## 다음 단계
 
-Implement the smallest shared compiled-graph compatibility classifier end to end, verify the exact source and only then mark Phase 3C Complete. Phase 3D initial DSP nodes must not start before this plan is accepted.
+Phase 3C is complete. Phase 3D — Initial DSP Node Set을 별도 ExecPlan으로 시작한다.

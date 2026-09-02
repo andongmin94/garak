@@ -49,11 +49,11 @@ Debug/Release Runtime build, Warm/Bright actual export와 official Validator, CT
 warnings-as-errors, clang-tidy와 tracked-source mutation `0`이 모두 통과했다. 따라서 **Phase 3C2는 PASS /
 Complete**다.
 
-Phase 3C3 implementation candidate는 compiled graph의 current/missing/old/future/corrupt disposition을
-Product Compiler, Native Runtime과 first-party inspector에 연결했다. TypeScript와 Native fixed fixture가 같은
-semantic matrix를 사용하고 Runtime은 current report가 반환한 prepared binding만 소비한다. Local GCC/Clang
-focused tests와 Debug/Release non-SDK CMake tests는 통과했지만 exact source clean Windows full product gate는
-아직 실행 전이다. 따라서 Phase 3C 전체는 계속 **In Progress**다. 현재 사실은
+Phase 3C3는 compiled graph의 current/missing/old/future/corrupt disposition을 Product Compiler,
+Native Runtime과 first-party inspector에 통일했다. Exact source `d60667d8806e5dac7963ae928dcf98dc377cf0f7`의 clean Windows run `33657806095`에서
+Product Compiler와 Studio quality gate, Debug/Release Runtime build, Warm/Bright actual export와 official
+Validator, CTest, Studio workflow, warnings-as-errors, clang-tidy와 tracked-source mutation `0`이 모두
+통과했다. 따라서 **Phase 3C3와 Phase 3C는 PASS / Complete**다. 현재 사실은
 [`docs/status/current.md`](docs/status/current.md)를 따른다.
 
 ## 빠른 시작
@@ -175,7 +175,7 @@ Phase 3A는 production Gain DSP를 실제 processor dispatch와 연결하는 최
 
 별도 first-party executable에서 production static plan과 Gain DSP를 fixed-size stack storage로 실행해 Float32/Float64 각각 20,000 blocks를 검증했다. 역사적 full Windows gate에서 allocation `0`, deallocation `0`, output/state/silence mismatch `0`을 확인했다.
 
-### Phase 3C — Editable Static Graph Project Contract and Compiled Plan — In Progress
+### Phase 3C — Editable Static Graph Project Contract and Compiled Plan — Complete
 
 #### Phase 3C1 — Runtime-consumed compiled graph resource — Complete
 
@@ -209,26 +209,28 @@ Phase 3A는 production Gain DSP를 실제 processor dispatch와 연결하는 최
 
 Phase 3C2는 **Complete**다.
 
-#### Phase 3C3 — Compiled graph compatibility and final product gate — In Progress
+#### Phase 3C3 — Compiled graph compatibility and final product gate — Complete
 
-현재 implementation candidate:
+수용된 구현:
 
 - `GARAKGRF` current/missing/old/future/corrupt semantic disposition
 - Product Compiler compatibility API/CLI의 compiled graph report
-- Native classifier가 current graph의 actual `GainExecutionBinding` 반환
-- Product Runtime과 first-party inspector가 같은 Native classifier 사용
-- shared exact graph fixture의 TypeScript/C++ parity regression
+- Native current classifier가 actual `GainExecutionBinding` 반환
+- Product Runtime과 first-party inspector가 같은 Native classifier 및 resource reader 사용
+- TypeScript/C++ fixed-fixture compatibility matrix와 filesystem regression
 - missing/old derived data만 authoring context에서 rebuild, future/corrupt data는 preserve/reject
 
-현재 local 근거:
+검증 근거:
 
-- GCC와 Clang `-Wall -Wextra -Wpedantic -Werror` focused graph tests success
-- Debug/Release non-SDK CMake build와 CTest 4/4 success
-- `git diff --check` success
+- exact verified source: `d60667d8806e5dac7963ae928dcf98dc377cf0f7`
+- clean Windows run: `33657806095`
+- Product Compiler와 Studio format/lint/typecheck/test/build success
+- Debug/Release Runtime clean build, Warm/Bright actual export와 official Validator success
+- Debug/Release CTest와 Studio product workflow success
+- warnings-as-errors와 clang-tidy success
+- tracked-source mutation `0`
 
-남은 수용 조건은 exact source의 Product Compiler/Studio format·lint·typecheck·test·build, Debug/Release actual
-export와 official Validator, CTest, Studio workflow, Werror, clang-tidy 및 tracked-source mutation `0`이다.
-
+Phase 3C는 **Complete**다. 다음 increment는 **Phase 3D — Initial DSP Node Set**이다.
 ## 제거된 기술 spike
 
 Phase 1A의 fixed Gain module과 Phase 1B의 Data/Thin A/B runtime-strategy 구현은 의사결정용 pre-release 기술 spike였다. 현재 제품 build graph와 source tree에서는 제거됐다. 당시 결과는 역사적 문서에만 남긴다. 삭제된 spike source, preset, packaging path 또는 FUID reservations를 compatibility layer로 복원하지 않는다.
@@ -237,7 +239,6 @@ Phase 1A의 fixed Gain module과 Phase 1B의 Data/Thin A/B runtime-strategy 구�
 
 현재 Garak은 repository-local Windows vertical slice다. 다음은 아직 완료되지 않았다.
 
-- Phase 3C3 exact-source full Windows acceptance와 final Phase 3C gate
 - additional DSP node library
 - cross-thread automation/state handoff 및 kernel-level blocking 계측
 - macro mapping과 functional Sound/Control workspaces
