@@ -45,8 +45,8 @@ public:
     return bypass_parameter_id_;
   }
 
-  [[nodiscard]] friend constexpr bool
-  operator==(const GainExecutionBinding&, const GainExecutionBinding&) noexcept = default;
+  [[nodiscard]] friend constexpr bool operator==(const GainExecutionBinding&,
+                                                 const GainExecutionBinding&) noexcept = default;
 
 private:
   friend constexpr std::optional<GainExecutionBinding>
@@ -78,8 +78,7 @@ make_gain_execution_plan(const std::uint32_t gain_parameter_id,
 }
 
 [[nodiscard]] constexpr std::optional<GainExecutionBinding>
-bind_gain_execution_plan(const GainExecutionPlan& plan,
-                         const std::uint32_t gain_parameter_id,
+bind_gain_execution_plan(const GainExecutionPlan& plan, const std::uint32_t gain_parameter_id,
                          const std::uint32_t bypass_parameter_id) noexcept {
   const auto expected = make_gain_execution_plan(gain_parameter_id, bypass_parameter_id);
   if (plan.buffer_count != expected.buffer_count ||
@@ -100,10 +99,9 @@ bind_gain_execution_plan(const GainExecutionPlan& plan,
   }
 
   const auto& gain = plan.operations[1];
-  return GainExecutionBinding{gain.input_buffer, gain.output_buffer,
-                              gain.primary_parameter_id, gain.secondary_parameter_id};
+  return GainExecutionBinding{gain.input_buffer, gain.output_buffer, gain.primary_parameter_id,
+                              gain.secondary_parameter_id};
 }
-
 
 template <typename Sample, typename GainSource, typename BypassSource>
 void execute_gain_binding(
