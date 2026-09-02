@@ -59,7 +59,7 @@ Valid first graph는 `Input → Gain → Output` 한 chain이다. Generic node r
 
 ### 3C1 — Runtime-consumed compiled graph resource — Complete
 
-현재 canonical Gain template에서 deterministic `graph.garakbin` v1을 생성한다. Export가 resource를 bundle에 넣고 Native Runtime이 module load 시 parse/validate한 plan을 실제 processor에 전달한다.
+현재 canonical Gain template에서 deterministic `graph.garakbin` v1을 생성한다. Export가 resource를 bundle에 넣고 Native Runtime이 module load 시 parse/validate한 private immutable execution binding을 실제 processor에 전달한다.
 
 Exact source commit `510f906f45924ad4ef035f6598fc193c25eed245`의 clean Windows verification run `33455352188`에서 전체 Phase 3C1 product path가 통과했다.
 
@@ -79,7 +79,7 @@ Compiled graph의 current/missing/corrupt/too-old/too-new disposition을 명시�
 - Product Compiler encode/decode/canonical parity
 - current export bundle의 required graph resource
 - Native module-load parser와 immutable plan context
-- actual processor dispatch가 loaded plan 사용
+- actual processor dispatch가 module-load prepared immutable binding 사용
 - missing/truncated/trailing/reserved/version/node/connection corruption fail closed
 - project schema v3 graph source
 - strict v2→v3 migration
@@ -155,10 +155,11 @@ Compiled graph의 current/missing/corrupt/too-old/too-new disposition을 명시�
 - 2026-08-29: commit `48807fd56e72fdae7192956bf90d6a4ed4b83572`에서 canonical graph export, exact bundle inventory, Native module-load graph parse, Product Runtime context와 loaded-plan processor dispatch를 연결했다. 같은 commit에서 one-time patch workflow와 patch script를 제거했다.
 - 2026-08-30: GitHub Actions 검증 workflow를 제거하고, exact source commit의 clean Windows command 결과를 권위 있는 검증 기준으로 전환했다. Phase 3C1 이후 full Windows gate는 아직 실행하지 않았으므로 단계 1–6을 완료 표시하지 않았다.
 - 2026-09-01: 일회성 verification wrapper를 통해 두 job이 gate 실행 전 exact source commit `510f906f45924ad4ef035f6598fc193c25eed245`를 직접 checkout하고 SHA를 확인했다. Run `33455352188`에서 Product Compiler와 Studio의 format/lint/typecheck/test/build, Debug/Release Runtime build, Warm/Bright actual export와 official Validator, CTest, Studio workflow, warnings-as-errors, clang-tidy, tracked source mutation `0`이 모두 통과했다. 결과 확인 후 workflow는 제거했으며 단계 1–6과 Phase 3C1을 완료 처리했다.
+- 2026-09-02: code audit correction에서 raw plan의 callback-time canonical 재검증을 module-load prepared `GainExecutionBinding`으로 교체하고 binding의 buffer slot과 Parameter ID를 actual dispatch에 연결했다. Direct-source implementation commit `8d3461f2e79f38b6e4268d852614eed496b46c82`는 clean Windows run `33602728928`에서 Product Compiler, Studio, Debug/Release export와 official Validator, CTest, warnings-as-errors, clang-tidy와 tracked source mutation `0`을 모두 통과했다. Obsolete source snapshot workflow는 삭제했다.
 
 ## 완료 기록
 
-Phase 3C1은 완료됐다. `graph.garakbin`은 실제 export bundle에 포함되고 deployed Runtime이 검증한 immutable plan을 processor가 실행하며, exact source commit의 clean Windows full gate가 성공했다.
+Phase 3C1은 완료됐다. `graph.garakbin`은 실제 export bundle에 포함되고 deployed Runtime이 module load에서 검증한 private immutable execution binding을 processor가 사용하며, resource foundation과 corrected direct-source implementation의 clean Windows full gate가 성공했다.
 
 전체 ExecPlan은 계속 진행 중이다. Schema v3 editable graph source와 compatibility/final gate가 완료되기 전에는 Phase 3C를 Complete로 표시하지 않는다.
 
