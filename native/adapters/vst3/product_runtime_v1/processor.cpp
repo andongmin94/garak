@@ -232,8 +232,7 @@ void GainProcessor::write_snapshot_non_realtime(const std::uint64_t packed_state
       sequence = snapshot_sequence_.load(std::memory_order_acquire);
       continue;
     }
-    if (snapshot_sequence_.compare_exchange_weak(sequence, sequence + 1U,
-                                                 std::memory_order_acquire,
+    if (snapshot_sequence_.compare_exchange_weak(sequence, sequence + 1U, std::memory_order_acquire,
                                                  std::memory_order_relaxed)) {
       break;
     }
