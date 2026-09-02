@@ -147,8 +147,8 @@ public:
   auto noncanonical = kCompiledGraphFixture;
   noncanonical[64] = 0x0FU;
   noncanonical[65] = 0x27U;
-  return !garak::runtime::static_graph::parse_compiled_gain_graph(
-      noncanonical, kGainParameterId, kBypassParameterId);
+  return !garak::runtime::static_graph::parse_compiled_gain_graph(noncanonical, kGainParameterId,
+                                                                  kBypassParameterId);
 }
 
 [[nodiscard]] bool test_execution() {
@@ -169,10 +169,9 @@ public:
   bool current_bypass = false;
 
   garak::runtime::static_graph::execute_gain_binding(
-      *binding,
-      garak::dsp::gain::ProcessBlockContext<float, EmptyPointSource, EmptyPointSource>{
-          input_channels.data(), output_channels.data(), 1, 2, 0, output_silence_flags, gain_source,
-          bypass_source, current_gain, current_bypass});
+      *binding, garak::dsp::gain::ProcessBlockContext<float, EmptyPointSource, EmptyPointSource>{
+                    input_channels.data(), output_channels.data(), 1, 2, 0, output_silence_flags,
+                    gain_source, bypass_source, current_gain, current_bypass});
   const auto linear_gain = static_cast<float>(garak::dsp::gain::decibels_to_linear(-6.0));
   return output_silence_flags == 0 && almost_equal(output[0], input[0] * linear_gain) &&
          almost_equal(output[1], input[1] * linear_gain) && !current_bypass;
