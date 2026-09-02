@@ -2,6 +2,8 @@ import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 
 import {
+  canonicalProductGraphSource,
+  cloneProductGraphSource,
   createProductProject,
   diagnosticFor,
   exportProductProject,
@@ -15,6 +17,7 @@ import type {
   DurableProjectMutationResult,
   OwnedCleanupDiagnostic,
   OwnedCleanupOrphan,
+  ProductGraphSource,
   ProductProjectDraft,
   ProductProjectSnapshot,
   ProjectMutationResult,
@@ -57,6 +60,7 @@ interface DraftSession {
   readonly kind: 'draft';
   readonly documentId: string;
   readonly productId: string;
+  readonly graph: ProductGraphSource;
 }
 
 interface SavedSession {
@@ -64,7 +68,8 @@ interface SavedSession {
   readonly documentId: string;
   readonly productId: string;
   readonly projectDirectory: string;
-  sourceSchemaVersion: 1 | 2;
+  graph: ProductGraphSource;
+  sourceSchemaVersion: 1 | 2 | 3;
   revision: string;
 }
 
@@ -205,6 +210,7 @@ export class ProductService {
         kind: 'draft',
         documentId,
         productId: randomUUID(),
+        graph: canonicalProductGraphSource(),
       };
       this.#sessions.set(documentId, session);
       return Promise.resolve(this.#documentForDraft(session, NEW_PRODUCT_DRAFT));
@@ -266,6 +272,7 @@ export class ProductService {
         documentId,
         productId: snapshot.document.productId,
         projectDirectory: snapshot.sourceDirectory,
+        graph: cloneProductGraphSource(snapshot.document.graph),
         sourceSchemaVersion: snapshot.schemaStatus.sourceSchemaVersion,
         revision: snapshot.revision,
       };
@@ -283,7 +290,7 @@ export class ProductService {
       return Promise.resolve(
         this.#compiler.inspectProductProjectDraft(
           session.productId,
-          request.draft,
+          this.#compilerDraft(session, request.draft),
           sourceDirectory,
         ),
       );
@@ -293,7 +300,7 @@ export class ProductService {
   async saveProduct(request: SaveProductRequest): Promise<ProductOperationResult<ProductDocument>> {
     return this.#run(async () => {
       const session = this.#requireSession(request.documentId);
-      if (session.kind === 'saved' && session.sourceSchemaVersion === 1) {
+      if (session.kind === 'saved' && session.sourceSchemaVersion !== PRODUCT_SCHEMA_VERSION) {
         studioFailure(
           'GARAK_PROJECT_MIGRATION_REQUIRED',
           'project.schemaVersion',
@@ -302,7 +309,7 @@ export class ProductService {
       }
       this.#compiler.inspectProductProjectDraft(
         session.productId,
-        request.draft,
+        this.#compilerDraft(session, request.draft),
         session.kind === 'saved' ? session.projectDirectory : undefined,
       );
 
@@ -314,14 +321,15 @@ export class ProductService {
         const result = await this.#compiler.createProductProject({
           projectDirectory,
           productId: session.productId,
-          draft: request.draft,
+          draft: this.#compilerDraft(session, request.draft),
         });
         const savedSession: SavedSession = {
           kind: 'saved',
           documentId: session.documentId,
           productId: session.productId,
           projectDirectory: result.sourceDirectory,
-          sourceSchemaVersion: 2,
+          graph: cloneProductGraphSource(result.document.graph),
+          sourceSchemaVersion: PRODUCT_SCHEMA_VERSION,
           revision: result.revision,
         };
         this.#sessions.set(savedSession.documentId, savedSession);
@@ -334,7 +342,7 @@ export class ProductService {
           projectDirectory: session.projectDirectory,
           expectedRevision: session.revision,
           productId: session.productId,
-          draft: request.draft,
+          draft: this.#compilerDraft(session, request.draft),
         });
       } catch (error: unknown) {
         const diagnostic = this.#compiler.diagnosticFor(error);
@@ -345,6 +353,7 @@ export class ProductService {
         }
         throw error;
       }
+      session.graph = cloneProductGraphSource(result.document.graph);
       session.sourceSchemaVersion = result.schemaStatus.sourceSchemaVersion;
       session.revision = result.revision;
       return this.#documentForSnapshot(session, result, result.cleanupDiagnostics);
@@ -407,7 +416,7 @@ export class ProductService {
           );
         }
         return {
-          tool: path.basename(child.executable),
+          tool: path.posix.basename(child.executable.replaceAll('\\', '/')),
           exitCode: child.exitCode,
         };
       });
@@ -471,6 +480,16 @@ export class ProductService {
     });
   }
 
+  #compilerDraft(session: ProductSession, draft: ProductDraft): ProductProjectDraft {
+    return {
+      vendor: draft.vendor,
+      name: draft.name,
+      version: draft.version,
+      gainDb: draft.gainDb,
+      graph: cloneProductGraphSource(session.graph),
+    };
+  }
+
   #requireSession(documentId: string): ProductSession {
     const session = this.#sessions.get(documentId);
     if (session === undefined) {
@@ -507,6 +526,7 @@ export class ProductService {
       productId: session.productId,
       category: PRODUCT_CATEGORY,
       template: PRODUCT_TEMPLATE,
+      graph: cloneProductGraphSource(session.graph),
       draft,
       cleanupWarnings: [],
     };
@@ -531,6 +551,7 @@ export class ProductService {
       productId: snapshot.document.productId,
       category: snapshot.document.category,
       template: snapshot.document.template,
+      graph: cloneProductGraphSource(snapshot.document.graph),
       draft: {
         vendor: snapshot.document.vendor,
         name: snapshot.document.name,

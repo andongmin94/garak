@@ -15,7 +15,7 @@ import path from "node:path";
 import { TextDecoder } from "node:util";
 
 import {
-  canonicalGainGraphPlan,
+  compileProductGraph,
   decodeCompiledGraph,
   encodeCompiledGraph,
 } from "./compiled_graph.ts";
@@ -738,7 +738,9 @@ export async function exportWindowsProduct(
   const identity = deriveProductIdentity(options.project.productId);
   const compiledBytes = encodeCompiledProduct(options.project);
   assertCompiledParity(options.project, compiledBytes);
-  const graphBytes = encodeCompiledGraph(canonicalGainGraphPlan());
+  const graphBytes = encodeCompiledGraph(
+    compileProductGraph(options.project.graph),
+  );
   decodeCompiledGraph(graphBytes);
   const artifacts =
     options.artifacts ??

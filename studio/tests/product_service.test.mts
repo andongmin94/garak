@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { canonicalProductGraphSource } from '../../tools/product-compiler/src/api.ts';
 import type {
   OwnedCleanupDiagnostic,
   ProductProjectSnapshot,
@@ -25,20 +26,27 @@ const DRAFT: ProductDraft = {
 
 function snapshot(
   revision = 'a'.repeat(64),
-  sourceSchemaVersion: 1 | 2 = 2,
+  sourceSchemaVersion: 1 | 2 | 3 = 3,
 ): ProductProjectSnapshot {
   let schemaStatus: ProductProjectSnapshot['schemaStatus'];
   if (sourceSchemaVersion === 1) {
     schemaStatus = {
       sourceSchemaVersion: 1,
-      currentSchemaVersion: 2,
+      currentSchemaVersion: 3,
       migrationRequired: true,
-      steps: ['project-schema-1-to-2'],
+      steps: ['project-schema-1-to-2', 'project-schema-2-to-3'],
+    };
+  } else if (sourceSchemaVersion === 2) {
+    schemaStatus = {
+      sourceSchemaVersion: 2,
+      currentSchemaVersion: 3,
+      migrationRequired: true,
+      steps: ['project-schema-2-to-3'],
     };
   } else {
     schemaStatus = {
-      sourceSchemaVersion: 2,
-      currentSchemaVersion: 2,
+      sourceSchemaVersion: 3,
+      currentSchemaVersion: 3,
       migrationRequired: false,
       steps: [],
     };
@@ -48,13 +56,14 @@ function snapshot(
     revision,
     schemaStatus,
     document: {
-      schemaVersion: 2,
+      schemaVersion: 3,
       productId: PRODUCT_ID,
       vendor: DRAFT.vendor,
       name: DRAFT.name,
       version: DRAFT.version,
       category: 'Fx',
       template: { id: 'garak.gain', version: 1 },
+      graph: canonicalProductGraphSource(),
       defaults: { gainDb: DRAFT.gainDb },
     },
     inspection: {
@@ -151,11 +160,13 @@ function service(dialogPort: ProductDialogPort, compilerPort: ProductCompilerPor
 
 test('main-owned session keeps Product ID out of editable requests', async () => {
   let createdProductId = '';
+  let submittedGraph: unknown;
   const productService = service(
     dialogs(),
     compiler({
       createProductProject: async (options) => {
         createdProductId = String(options.productId);
+        submittedGraph = options.draft.graph;
         return {
           ...mutation(),
           document: { ...mutation().document, productId: createdProductId },
@@ -178,6 +189,7 @@ test('main-owned session keeps Product ID out of editable requests', async () =>
   });
   assert.equal(saved.status, 'ok');
   assert.equal(createdProductId, created.value.productId);
+  assert.deepEqual(submittedGraph, created.value.graph);
   if (saved.status === 'ok') {
     assert.equal(saved.value.productId, created.value.productId);
     assert.equal(saved.value.saved, true);
@@ -202,7 +214,7 @@ test('legacy open remains read-only when migration is declined', async () => {
   const productService = service(
     dialogs({ confirmProjectMigration: async () => false }),
     compiler({
-      openProductProject: async () => snapshot('a'.repeat(64), 1),
+      openProductProject: async () => snapshot('a'.repeat(64), 2),
       saveProductProject: async () => {
         saveCalls += 1;
         return mutation();
@@ -213,13 +225,13 @@ test('legacy open remains read-only when migration is declined', async () => {
   const opened = await productService.openProduct();
   assert.equal(opened.status, 'ok');
   if (opened.status !== 'ok') return;
-  assert.equal(opened.value.schemaVersion, 2);
+  assert.equal(opened.value.schemaVersion, 3);
   assert.deepEqual(opened.value.template, { id: 'garak.gain', version: 1 });
   assert.deepEqual(opened.value.schemaStatus, {
-    sourceSchemaVersion: 1,
-    currentSchemaVersion: 2,
+    sourceSchemaVersion: 2,
+    currentSchemaVersion: 3,
     migrationRequired: true,
-    steps: ['project-schema-1-to-2'],
+    steps: ['project-schema-2-to-3'],
   });
 
   const saved = await productService.saveProduct({
@@ -275,7 +287,7 @@ test('legacy open upgrades only after native confirmation and reports the verifi
   });
   if (opened.status === 'ok') {
     assert.equal(opened.value.schemaStatus.migrationRequired, false);
-    assert.equal(opened.value.schemaStatus.sourceSchemaVersion, 2);
+    assert.equal(opened.value.schemaStatus.sourceSchemaVersion, 3);
   }
 });
 
@@ -288,7 +300,7 @@ test('future-schema open failure creates no session that can overwrite the sourc
         throw new MockCompilerError({
           code: 'GARAK_PROJECT_VERSION_TOO_NEW',
           path: 'product.json.schemaVersion',
-          message: 'schemaVersion 3 is newer than the current version 2.',
+          message: 'schemaVersion 4 is newer than the current version 3.',
         });
       },
       saveProductProject: async () => {
@@ -303,7 +315,7 @@ test('future-schema open failure creates no session that can overwrite the sourc
     diagnostic: {
       code: 'GARAK_PROJECT_VERSION_TOO_NEW',
       path: 'product.json.schemaVersion',
-      message: 'schemaVersion 3 is newer than the current version 2.',
+      message: 'schemaVersion 4 is newer than the current version 3.',
     },
   });
   assert.equal(

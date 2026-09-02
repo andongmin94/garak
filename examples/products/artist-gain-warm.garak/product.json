@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "productId": "6f0e50f1-a2d4-4b37-8c9e-1f2a3b4c5d6e",
   "vendor": "Garak Test Artist",
   "name": "Artist Gain Warm",
@@ -11,5 +11,47 @@
   },
   "defaults": {
     "gainDb": -6
+  },
+  "graph": {
+    "schemaVersion": 1,
+    "nodes": [
+      {
+        "id": "input",
+        "type": "garak.audio-input",
+        "implementationVersion": 1
+      },
+      {
+        "id": "gain",
+        "type": "garak.gain",
+        "implementationVersion": 1
+      },
+      {
+        "id": "output",
+        "type": "garak.audio-output",
+        "implementationVersion": 1
+      }
+    ],
+    "connections": [
+      {
+        "from": {
+          "nodeId": "input",
+          "port": "audio"
+        },
+        "to": {
+          "nodeId": "gain",
+          "port": "audio"
+        }
+      },
+      {
+        "from": {
+          "nodeId": "gain",
+          "port": "audio"
+        },
+        "to": {
+          "nodeId": "output",
+          "port": "audio"
+        }
+      }
+    ]
   }
 }

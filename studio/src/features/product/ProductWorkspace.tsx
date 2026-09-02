@@ -526,6 +526,12 @@ export function ProductWorkspace() {
                     </code>
                   </dd>
                 </div>
+                <div>
+                  <dt>Graph · main-owned</dt>
+                  <dd>
+                    <code>v{document.graph.schemaVersion} · Input → Gain → Output</code>
+                  </dd>
+                </div>
               </dl>
 
               <div className="panel-actions">

@@ -12,9 +12,17 @@ import path from "node:path";
 import test from "node:test";
 
 import {
+  canonicalGainGraphPlan,
+  encodeCompiledGraph,
+} from "../src/compiled_graph.ts";
+import {
   compileProductFile,
   exportWindowsProduct,
 } from "../src/export_windows.ts";
+import {
+  canonicalProductGraphSource,
+  validateProductGraphSource,
+} from "../src/graph_source.ts";
 import { sha256Hex } from "../src/compiled_product.ts";
 import { ProductCompilerError } from "../src/errors.ts";
 import { retryOwnedCleanup } from "../src/owned_cleanup.ts";
@@ -438,6 +446,70 @@ test("exports an exact four-file bundle through injected official-tool behavior"
       result.runtimeSha256,
       sha256Hex(await readFile(artifacts.templateInnerModule)),
     );
+  });
+});
+
+test("export derives graph.garakbin from the validated project graph without an export fallback", async () => {
+  await withTemporaryDirectory(async (temporary) => {
+    const project = await loadTemporaryWarmProject(temporary);
+    const canonical = canonicalProductGraphSource();
+    const authoredGraph = validateProductGraphSource({
+      schemaVersion: 1,
+      nodes: [
+        { ...canonical.nodes[2], id: "artist-output" },
+        { ...canonical.nodes[0], id: "artist-input" },
+        { ...canonical.nodes[1], id: "artist-gain" },
+      ],
+      connections: [
+        {
+          from: { nodeId: "artist-gain", port: "audio" },
+          to: { nodeId: "artist-output", port: "audio" },
+        },
+        {
+          from: { nodeId: "artist-input", port: "audio" },
+          to: { nodeId: "artist-gain", port: "audio" },
+        },
+      ],
+    });
+    const artifacts = await createFakeArtifacts(temporary);
+    const outputDirectory = path.join(temporary, "exports");
+    const result = await exportWindowsProduct({
+      project: { ...project, graph: authoredGraph },
+      configuration: "Debug",
+      outputDirectory,
+      repositoryRoot: temporary,
+      force: false,
+      validate: true,
+      artifacts,
+      processRunner: fakeProcessRunner(project),
+      createTransactionId: () => "authored-graph",
+    });
+    assert.deepEqual(
+      await readFile(
+        path.join(result.bundlePath, "Contents", "Resources", "graph.garakbin"),
+      ),
+      encodeCompiledGraph(canonicalGainGraphPlan()),
+    );
+
+    const invalidProject = structuredClone(project);
+    Object.assign(invalidProject.graph.nodes[1]!, { implementationVersion: 2 });
+    const invalidOutput = path.join(temporary, "invalid-exports");
+    await expectProductError(
+      () =>
+        exportWindowsProduct({
+          project: invalidProject,
+          configuration: "Debug",
+          outputDirectory: invalidOutput,
+          repositoryRoot: temporary,
+          force: false,
+          validate: false,
+          artifacts,
+          processRunner: fakeProcessRunner(project),
+          createTransactionId: () => "invalid-graph",
+        }),
+      "GARAK_PROJECT_GRAPH_IMPLEMENTATION_VERSION",
+    );
+    await assert.rejects(stat(invalidOutput));
   });
 });
 

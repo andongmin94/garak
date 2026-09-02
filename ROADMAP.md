@@ -1,17 +1,18 @@
 # Garak Roadmap
 
-- 기준일: 2026-09-01
+- 기준일: 2026-09-02
 - Branch: `main`
 - Phase 3B historical Windows foundation: **PASS**
 - Phase 3B verified implementation: `4b2535deba302eddab86c5c02b165e8d4f168cf4`
-- Phase 3C1 implementation: `48807fd56e72fdae7192956bf90d6a4ed4b83572`
-- Phase 3C1 verified source: `510f906f45924ad4ef035f6598fc193c25eed245`
-- Phase 3C1 verification run: `33455352188`
-- Phase 3C1 corrected implementation: `8d3461f2e79f38b6e4268d852614eed496b46c82`
-- Phase 3C1 correction verification run: `33602728928`
+- Phase 3C1 accepted main: `1666c667e6e635447b387a5e25bcce7ef1ee42e5`
+- Phase 3C1 exact verified source: `837e01ef96c11800b246a50eff92c4599e630080`
+- Phase 3C1 clean Windows run: `33610351357`
 - Phase 3C1 status: **PASS / Complete**
-- Current Phase 3C status: **IN PROGRESS — Phase 3C2 and Phase 3C3 pending**
-- 다음 increment: **Phase 3C2 — Editable project schema v3**
+- Phase 3C2 exact verified source: `b727afb4cd1471dbd61ce775355be60e040c7000`
+- Phase 3C2 clean Windows run: `33622226202`
+- Phase 3C2 status: **PASS / Complete**
+- Current Phase 3C status: **IN PROGRESS — Phase 3C3 pending**
+- 다음 gate: **Phase 3C3 compatibility matrix and final product gate**
 
 이 roadmap은 기능 목록을 미리 쌓는 문서가 아니다. 각 milestone은 직전의 실제 end-to-end 제품 경로가 clean checkout에서 통과한 뒤에만 다음 층으로 진행한다.
 
@@ -249,10 +250,9 @@ Phase 3C는 [`plans/0014-phase-3c-editable-static-graph-contract.md`](plans/0014
 
 검증 근거:
 
-- resource foundation exact source: `510f906f45924ad4ef035f6598fc193c25eed245`
-- foundation clean Windows run: `33455352188`
-- corrected execution-binding implementation: `8d3461f2e79f38b6e4268d852614eed496b46c82`
-- correction clean Windows run: `33602728928`
+- accepted main: `1666c667e6e635447b387a5e25bcce7ef1ee42e5`
+- exact verified source: `837e01ef96c11800b246a50eff92c4599e630080`
+- clean Windows run: `33610351357`
 - Product Compiler와 Studio format/lint/typecheck/test/build success
 - Debug/Release Product Runtime build, actual Warm/Bright export, official Validator success
 - Debug/Release CTest와 Studio product workflow success
@@ -262,23 +262,30 @@ Phase 3C는 [`plans/0014-phase-3c-editable-static-graph-contract.md`](plans/0014
 
 Correction 이후 Runtime은 graph를 module load에서 private immutable binding으로 준비하고 callback은 해당 binding의 buffer slot과 Parameter ID를 실제 dispatch에 사용한다. Phase 3C1은 **Complete**다. 다음 increment는 schema v3 editable graph source다.
 
-### Phase 3C2 — Editable project schema v3 — Next
+### Phase 3C2 — Editable project schema v3 — Complete
 
-목표:
+구현:
 
-- project schema v3
-- versioned editable graph source
-- strict node/port/connection validator
-- deterministic v2→v3 migration
-- canonical serializer
-- Studio document/draft round-trip
-- Warm/Bright fixture migration
+- project schema v3와 embedded graph source v1
+- exact three-node/two-connection validator
+- deterministic v1→v2→v3와 v2→v3 migration
+- canonical serializer와 legacy v1/v2/current v3 fixed oracles
+- `project.graph`에서 deterministic `GARAKGRF` v1 compile
+- Studio main-owned graph create/open/save/reopen/migrate round-trip
+- invalid current graph의 export-before-output fail-closed
 
-수용 기준:
+검증 근거:
 
-- source order variation은 canonical compiled graph bytes에 영향 없음
-- Product ID/FUID/Parameter/default/state parity 유지
-- legacy/current create/open/save/reopen/export regression success
+- exact verified source: `b727afb4cd1471dbd61ce775355be60e040c7000`
+- clean Windows run: `33622226202`
+- Product Compiler와 Studio format/lint/typecheck/test/build success
+- Debug/Release Runtime clean build, actual Warm/Bright export와 official Validator success
+- Debug/Release CTest와 Studio product workflow success
+- warnings-as-errors와 clang-tidy success
+- tracked-source mutation `0`
+
+Phase 3C2는 **Complete**다. Phase 3C 전체는 Phase 3C3 compatibility와 final product gate가 남아 있어
+계속 In Progress다.
 
 ### Phase 3C3 — Compatibility and full product gate — Pending
 
