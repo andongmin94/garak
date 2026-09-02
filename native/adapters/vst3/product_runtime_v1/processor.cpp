@@ -232,7 +232,8 @@ void GainProcessor::write_snapshot_non_realtime(const std::uint64_t packed_state
       sequence = snapshot_sequence_.load(std::memory_order_acquire);
       continue;
     }
-    if (snapshot_sequence_.compare_exchange_weak(sequence, sequence + 1U, std::memory_order_acquire,
+    if (snapshot_sequence_.compare_exchange_weak(sequence, sequence + 1U,
+                                                 std::memory_order_acquire,
                                                  std::memory_order_relaxed)) {
       break;
     }
@@ -262,9 +263,9 @@ Steinberg::tresult PLUGIN_API GainProcessor::process(Steinberg::Vst::ProcessData
     if (data.numSamples < 0 || data.numSamples > processSetup.maxSamplesPerBlock) {
       return Steinberg::kInvalidArgument;
     }
-    const auto queues = find_parameter_queues(
-        data.inputParameterChanges, execution_binding_.gain_parameter_id(),
-        execution_binding_.bypass_parameter_id());
+    const auto queues =
+        find_parameter_queues(data.inputParameterChanges, execution_binding_.gain_parameter_id(),
+                              execution_binding_.bypass_parameter_id());
     QueuePointSource gain_source(queues.gain);
     QueuePointSource bypass_source(queues.bypass);
 
@@ -291,13 +292,13 @@ Steinberg::tresult PLUGIN_API GainProcessor::process(Steinberg::Vst::ProcessData
 
     Steinberg::tresult result = Steinberg::kResultFalse;
     if (data.symbolicSampleSize == Steinberg::Vst::kSample32) {
-      result = process_audio<Steinberg::Vst::Sample32>(
-          execution_binding_, data, gain_source, bypass_source, current_gain_normalized_,
-          current_bypass_);
+      result = process_audio<Steinberg::Vst::Sample32>(execution_binding_, data, gain_source,
+                                                       bypass_source, current_gain_normalized_,
+                                                       current_bypass_);
     } else if (data.symbolicSampleSize == Steinberg::Vst::kSample64) {
-      result = process_audio<Steinberg::Vst::Sample64>(
-          execution_binding_, data, gain_source, bypass_source, current_gain_normalized_,
-          current_bypass_);
+      result = process_audio<Steinberg::Vst::Sample64>(execution_binding_, data, gain_source,
+                                                       bypass_source, current_gain_normalized_,
+                                                       current_bypass_);
     }
     if (result == Steinberg::kResultTrue) {
       publish_processed_state(processing_generation);
