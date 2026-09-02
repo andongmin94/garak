@@ -72,14 +72,12 @@ private:
 [[nodiscard]] constexpr GainExecutionPlan
 make_gain_execution_plan(const std::uint32_t gain_parameter_id,
                          const std::uint32_t bypass_parameter_id) noexcept {
-  return GainExecutionPlan{{{{1, operation_type_code(OperationKind::audio_input), kNoBuffer, 0, 0,
-                              0},
-                             {2, operation_type_code(OperationKind::gain), 0, 1,
-                              gain_parameter_id, bypass_parameter_id},
-                             {3, operation_type_code(OperationKind::audio_output), 1, kNoBuffer, 0,
-                              0}}},
-                           kGainExecutionBufferCount,
-                           0};
+  return GainExecutionPlan{
+      {{{1, operation_type_code(OperationKind::audio_input), kNoBuffer, 0, 0, 0},
+        {2, operation_type_code(OperationKind::gain), 0, 1, gain_parameter_id, bypass_parameter_id},
+        {3, operation_type_code(OperationKind::audio_output), 1, kNoBuffer, 0, 0}}},
+      kGainExecutionBufferCount,
+      0};
 }
 
 [[nodiscard]] constexpr std::optional<GainExecutionBinding>
