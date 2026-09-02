@@ -2,158 +2,189 @@
 
 - 기준일: 2026-09-01
 - Branch: `main`
-- Phase 3B: **PASS / Complete — historical Windows x64 realtime-safety baseline**
-- Phase 3B verified implementation: `4b2535deba302eddab86c5c02b165e8d4f168cf4`
-- Phase 3B historical run: `32634527751`
-- Phase 3C1 implementation: `48807fd56e72fdae7192956bf90d6a4ed4b83572`
-- Phase 3C1 verified source: `510f906f45924ad4ef035f6598fc193c25eed245`
-- Phase 3C1 clean Windows verification run: `33455352188`
-- Phase 3C1: **PASS / Complete**
-- Phase 3C: **IN PROGRESS — Phase 3C2 and Phase 3C3 pending**
-- 다음 increment: **Phase 3C2 — Editable project schema v3**
+- Source of truth: current source tree, this file and `ROADMAP.md`
 
-## 실제 current product path
+## 현재 판단
+
+Garak의 현재 production 경로는 **product-bound prebuilt Product Runtime v1**이다.
 
 ```text
-unpacked .garak
-→ Product Compiler validation/migration
-→ deterministic product.garakbin + graph.garakbin
-→ prebuilt Garak Product Runtime v1
-→ module-load parse/validation of both resources
-→ immutable loaded Input → Gain → Output execution plan
-→ local Windows x64 VST3
-→ inspector + official validator + loaded-module tests
+.garak project
+  -> Product Compiler
+  -> product.garakbin + graph.garakbin
+  -> prebuilt Garak Product Runtime v1
+  -> product-specific moduleinfo.json
+  -> product-bound local VST3 bundle
+  -> first-party inspector
+  -> official VST3 Validator
 ```
 
-Studio는 current/legacy project 생성·열기·검증·저장·migration·conflict/recovery와 Debug/Release export를 main-owned typed capability로 수행한다. Renderer에는 Node.js, filesystem, shell, process 또는 raw IPC 권한이 없다.
+Native Runtime은 C++20이며 생성된 VST3에는 Electron, Chromium, Node.js 또는 JavaScript runtime이 포함되지 않는다.
+현재 exported Product Runtime은 editorless mono/stereo Float32/Float64 Gain/Bypass effect다.
 
-## 구현된 persistent contract
+## 현재 검증 기준선
 
-- editable project schema v2와 strict legacy v1 migration
-- immutable Product ID
-- deterministic processor/controller FUID
-- Gain ID `1001`, Bypass ID `1002`
-- deterministic `GARAKCPD` v1
-- deterministic `GARAKGRF` v1 compiled graph
-- product-bound `GARAKPST` v1
-- durable save transaction, verified backup와 crash recovery
-- compiled artifact `use-existing` / `rebuild` / `reject` policy
-- future/foreign/corrupt data fail-closed behavior
+Phase 3B의 전체 Windows 검증은 historical realtime-safety 기준선이다.
 
-Phase 3A와 Phase 3B는 persistent Product/FUID/Parameter/state bytes를 변경하지 않았다. Phase 3C1은 graph를 별도 required resource로 추가하며 `GARAKCPD`와 `GARAKPST` 형식을 변경하지 않는다.
-
-## Phase 3A — Minimal Native Static Execution Plan
-
-Phase 3A는 unused cross-language graph prototype을 제거하고 실제 Runtime이 사용하는 가장 작은 native execution boundary를 남겼다.
-
-```text
-Audio Input
-→ Gain (Gain 1001 / Bypass 1002)
-→ Audio Output
-```
-
-역사적 수용 근거:
-
-- implementation commit `27e21307830edf5a6849a3bc96d6ef7ad044cacd`
-- historical run `32617339447`
-
-## Phase 3B — Realtime Safety Instrumentation and Long-run Runtime Stress
-
-SDK-independent static-plan/Gain process window를 별도 first-party executable에서 실제 계측했다.
-
-- Float32: 20,000 blocks, 1,919,504 channel-samples
-- Float64: 20,000 blocks, 1,919,504 channel-samples
-- block size `0..128`
-- mono/stereo
-- in-place/out-of-place
-- Gain/Bypass offset-0 automation
-- deterministic silence flags
-- allocation `0`
-- deallocation `0`
+- verified implementation commit: `4b2535deba302eddab86c5c02b165e8d4f168cf4`
+- historical workflow run: `32634527751`
+- Product Compiler와 Studio quality gates success
+- Debug/Release actual export와 official Validator success
+- CTest, Studio product workflow, Werror와 clang-tidy success
+- Float32/Float64 각각 20,000 blocks, 1,919,504 channel-samples
+- first-party realtime process window allocation `0`, deallocation `0`
 - output/state/silence mismatch `0`
-- CTest timeout 120 seconds, timeout/crash/hang `0`
 
-이 결과는 commit `4b2535deba302eddab86c5c02b165e8d4f168cf4`의 historical clean Windows run `32634527751`에서 확인됐다.
+Phase 3C1의 export/resource foundation은 commit `48807fd56e72fdae7192956bf90d6a4ed4b83572`에 반영됐고, exact source commit `510f906f45924ad4ef035f6598fc193c25eed245`를 clean Windows checkout에서 검증했다.
 
-## Phase 3C1 — Runtime-consumed compiled graph resource — PASS / Complete
-
-Commit `48807fd56e72fdae7192956bf90d6a4ed4b83572`에 다음 implementation이 반영됐다.
-
-- canonical Gain graph의 deterministic `graph.garakbin`
-- export bundle의 exact four-file inventory와 graph hash parity
-- Native module-load graph parser
-- product와 graph resource가 하나라도 missing/corrupt/unsupported이면 factory 공개 전 fail closed
-- loaded immutable graph plan을 Product Runtime context에 전달
-- processor가 source-derived loaded plan을 실제 실행
-- one-time patch workflow와 patch script 제거
-
-Exact source commit `510f906f45924ad4ef035f6598fc193c25eed245`를 clean Windows checkout으로 고정한 일회성 검증 run `33455352188`에서 다음 두 job이 모두 success로 종료됐다.
-
-### Product Compiler and Studio
-
-- exact source SHA 확인
-- frozen dependency install
-- repository LF/whitespace 확인
-- Product Compiler format/lint/typecheck/test
-- Studio format/lint/typecheck/test/production build
+- historical foundation verification run: `33455352188`
+- Product Compiler와 Studio format/lint/typecheck/test/build success
+- Debug/Release Product Runtime clean build success
+- Warm/Bright actual export와 official VST3 Validator success
+- Debug/Release CTest와 Studio product workflow success
+- warnings-as-errors와 clang-tidy success
 - tracked source mutation `0`
 
-### Native Product Runtime and real export path
+2026-09-02 code audit에서 callback이 raw plan을 다시 canonical constant와 비교한 뒤 기존 Gain DSP를 호출하던 경계를 보정했다.
 
-- exact source SHA와 recursive SDK pins 확인
-- first-party C++ format
-- Debug/Release Product Runtime clean build
-- Warm/Bright actual export와 official VST3 Validator
-- Debug/Release CTest와 loaded-module regression
-- Studio Debug/Release product workflow
-- warnings-as-errors
-- clang-tidy
-- tracked source mutation `0`
+- corrected implementation commit: `8d3461f2e79f38b6e4268d852614eed496b46c82`
+- correction verification run: `33602728928`
+- module load에서 `graph.garakbin`을 private immutable `GainExecutionBinding`으로 parse/validate
+- callback은 binding의 input/output buffer slot과 Gain/Bypass Parameter ID를 실제 routing과 queue lookup에 사용
+- wire의 16-bit operation type과 Native enum 폭을 일치시키고 high-byte unknown type을 fail closed
+- malformed automation과 binding execution focused regression 추가
+- Float32/Float64 20,000-block realtime allocation/deallocation `0` 유지
+- obsolete source snapshot workflow 제거
 
-검증 wrapper commit은 source commit과 분리됐고 두 job은 gate 실행 전에 `510f906f45924ad4ef035f6598fc193c25eed245`를 직접 checkout하고 SHA를 확인했다. 결과 확인 뒤 일회성 workflow는 삭제했으며 상시 CI 또는 obsolete product path로 보존하지 않는다.
+따라서 **Phase 3C1 corrected implementation은 PASS / Complete**다. Product branch에는 patch runner나 source-mutating workflow를 보존하지 않는다. Phase 3C 전체는 editable schema v3와 compatibility/full product gate가 남아 있어 여전히 In Progress다.
 
-## 현재 검증 방법
+## 현재 지원 계약
 
-새 implementation은 exact source commit을 clean Windows checkout에서 [`AGENTS.md`](../../AGENTS.md)의 권위 있는 명령으로 검증하고 결과를 기록한다. 검증용 wrapper나 runner가 존재하더라도 source SHA 확인, required command 전체 실행, tracked source mutation `0`이 충족되지 않으면 수용 근거로 사용하지 않는다.
+### Project와 migration
 
-## 완료가 보장하지 않는 항목
+- Current editable project schema는 v2다.
+- `.garak` inventory는 physical `product.json` 한 파일이다.
+- legacy schema v1은 strict deterministic v2 migration을 거쳐야 한다.
+- Product ID는 create 시 생성되고 migration/save/export에서 immutable이다.
+- Studio main process가 inspection, migration, save, recovery와 export authority를 가진다.
+- renderer는 typed capability 외 filesystem 또는 child-process 권한을 가지지 않는다.
 
-- raw C heap 또는 Windows allocator allocation
-- Steinberg SDK와 host thread 내부 allocation
-- kernel-level blocking/wait
-- OS scheduler latency와 실제 DAW deadline
-- cross-thread automation/state handoff concurrency
-- NaN/Inf/subnormal automation 입력
-- representative DAW performance와 audio-quality claim
+### Persistence
 
-## 아직 검증되지 않은 핵심 항목
+- migration은 source project를 자동 overwrite하지 않는다.
+- persistent save는 atomic temp-write와 verified backup transaction을 사용한다.
+- open/migrate/conflict/recovery decision은 Electron main이 소유한다.
+- exact saved bytes와 persisted SHA-256 fingerprint를 conflict detection에 사용한다.
+- crash recovery는 last verified backup의 strict reopen으로만 수행한다.
+- 자동 백업 pruning과 임의 이전 버전 rollback은 아직 구현하지 않았다.
 
-- project schema v3 graph source와 deterministic v2→v3 migration
-- Studio graph document/draft persistence
-- compiled graph compatibility matrix
-- additional DSP node와 macro system
-- representative DAW scan/load/save/reopen matrix
+### Compiled artifacts와 state
+
+- compiled product format은 `GARAKCPD` 1.0이다.
+- compiled graph format은 `GARAKGRF` 1.0이다.
+- plug-in state format은 `GARAKPST` 1.0이다.
+- current Runtime은 major 1만 지원한다.
+- compiled current exact, compiled legacy rebuild, compiled future reject 정책을 적용한다.
+- state restore는 exact Product ID와 supported state major가 필요하다.
+- Product ID/FUID/Parameter ID는 published compatibility contract다.
+- current Parameter IDs는 Gain `1001`, Bypass `1002`다.
+
+### Export와 Runtime
+
+- Product Compiler가 `product.garakbin`, `graph.garakbin`과 moduleinfo를 결정적으로 생성한다.
+- export는 runtime source path 대신 existing prebuilt Product Runtime binary를 복사한다.
+- Product Runtime은 module load에서 compiled product와 graph를 검증하고 private immutable execution binding을 processor에 전달한다.
+- graph resource가 missing/corrupt/unsupported이면 factory를 공개하지 않는다.
+- official Validator를 temporary environment에서 실행한 뒤 final bundle을 atomic publish한다.
+- final export inventory와 staged bytes의 hash parity를 검사한다.
+
+### Realtime
+
+- current graph는 `Input → Gain → Output` exact three-operation plan이다.
+- processor는 module-load prepared immutable binding의 buffer slot과 Parameter ID로 existing Gain kernel을 dispatch한다.
+- Float32와 Float64 processing을 지원한다.
+- mono와 stereo arrangement를 지원한다.
+- Gain은 sample-accurate interpolation, Bypass는 exact-offset step 정책을 사용한다.
+- process window에서는 heap allocation, free, mutex, file I/O, logging과 graph mutation을 금지한다.
+- test storage와 point sources는 process window 전에 fixed-size stack storage로 준비한다.
+
+## Phase 진행 상태
+
+### Phase 0A / 0B — Complete
+
+Repository foundation, source policy, Product Compiler/Studio/Native scaffolds와 pinned VST3 SDK가 완료됐다.
+
+### Phase 1A / 1B — Historical only
+
+Fixed Gain spike와 Data/Thin A/B runtime spike는 결론을 얻은 뒤 active source/build graph에서 제거했다.
+Historical plans와 status만 보존한다.
+
+### Phase 1C1 / 1C2 — Complete
+
+- product-bound local VST3 export
+- deterministic Product/FUID identity
+- compiled product resource
+- Studio create/open/export workflow
+
+### Phase 2A / 2B1 / 2B2 / 2C — Complete
+
+- strict editable project migration
+- durable save와 verified backup
+- Studio-owned migration/conflict/recovery UX
+- compiled/state compatibility policy
+
+### Phase 3A — Complete
+
+Production Gain DSP가 actual processor dispatch에 연결됐다.
+
+### Phase 3B — Complete
+
+Separate realtime stress target이 production static plan/Gain DSP의 output/state/silence parity와 allocation-free behavior를 검증한다.
+
+### Phase 3C — In Progress
+
+#### 3C1 — Runtime-consumed compiled graph resource — Complete
+
+- deterministic `graph.garakbin` v1
+- actual export inventory와 hash parity
+- Native module-load parser
+- product+graph shared immutable Runtime context
+- processor는 loaded plan으로 actual Gain kernel dispatch
+- missing/corrupt/unsupported graph fail-closed
+- resource foundation commit `510f906f45924ad4ef035f6598fc193c25eed245`와 corrected implementation commit `8d3461f2e79f38b6e4268d852614eed496b46c82`의 clean Windows full gate success
+
+#### 3C2 — Editable project schema v3 — Next
+
+- versioned editable graph source
+- strict graph validator
+- deterministic v2→v3 migration
+- Studio document/draft round-trip
+- Warm/Bright fixture migration
+
+#### 3C3 — Compatibility and full product gate — Pending
+
+- graph compatibility disposition
+- Product Compiler/Runtime/inspector parity
+- final Debug/Release/Validator/CTest/Werror/clang-tidy gate
+
+## 명시적으로 아직 완료하지 않은 영역
+
+- additional DSP nodes beyond Gain
+- arbitrary DAG, split/merge, feedback와 sidechain
+- macro/control mapping
+- functional Sound/Control workspaces
+- Interface Designer와 native plug-in editor
+- preset/asset product packaging
 - packaged Studio와 clean-system installer
-- native interface designer
-- preset/asset packaging
-- backup retention/pruning와 advanced manual recovery
-- macOS Universal VST3, AU, signing과 notarization
-- legal/trademark/security review와 repository license decision
+- representative DAW matrix와 audio quality gate
+- macOS Universal VST3/AU, signing과 notarization
+- backup retention/pruning과 advanced manual recovery
+- repository/commercial redistribution license decision
 
-## Source of truth
+## 다음 작업
 
-- [Phase 3C ExecPlan](../../plans/0014-phase-3c-editable-static-graph-contract.md)
-- [Phase 3B ExecPlan](../../plans/0013-phase-3b-realtime-safety-stress.md)
-- [Repository constitution](../../AGENTS.md)
-- [Roadmap](../../ROADMAP.md)
-- [Current VST3 adapter](../architecture/vst3-adapter.md)
-- [Runtime and export](../architecture/runtime-and-export.md)
-- [Project persistence](../architecture/project-persistence-service.md)
-- [Compiled/state compatibility](../architecture/compiled-and-state-compatibility.md)
-
-## 다음 단계
-
-1. Phase 3C2에서 project schema v3의 strict editable graph source를 구현한다.
-2. deterministic v2→v3 migration과 Product/FUID/Parameter/default parity를 검증한다.
-3. Studio document/draft create/open/save/reopen workflow가 graph source를 손실 없이 round-trip하도록 연결한다.
-4. Phase 3C3에서 compiled graph compatibility matrix와 final full product gate를 완료한다.
+1. [`plans/0014-phase-3c-editable-static-graph-contract.md`](../../plans/0014-phase-3c-editable-static-graph-contract.md)의 **Phase 3C2**를 진행한다.
+2. Project schema v3의 exact graph source contract와 strict validator를 정의한다.
+3. v2→v3 migration, canonical serializer와 Studio document/draft round-trip을 구현한다.
+4. Phase 3C3 compatibility matrix와 final full Windows product gate를 완료한다.
+5. Phase 3C 완료 뒤 별도 ExecPlan으로 Phase 3D initial DSP node set을 시작한다.
