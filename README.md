@@ -47,8 +47,14 @@ Phase 3C2는 current schema v3, embedded graph source v1, strict v1/v2 migration
 `b727afb4cd1471dbd61ce775355be60e040c7000`의 clean Windows run `33622226202`에서 Product Compiler/Studio format·lint·typecheck·test·build,
 Debug/Release Runtime build, Warm/Bright actual export와 official Validator, CTest, Studio workflow,
 warnings-as-errors, clang-tidy와 tracked-source mutation `0`이 모두 통과했다. 따라서 **Phase 3C2는 PASS /
-Complete**다. Phase 3C 전체는 Phase 3C3 compatibility/final gate가 남아 있어 계속 In Progress다. 현재
-사실은 [`docs/status/current.md`](docs/status/current.md)를 따른다.
+Complete**다.
+
+Phase 3C3 implementation candidate는 compiled graph의 current/missing/old/future/corrupt disposition을
+Product Compiler, Native Runtime과 first-party inspector에 연결했다. TypeScript와 Native fixed fixture가 같은
+semantic matrix를 사용하고 Runtime은 current report가 반환한 prepared binding만 소비한다. Local GCC/Clang
+focused tests와 Debug/Release non-SDK CMake tests는 통과했지만 exact source clean Windows full product gate는
+아직 실행 전이다. 따라서 Phase 3C 전체는 계속 **In Progress**다. 현재 사실은
+[`docs/status/current.md`](docs/status/current.md)를 따른다.
 
 ## 빠른 시작
 
@@ -152,7 +158,7 @@ cmake --build --preset product-runtime-clang-tidy-build --clean-first
 - product-bound `GARAKPST` v1 plug-in state
 - durable project save, persistent verified backup와 crash recovery core
 - main-owned migration/conflict/recovery decisions
-- compiled artifact `use-existing` / `rebuild` / `reject` compatibility policy
+- compiled product/graph와 state의 explicit load/rebuild/reject compatibility policy
 - Windows local white-label VST3 export
 - editorless mono/stereo Float32/Float64 Gain Runtime
 - module-load graph parse/validation과 immutable prepared execution binding
@@ -201,8 +207,27 @@ Phase 3A는 production Gain DSP를 실제 processor dispatch와 연결하는 최
 - Debug/Release CTest와 Studio product workflow success
 - warnings-as-errors, clang-tidy와 tracked-source mutation `0`
 
-Phase 3C2는 **Complete**다. 다음 increment는 **Phase 3C3 — compiled graph compatibility matrix and final
-product gate**다.
+Phase 3C2는 **Complete**다.
+
+#### Phase 3C3 — Compiled graph compatibility and final product gate — In Progress
+
+현재 implementation candidate:
+
+- `GARAKGRF` current/missing/old/future/corrupt semantic disposition
+- Product Compiler compatibility API/CLI의 compiled graph report
+- Native classifier가 current graph의 actual `GainExecutionBinding` 반환
+- Product Runtime과 first-party inspector가 같은 Native classifier 사용
+- shared exact graph fixture의 TypeScript/C++ parity regression
+- missing/old derived data만 authoring context에서 rebuild, future/corrupt data는 preserve/reject
+
+현재 local 근거:
+
+- GCC와 Clang `-Wall -Wextra -Wpedantic -Werror` focused graph tests success
+- Debug/Release non-SDK CMake build와 CTest 4/4 success
+- `git diff --check` success
+
+남은 수용 조건은 exact source의 Product Compiler/Studio format·lint·typecheck·test·build, Debug/Release actual
+export와 official Validator, CTest, Studio workflow, Werror, clang-tidy 및 tracked-source mutation `0`이다.
 
 ## 제거된 기술 spike
 
@@ -212,7 +237,7 @@ Phase 1A의 fixed Gain module과 Phase 1B의 Data/Thin A/B runtime-strategy 구�
 
 현재 Garak은 repository-local Windows vertical slice다. 다음은 아직 완료되지 않았다.
 
-- compiled graph compatibility disposition matrix와 final Phase 3C gate
+- Phase 3C3 exact-source full Windows acceptance와 final Phase 3C gate
 - additional DSP node library
 - cross-thread automation/state handoff 및 kernel-level blocking 계측
 - macro mapping과 functional Sound/Control workspaces
@@ -232,6 +257,7 @@ Phase 1A의 fixed Gain module과 Phase 1B의 Data/Thin A/B runtime-strategy 구�
 - [Phase 3C ExecPlan](plans/0014-phase-3c-editable-static-graph-contract.md)
 - [Phase 3C1 execution correction](plans/0015-phase-3c1-graph-execution-correction.md)
 - [Phase 3C2 editable schema v3](plans/0016-phase-3c2-editable-project-schema-v3.md)
+- [Phase 3C3 compiled graph compatibility](plans/0017-phase-3c3-compiled-graph-compatibility.md)
 - [Editable Project Schema v3](docs/architecture/editable-project-schema-v3.md)
 - [System overview](docs/architecture/system-overview.md)
 - [Runtime and export](docs/architecture/runtime-and-export.md)

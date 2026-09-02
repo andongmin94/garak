@@ -1,6 +1,6 @@
 # Garak Runtime and Export
 
-- 문서 상태: Phase 3C2 editable graph source와 source-derived compiled graph 경계 반영
+- 문서 상태: Phase 3C3 compiled graph compatibility candidate 반영
 - 최종 갱신: 2026-09-02
 - 권위 범위: compiled runtime contract, product compilation/export 단계와 generated runtime 전략 평가 기준
 - 관련 문서: [v0.1 제품 요구사항](../product/v0.1-prd.md), [시스템 개요](system-overview.md), [프로젝트 모델](project-model.md), [모듈 경계](module-boundaries.md), [Realtime과 quality](realtime-and-quality.md), [Minimal Garak Product Project](minimal-garak-product-project.md), [Editable Project Schema v3](editable-project-schema-v3.md), [Editable Project Schema v2](editable-project-schema-v2.md), [Project Migration Engine](project-migration-engine.md), [Product Identity Derivation](product-identity-derivation.md), [Compiled Product Data v1](compiled-product-data-v1.md), [Product State v1](product-state-v1.md), [ADR 0003 — Proposed](../adr/0003-generated-plugin-runtime-strategy.md), [ADR 0004](../adr/0004-windows-macos-and-plugin-formats.md), [ADR 0005 — Windows v0.x Accepted](../adr/0005-windows-v0x-prebuilt-product-runtime.md), [ADR 0006 — Studio workflow](../adr/0006-studio-product-workflow-boundary.md), [ADR 0007 — Project migration](../adr/0007-editable-project-schema-migration-policy.md)
@@ -356,9 +356,10 @@ Runtime/export 영역은 다음 version을 구분한다.
 
 한 version을 다른 version의 대용으로 사용하지 않는다. Editable `.garak`은 exact v1→v2→v3와 v2→v3
 chain을 지원하고 current writer는 v3만 생성한다. Preset과 DAW state는 선언된 지원 범위에서 별도
-migration 계약을 가진다. `GARAKCPD`와 `GARAKGRF`는 source project에서 재생성 가능한 derived artifact다.
-Current/missing/corrupt/too-old/too-new compiled graph disposition의 최종 cross-layer matrix는 Phase 3C3가
-소유한다.
+migration 계약을 가진다. `GARAKCPD`와 `GARAKGRF`는 source project에서 재생성 가능한 derived artifact다. Phase 3C3의
+cross-layer graph matrix는 exact current를 load하고, missing/old derived graph만 authoring context에서
+rebuild하며, future/corrupt artifact는 preserve/reject한다. Deployed Runtime은 editable source를 포함하지
+않으므로 exact current graph 외에는 factory 공개 전에 실패한다.
 
 Obsolete 내부 compiler API, adapter, generated wrapper template 또는 pre-release binary ABI는 compatibility shim으로 보존하지 않는다. Persistent data migration은 입력 경계에서 현재 canonical contract로 변환하며 obsolete runtime path를 계속 실행하는 방식으로 구현하지 않는다.
 
@@ -375,7 +376,7 @@ Obsolete 내부 compiler API, adapter, generated wrapper template 또는 pre-rel
 ## Open Questions
 
 - macOS VST3/AU의 서명 가능한 package 안에서 product data를 어디에 둘 것인가?
-- Compiler/runtime/data version mismatch를 어떤 compatibility matrix로 판단할 것인가?
+- Additional node와 future compiled graph version이 실제로 필요해질 때 현재 matrix를 어떤 explicit version으로 확장할 것인가?
 - Windows에서 정한 Product ID 의미를 macOS VST3와 AU class identity에 어떻게 안정적으로 적용할 것인가?
 - macOS Universal binary와 AU packaging에 필요한 build/signing toolchain을 Studio가 어떻게 제공할 것인가?
 - Export diagnostic과 partial artifact를 어떤 구조로 보존할 것인가?
@@ -388,5 +389,6 @@ compiler/export contract를 바꾸지 않고 Studio Product Workspace와 Export 
 publication에 대해서는 `cleanupDiagnostics` 표시와 transaction-owned orphan cleanup UX만 추가했으며,
 Phase 2A는 editable schema v1→v2와 headless explicit-output migration을, Phase 2B는 Studio confirmation,
 verified backup/recovery와 durable in-place persistence를 완료했다. Phase 3C2는 current schema v3에
-project-owned graph source를 추가하고 source-derived `graph.garakbin`으로 연결한다. Phase 3C3 compiled graph
-compatibility matrix와 final full Windows product gate, 그리고 macOS/AU release gate는 계속 pending이다.
+project-owned graph source를 추가하고 source-derived `graph.garakbin`으로 연결한다. Phase 3C3는 compiled graph
+compatibility matrix를 Product Compiler, Runtime과 inspector에 연결한 implementation candidate 상태이며,
+exact source final full Windows product gate는 아직 pending이다. macOS/AU release gate도 계속 pending이다.
