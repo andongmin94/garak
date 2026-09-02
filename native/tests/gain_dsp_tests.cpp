@@ -196,16 +196,14 @@ void test_invalid_automation_is_ignored(TestContext& test) {
   };
 
   const std::array non_monotonic{AutomationPoint{2, 0.0}, AutomationPoint{1, 1.0}};
-  verify_ignored(non_monotonic,
-                 "non-monotonic automation is ignored without changing live state");
+  verify_ignored(non_monotonic, "non-monotonic automation is ignored without changing live state");
 
   const std::array non_finite{
       AutomationPoint{1, std::numeric_limits<double>::quiet_NaN()}};
   verify_ignored(non_finite, "non-finite automation is ignored without changing live state");
 
   const std::array out_of_range{AutomationPoint{4, 1.0}};
-  verify_ignored(out_of_range,
-                 "out-of-range automation is ignored without changing live state");
+  verify_ignored(out_of_range, "out-of-range automation is ignored without changing live state");
 
   PointSource no_gain_points(std::span<const AutomationPoint>{});
   PointSource invalid_bypass_source(out_of_range);
