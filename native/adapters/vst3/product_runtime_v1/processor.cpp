@@ -51,9 +51,8 @@ struct ParameterQueues final {
 };
 
 [[nodiscard]] ParameterQueues
-find_parameter_queues(
-    Steinberg::Vst::IParameterChanges* const changes,
-    const garak::runtime::static_graph::GainExecutionBinding& execution_binding) {
+find_parameter_queues(Steinberg::Vst::IParameterChanges* const changes,
+                      const garak::runtime::static_graph::GainExecutionBinding& execution_binding) {
   ParameterQueues result{};
   if (changes == nullptr) {
     return result;
