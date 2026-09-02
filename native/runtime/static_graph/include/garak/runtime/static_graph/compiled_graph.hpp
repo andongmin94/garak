@@ -60,14 +60,11 @@ parse_compiled_gain_graph(const std::span<const std::uint8_t> bytes,
   plan.latency_samples = detail::read_graph_u32(bytes, 24);
   auto offset = kCompiledGraphHeaderBytes;
   for (std::size_t index = 0; index < kCompiledGraphOperationCount; ++index) {
-    const auto type = detail::read_graph_u16(bytes, offset + 4);
-    if (type < static_cast<std::uint16_t>(OperationType::audio_input) ||
-        type > static_cast<std::uint16_t>(OperationType::audio_output) ||
-        detail::read_graph_u16(bytes, offset + 6) != 0) {
+    if (detail::read_graph_u16(bytes, offset + 6) != 0) {
       return std::nullopt;
     }
     plan.operations[index] = {
-        detail::read_graph_u32(bytes, offset),      static_cast<OperationType>(type),
+        detail::read_graph_u32(bytes, offset),      detail::read_graph_u16(bytes, offset + 4),
         detail::read_graph_u16(bytes, offset + 8),  detail::read_graph_u16(bytes, offset + 10),
         detail::read_graph_u32(bytes, offset + 12), detail::read_graph_u32(bytes, offset + 16)};
     offset += kCompiledGraphOperationBytes;
