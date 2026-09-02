@@ -172,6 +172,50 @@ void test_zero_sample_and_silence_contract(TestContext& test) {
               "input silence flags produce zero output and propagate exactly");
 }
 
+void test_invalid_automation_is_ignored(TestContext& test) {
+  using namespace garak::dsp::gain;
+
+  std::array<float, 4> input{0.25F, -0.5F, 0.75F, -1.0F};
+  std::array<float, 4> output{};
+  float* inputs[] = {input.data()};
+  float* outputs[] = {output.data()};
+  std::uint64_t silence = 0;
+
+  const auto verify_ignored = [&](const std::span<const AutomationPoint> points,
+                                  const std::string_view message) {
+    PointSource gain_source(points);
+    PointSource no_bypass_points(std::span<const AutomationPoint>{});
+    output.fill(0.0F);
+    double gain = default_normalized_gain();
+    bool bypass = false;
+
+    process_block(ProcessBlockContext<float, PointSource, PointSource>{
+        inputs, outputs, 1, static_cast<std::int32_t>(input.size()), 0, silence, gain_source,
+        no_bypass_points, gain, bypass});
+    test.expect(output == input && gain == default_normalized_gain() && !bypass, message);
+  };
+
+  const std::array non_monotonic{AutomationPoint{2, 0.0}, AutomationPoint{1, 1.0}};
+  verify_ignored(non_monotonic, "non-monotonic automation is ignored without changing live state");
+
+  const std::array non_finite{AutomationPoint{1, std::numeric_limits<double>::quiet_NaN()}};
+  verify_ignored(non_finite, "non-finite automation is ignored without changing live state");
+
+  const std::array out_of_range{AutomationPoint{4, 1.0}};
+  verify_ignored(out_of_range, "out-of-range automation is ignored without changing live state");
+
+  PointSource no_gain_points(std::span<const AutomationPoint>{});
+  PointSource invalid_bypass_source(out_of_range);
+  output.fill(0.0F);
+  double gain = default_normalized_gain();
+  bool bypass = false;
+  process_block(ProcessBlockContext<float, PointSource, PointSource>{
+      inputs, outputs, 1, static_cast<std::int32_t>(input.size()), 0, silence, no_gain_points,
+      invalid_bypass_source, gain, bypass});
+  test.expect(output == input && gain == default_normalized_gain() && !bypass,
+              "invalid bypass automation is ignored without changing live state");
+}
+
 } // namespace
 
 int main() {
@@ -180,5 +224,6 @@ int main() {
   test_mono_and_stereo_processing(test);
   test_sample_accurate_automation(test);
   test_zero_sample_and_silence_contract(test);
+  test_invalid_automation_is_ignored(test);
   return test.result();
 }

@@ -8,7 +8,7 @@ namespace garak::adapter::vst3::product_runtime_v1 {
 
 struct ProductRuntimeContext final {
   garak::runtime::product_v1::CompiledProduct product;
-  garak::runtime::static_graph::GainExecutionPlan execution_plan;
+  garak::runtime::static_graph::GainExecutionBinding execution_binding;
 };
 
 } // namespace garak::adapter::vst3::product_runtime_v1

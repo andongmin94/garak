@@ -87,7 +87,7 @@ read_compiled_product(const std::filesystem::path& path) {
       std::span<const std::uint8_t>(bytes.data(), static_cast<std::size_t>(count)));
 }
 
-[[nodiscard]] std::optional<garak::runtime::static_graph::GainExecutionPlan>
+[[nodiscard]] std::optional<garak::runtime::static_graph::GainExecutionBinding>
 read_compiled_graph(const std::filesystem::path& path) {
   std::ifstream input(path, std::ios::binary);
   if (!input.is_open()) {
@@ -127,15 +127,15 @@ std::optional<ProductRuntimeContext> load_module_product_runtime() noexcept {
 
     const auto resources_directory = contents_directory / L"Resources";
     auto product = read_compiled_product(resources_directory / kProductResourceFilename);
-    auto execution_plan = read_compiled_graph(resources_directory / kGraphResourceFilename);
-    if (!product || !execution_plan) {
+    auto execution_binding = read_compiled_graph(resources_directory / kGraphResourceFilename);
+    if (!product || !execution_binding) {
       return std::nullopt;
     }
     const auto product_name = utf8_to_wide(product->name);
     if (!product_name || inner_filename != std::filesystem::path(*product_name + L".vst3")) {
       return std::nullopt;
     }
-    return ProductRuntimeContext{std::move(*product), *execution_plan};
+    return ProductRuntimeContext{std::move(*product), *execution_binding};
   } catch (...) {
     return std::nullopt;
   }
