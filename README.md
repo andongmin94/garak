@@ -231,6 +231,7 @@ Phase 3C2는 **Complete**다.
 - tracked-source mutation `0`
 
 Phase 3C는 **Complete**다. 다음 increment는 **Phase 3D — Initial DSP Node Set**이다.
+
 ## 제거된 기술 spike
 
 Phase 1A의 fixed Gain module과 Phase 1B의 Data/Thin A/B runtime-strategy 구현은 의사결정용 pre-release 기술 spike였다. 현재 제품 build graph와 source tree에서는 제거됐다. 당시 결과는 역사적 문서에만 남긴다. 삭제된 spike source, preset, packaging path 또는 FUID reservations를 compatibility layer로 복원하지 않는다.

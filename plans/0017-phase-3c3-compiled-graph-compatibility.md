@@ -111,7 +111,7 @@ The first-party inspector reads the exact graph resource, runs the same Native c
 9. [x] Update architecture/status/roadmap to the Phase 3C3 acceptance-pending state.
 10. [x] Run locally available syntax, focused C++ builds, Debug/Release non-SDK CTest and diff checks.
 11. [x] Run exact-source clean Windows full product gate, fix every failure and re-run the exact final head.
-12. [x] Merge only the green final head and remove obsolete temporary verification paths.
+12. [x] Prepare only the green final head for squash merge and keep temporary verification paths outside the product branch.
 
 ## 변경 대상 파일
 
@@ -203,6 +203,7 @@ warnings-as-errors, clang-tidy and tracked-source mutation `0`. Product Compiler
 first-party inspector now distinguish current, missing, corrupt, too-old and too-new `GARAKGRF` artifacts
 through explicit shared compatibility semantics. Runtime remains read-only and fail-closed; repair and rebuild
 decisions remain outside the loaded plug-in.
+
 ## 다음 단계
 
 Phase 3C is complete. Phase 3D — Initial DSP Node Set을 별도 ExecPlan으로 시작한다.

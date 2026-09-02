@@ -191,6 +191,7 @@ Separate realtime stress target이 production static plan/Gain DSP의 output/sta
 - Debug/Release Runtime build, Warm/Bright actual export와 official Validator success
 - Debug/Release CTest와 Studio workflow success
 - warnings-as-errors, clang-tidy와 tracked-source mutation `0`
+
 ## 명시적으로 아직 완료하지 않은 영역
 
 - additional DSP nodes beyond Gain

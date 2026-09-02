@@ -165,6 +165,7 @@ Phase 3C는 완료됐다. Phase 3C1은 Runtime-consumed compiled graph와 actual
 Phase 3C2는 schema v3 project-owned graph source와 deterministic compilation을 연결했으며, Phase 3C3는
 compiled graph compatibility를 Product Compiler, Runtime과 inspector에 통일했다. Exact Phase 3C3 source
 `d60667d8806e5dac7963ae928dcf98dc377cf0f7`의 clean Windows run `33657806095`에서 final Debug/Release product gate 전체가 성공했다.
+
 ## 다음 단계
 
 Phase 3D — Initial DSP Node Set을 별도 ExecPlan으로 시작한다.

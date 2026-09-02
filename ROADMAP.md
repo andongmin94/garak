@@ -287,8 +287,7 @@ Correction 이후 Runtime은 graph를 module load에서 private immutable bindin
 - warnings-as-errors와 clang-tidy success
 - tracked-source mutation `0`
 
-Phase 3C2는 **Complete**다. Phase 3C 전체는 Phase 3C3 compatibility와 final product gate가 남아 있어
-계속 In Progress다.
+Phase 3C2는 **Complete**다.
 
 ### Phase 3C3 — Compatibility and full product gate — Complete
 
@@ -311,6 +310,7 @@ Phase 3C2는 **Complete**다. Phase 3C 전체는 Phase 3C3 compatibility와 fina
 - tracked-source mutation `0`
 
 Phase 3C is **Complete**. Phase 3D starts under a separate ExecPlan.
+
 ---
 
 ## Phase 3D — Initial DSP Node Set — Planned
