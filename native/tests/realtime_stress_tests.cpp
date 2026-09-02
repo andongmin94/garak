@@ -287,8 +287,8 @@ template <typename Sample>
       }
     }
     ++result.processed_blocks;
-    result.processed_samples += static_cast<std::uint64_t>(sample_count) *
-                                static_cast<std::uint64_t>(channel_count);
+    result.processed_samples +=
+        static_cast<std::uint64_t>(sample_count) * static_cast<std::uint64_t>(channel_count);
   }
   result.counts = allocation_tracking::end();
   return result;
@@ -318,5 +318,5 @@ int main() {
   const auto float_result = run_stress<float>(0xB10C'F32A'1234'5678ULL);
   const auto double_result = run_stress<double>(0xB10C'F64A'8765'4321ULL);
   return report("Float32", float_result) && report("Float64", double_result) ? EXIT_SUCCESS
-                                                                           : EXIT_FAILURE;
+                                                                             : EXIT_FAILURE;
 }
