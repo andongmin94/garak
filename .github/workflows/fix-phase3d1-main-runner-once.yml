@@ -1,0 +1,53 @@
+name: Fix Phase 3D1 direct-main runner once
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/fix-phase3d1-main-runner-once.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: garak-direct-main-phase3d1-fix
+  cancel-in-progress: false
+
+jobs:
+  fix:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Check out main branch
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Repair runner assumptions and remove this workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          workflow=.github/workflows/complete-phase3d1-main-once.yml
+          test -f "$workflow"
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('.github/workflows/complete-phase3d1-main-once.yml')
+          text = path.read_text(encoding='utf-8')
+          text = text.replace('          test "$(git branch --show-current)" = "main"\n', '')
+          old = '''          test "$(gh api "repos/$GITHUB_REPOSITORY/contents/.github/workflows" >/dev/null 2>&1; echo $?)" -ne 0\n'''
+          new = '''          if gh api "repos/$GITHUB_REPOSITORY/contents/.github/workflows" >/dev/null 2>&1; then\n            echo 'One-time workflow directory remains after acceptance.' >&2\n            exit 1\n          fi\n'''
+          if old in text:
+              text = text.replace(old, new)
+          path.write_text(text, encoding='utf-8', newline='\n')
+          PY
+          git rm .github/workflows/fix-phase3d1-main-runner-once.yml
+          git config user.name "Garak Direct Main Development"
+          git config user.email "110483588+andongmin94@users.noreply.github.com"
+          git add "$workflow"
+          git diff --cached --check
+          git commit -m "fix: run Phase 3D1 from detached exact main"
+          git push origin HEAD:main
