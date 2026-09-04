@@ -189,3 +189,12 @@ cmake --build --preset product-runtime-clang-tidy-build --clean-first
 ```
 
 Current build에 Phase 1A/1B option, preset, target 또는 package script를 다시 추가하지 않는다.
+
+## Branch 운영 정책
+
+- 이 저장소의 개발 작업은 사용자 지시에 따라 `main`에서 직접 수행한다.
+- `agent/*`, feature, verification, cleanup 또는 release branch를 만들지 않는다.
+- Pull request를 개발·검증의 중간 저장소로 사용하지 않는다.
+- 검증은 정확한 `main` commit의 clean checkout을 대상으로 수행하고, 실패하면 다음 수정도 `main`에 직접 반영한다.
+- 일회성 검증 workflow가 불가피하면 `main`에 추가하고 같은 작업 안에서 제거하여 최종 source tree에 남기지 않는다.
+- 현재 요구를 충족하지 않는 과거 branch·workflow·compatibility path는 보존하지 않는다.
