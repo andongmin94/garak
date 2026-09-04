@@ -1,0 +1,304 @@
+name: Implement Phase 3D3 Dry Wet directly on main
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/implement-phase3d3-dry-wet-main-once.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  models: read
+
+concurrency:
+  group: garak-direct-main-phase3d1-controller
+  cancel-in-progress: false
+
+jobs:
+  implement:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    outputs:
+      state: ${{ steps.publish.outputs.state }}
+      source_sha: ${{ steps.publish.outputs.source_sha }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+      OPENAI_API_KEY: ${{ github.token }}
+      OPENAI_API_BASE: https://models.github.ai/inference
+    steps:
+      - name: Check out current main and recursive SDK graph
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Confirm accepted Phase 3D2 and Phase 3D3 plan
+        id: readiness
+        shell: bash
+        run: |
+          set -euo pipefail
+          if test -f native/dsp/pan/include/garak/dsp/pan/pan.hpp \
+             && test -f examples/products/artist-gain-panned.garak/product.json \
+             && grep -Fq -- '- Status: Complete' plans/0019-phase-3d2-pan-node.md \
+             && test -f plans/0020-phase-3d3-dry-wet-node.md \
+             && grep -Fq -- '- Status: In Progress' plans/0020-phase-3d3-dry-wet-node.md; then
+            echo 'ready=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'ready=false' >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install exact development tools
+        if: steps.readiness.outputs.ready == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          corepack enable
+          corepack prepare pnpm@11.16.0 --activate
+          pnpm install --frozen-lockfile
+          python -m pip install --disable-pip-version-check --quiet 'aider-chat>=0.86,<1'
+
+      - name: Implement explicit fixed Dry Wet end to end
+        if: steps.readiness.outputs.ready == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > "$RUNNER_TEMP/phase3d3-prompt.txt" <<'PROMPT'
+          Work directly in this clean Garak main checkout. Read and obey AGENTS.md, native/AGENTS.md, studio/AGENTS.md, PLANS.md, plans/0018-phase-3d1-polarity-node.md, plans/0019-phase-3d2-pan-node.md, and plans/0020-phase-3d3-dry-wet-node.md. Implement all Phase 3D3 production code, tests, fixtures, build integration, and acceptance-pending documentation now, but do not commit and do not mark Complete.
+
+          Required capability:
+          - Add fixed Dry/Wet DSP implementation version 1 with immutable project-owned finite `mix` in [0,1]. It is not a host parameter; add no Parameter ID or state field.
+          - Versioned law is exactly `output = (1 - mix) * dry + mix * wet` for every sample/channel. Support Float32/Float64, mono/stereo, in-place and out-of-place aliasing safely. Precompute coefficients outside callback.
+          - The graph source must represent dry routing explicitly, never via an implicit pointer/global side channel. Approved topology: Audio Input.audio -> Gain.audio; Audio Input.audio -> DryWet.dry; Gain.audio -> DryWet.wet; DryWet.audio -> Audio Output.audio.
+          - Preserve exact existing Gain-only, Gain->Polarity, and Gain->Pan topologies. Do not allow DryWet combined with Polarity or Pan. Reject all other branching/fan-out/merge/DAG shapes.
+          - Evolve project schema, graph source, and GARAKGRF minor versions explicitly from the accepted Phase 3D2 baseline, with ordered migration preserving existing products and historical meanings. Tooling rebuilds older compiled graphs; deployed Runtime rejects non-current artifacts.
+          - Extend the compiler's deterministic schedule/buffer plan only as much as needed for the single approved fan-out/two-input operation. Use fixed-size data; do not build a generic allocator or scheduler.
+          - Preserve whole-product sample-accurate host Bypass: bypass output is exact original input, independent of mix. Callback performs zero allocation/deallocation, locks, I/O, logging, parsing, or graph mutation.
+          - Add modular Dry/Wet DSP target and direct tests, strict graph/schema/migration/compiled-codec/compatibility tests, Native parser/binding/execution/inspector tests, realtime long-run allocation stress, and one reference product at `examples/products/artist-gain-blend.garak/product.json`.
+          - Extend Studio product workflow and Debug/Release actual exports plus official Validator for Warm, Bright, Inverted, Panned, and Blend products.
+          - Preserve Product ID/FUID derivation, Gain 1001, Bypass 1002, GARAKCPD and GARAKPST. Add no dependency, generic node registry, graph UI, macro system, EQ, Saturation, alias, fallback, or compatibility shim for obsolete internal APIs.
+          - Update README, ROADMAP, docs/status/current.md, architecture docs, and the living plan only to honest acceptance-pending state. Do not claim Windows validation.
+
+          Inspect existing dependencies and accepted Phase 3D1/3D2 implementation before choosing representations. Reuse established patterns and replace obsolete pre-release paths rather than layering compatibility wrappers. Keep the product working end to end.
+          PROMPT
+
+          mapfile -t context_files < <(git ls-files \
+            'AGENTS.md' 'PLANS.md' 'README.md' 'ROADMAP.md' 'plans/0018-*' 'plans/0019-*' 'plans/0020-*' \
+            'docs/status/current.md' 'docs/architecture/*.md' \
+            'tools/product-compiler/src/*.ts' 'tools/product-compiler/tests/*.ts' \
+            'native/**/*.hpp' 'native/**/*.cpp' 'native/**/CMakeLists.txt' 'CMakeLists.txt' 'CMakePresets.json' \
+            'studio/**/*.mts' 'studio/**/*.tsx' 'studio/**/*.ts' \
+            'examples/products/*/product.json')
+          success=false
+          for model in openai/gpt-5 openai/gpt-4.1 openai/gpt-5-mini; do
+            if aider --yes-always --no-auto-commits --no-gitignore --model "$model" \
+              --openai-api-base "$OPENAI_API_BASE" \
+              --chat-history-file "$RUNNER_TEMP/phase3d3-history.md" \
+              --message-file "$RUNNER_TEMP/phase3d3-prompt.txt" "${context_files[@]}"; then success=true; break; fi
+          done
+          test "$success" = true
+          test -n "$(git status --porcelain)"
+
+      - name: Iterate local matrix and root-cause repairs
+        if: steps.readiness.outputs.ready == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3 4; do
+            pnpm product:format
+            pnpm studio:format
+            mapfile -t cpp_files < <(git diff --name-only --diff-filter=ACMR -- '*.c' '*.cc' '*.cpp' '*.cxx' '*.h' '*.hh' '*.hpp' '*.hxx' | grep -v '^third_party/' || true)
+            if [ "${#cpp_files[@]}" -gt 0 ]; then clang-format -i --style=file "${cpp_files[@]}"; fi
+            set +e
+            {
+              git diff --check &&
+              pnpm product:format:check && pnpm product:lint && pnpm product:typecheck && pnpm product:test &&
+              pnpm studio:format:check && pnpm studio:lint && pnpm studio:typecheck && pnpm studio:test && pnpm studio:build &&
+              cmake --preset debug --fresh && cmake --build --preset debug-build --clean-first && ctest --preset debug-test --no-tests=error &&
+              cmake --preset release --fresh && cmake --build --preset release-build --clean-first && ctest --preset release-test --no-tests=error
+            } > "$RUNNER_TEMP/gate-$attempt.log" 2>&1
+            rc=$?
+            set -e
+            if [ "$rc" -eq 0 ]; then exit 0; fi
+            if [ "$attempt" -eq 4 ]; then cat "$RUNNER_TEMP/gate-$attempt.log"; exit "$rc"; fi
+            tail -n 800 "$RUNNER_TEMP/gate-$attempt.log" > "$RUNNER_TEMP/failure-tail.txt"
+            cat > "$RUNNER_TEMP/repair-prompt.txt" <<'PROMPT'
+          The current Phase 3D3 Dry/Wet implementation failed the local matrix. Read the failure log, current diff, plans/0020-phase-3d3-dry-wet-node.md, and repository instructions. Diagnose and fix root causes in production source, tests, fixtures, CMake, and docs. Do not delete/weaken tests, validation, version boundaries, warnings, realtime guarantees, or scope. Add no dependency and do not commit or mark Complete.
+          PROMPT
+            mapfile -t changed < <(git status --porcelain | sed -E 's/^.. //' | sort -u)
+            files=(AGENTS.md plans/0020-phase-3d3-dry-wet-node.md "$RUNNER_TEMP/failure-tail.txt" "${changed[@]}")
+            success=false
+            for model in openai/gpt-5 openai/gpt-4.1 openai/gpt-5-mini; do
+              if aider --yes-always --no-auto-commits --no-gitignore --model "$model" \
+                --openai-api-base "$OPENAI_API_BASE" --chat-history-file "$RUNNER_TEMP/repair-history.md" \
+                --message-file "$RUNNER_TEMP/repair-prompt.txt" "${files[@]}"; then success=true; break; fi
+            done
+            test "$success" = true
+          done
+
+      - name: Audit scope and publish exact source to main
+        if: steps.readiness.outputs.ready == 'true'
+        id: publish
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f native/dsp/dry_wet/include/garak/dsp/dry_wet/dry_wet.hpp
+          test -f examples/products/artist-gain-blend.garak/product.json
+          grep -R --line-number --fixed-strings 'garak.dry-wet' tools/product-compiler native examples >/dev/null
+          grep -Fq -- '- Status: In Progress' plans/0020-phase-3d3-dry-wet-node.md
+          if git diff --name-only HEAD -- package.json pnpm-lock.yaml pnpm-workspace.yaml | grep -q .; then echo 'Unexpected dependency change.' >&2; exit 1; fi
+          rm -f .github/workflows/implement-phase3d2-pan-main-once.yml .github/workflows/phase3d2-direct-main-reconcile-once.yml .github/workflows/start-phase3d3-if-ready-once.yml
+          git rm .github/workflows/implement-phase3d3-dry-wet-main-once.yml
+          git add -A
+          git config user.name "Garak Direct Main Development"
+          git config user.email "110483588+andongmin94@users.noreply.github.com"
+          git diff --cached --check
+          git commit -m "feat: add Phase 3D3 fixed Dry Wet node"
+          source_sha="$(git rev-parse HEAD)"
+          git push origin HEAD:main
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$source_sha"
+          echo 'state=verify' >> "$GITHUB_OUTPUT"
+          echo "source_sha=$source_sha" >> "$GITHUB_OUTPUT"
+
+      - name: Remove workflow when prerequisite is not accepted
+        if: steps.readiness.outputs.ready != 'true'
+        id: blocked
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rm .github/workflows/implement-phase3d3-dry-wet-main-once.yml
+          git config user.name "Garak Direct Main Development"
+          git config user.email "110483588+andongmin94@users.noreply.github.com"
+          git commit -m "chore: defer Phase 3D3 until Phase 3D2 acceptance"
+          git push origin HEAD:main
+          echo 'state=blocked' >> "$GITHUB_OUTPUT"
+          echo "source_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+  windows:
+    needs: implement
+    if: needs.implement.outputs.state == 'verify'
+    runs-on: windows-2025
+    timeout-minutes: 100
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.implement.outputs.source_sha }}
+          fetch-depth: 0
+          submodules: recursive
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.19.0
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+      - name: Run exact-source Phase 3D3 full matrix
+        shell: pwsh
+        env:
+          SOURCE_SHA: ${{ needs.implement.outputs.source_sha }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          if ((git rev-parse HEAD) -ne $env:SOURCE_SHA) { throw 'Wrong source SHA.' }
+          if (-not (Test-Path 'native/dsp/dry_wet/include/garak/dsp/dry_wet/dry_wet.hpp')) { throw 'Dry Wet DSP is missing.' }
+          if (-not (Test-Path 'examples/products/artist-gain-blend.garak/product.json')) { throw 'Blend product is missing.' }
+          $status = @(git submodule status --recursive)
+          if (@($status | Where-Object { $_ -match '^[+-U]' }).Count -ne 0) { throw 'Recursive SDK pin mismatch.' }
+          git diff --check
+          $files = @(git ls-files -- '*.c' '*.cc' '*.cpp' '*.cxx' '*.h' '*.hh' '*.hpp' '*.hxx' | Where-Object { $_ -notlike 'third_party/*' })
+          & clang-format --dry-run --Werror --style=file @files
+          corepack enable
+          corepack prepare pnpm@11.16.0 --activate
+          pnpm install --frozen-lockfile
+          pnpm product:format:check
+          pnpm product:lint
+          pnpm product:typecheck
+          pnpm product:test
+          pnpm studio:format:check
+          pnpm studio:lint
+          pnpm studio:typecheck
+          pnpm studio:test
+          pnpm studio:build
+          cmake --preset product-runtime-debug --fresh
+          cmake --build --preset product-runtime-debug-build --clean-first
+          foreach ($p in @('artist-gain-warm','artist-gain-bright','artist-gain-inverted','artist-gain-panned','artist-gain-blend')) { pnpm product:export --project "examples/products/$p.garak" --configuration Debug --output out/exports/phase-3d3/debug --force --validate }
+          ctest --preset product-runtime-debug-test --no-tests=error
+          pnpm --dir studio verify:product-workflow --configuration Debug
+          cmake --preset product-runtime-release --fresh
+          cmake --build --preset product-runtime-release-build --clean-first
+          foreach ($p in @('artist-gain-warm','artist-gain-bright','artist-gain-inverted','artist-gain-panned','artist-gain-blend')) { pnpm product:export --project "examples/products/$p.garak" --configuration Release --output out/exports/phase-3d3/release --force --validate }
+          ctest --preset product-runtime-release-test --no-tests=error
+          pnpm --dir studio verify:product-workflow --configuration Release
+          cmake --preset product-runtime-werror --fresh
+          cmake --build --preset product-runtime-werror-build --clean-first
+          cmake --preset product-runtime-clang-tidy --fresh
+          cmake --build --preset product-runtime-clang-tidy-build --clean-first
+          if (@(git status --porcelain --untracked-files=no).Count -ne 0) { throw 'Verification rewrote tracked source.' }
+          $remote = git ls-remote origin refs/heads/main
+          if (($remote -split "`t")[0] -ne $env:SOURCE_SHA) { throw 'Main moved during verification.' }
+
+  finalize:
+    needs: [implement, windows]
+    if: needs.implement.outputs.state == 'verify' && needs.windows.result == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      SOURCE_SHA: ${{ needs.implement.outputs.source_sha }}
+      VERIFY_RUN: ${{ github.run_id }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Accept Phase 3D3 on main
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          python - <<'PY'
+          from pathlib import Path
+          import os,re
+          source=os.environ['SOURCE_SHA']; run=os.environ['VERIFY_RUN']
+          p=Path('plans/0020-phase-3d3-dry-wet-node.md'); t=p.read_text(encoding='utf-8')
+          t=t.replace('- Status: In Progress','- Status: Complete',1)
+          t=re.sub(r'(?m)^([0-9]+\. )\[ \]',r'\1[x]',t)
+          t=t.replace('Implementation has not started.',f'Phase 3D3 is complete. Exact direct-main source `{source}` passed clean Windows run `{run}` with the complete Product Compiler, Studio, Debug/Release export/Validator, CTest, realtime, warnings-as-errors, clang-tidy and tracked-source-mutation matrix.')
+          p.write_text(t,encoding='utf-8',newline='\n')
+          for name,block in {
+            'README.md':f'\n### Phase 3D3 — Fixed Dry/Wet Node — Complete\n\nExact direct-main source `{source}` passed clean Windows run `{run}`.\n',
+            'ROADMAP.md':f'\n### Phase 3D3 — Fixed Dry/Wet Node — Complete\n\n- exact verified main source: `{source}`\n- clean Windows run: `{run}`\n',
+            'docs/status/current.md':f'\n### Phase 3D3 — Fixed Dry/Wet Node — Complete\n\nExact direct-main source `{source}` passed clean Windows run `{run}`.\n'
+          }.items():
+            q=Path(name); s=q.read_text(encoding='utf-8')
+            if '### Phase 3D3 — Fixed Dry/Wet Node — Complete' not in s: s+=block
+            q.write_text(s,encoding='utf-8',newline='\n')
+          PY
+          git add README.md ROADMAP.md docs/status/current.md plans/0020-phase-3d3-dry-wet-node.md
+          git config user.name "Garak Direct Main Development"
+          git config user.email "110483588+andongmin94@users.noreply.github.com"
+          git diff --cached --check
+          git commit -m "docs: accept Phase 3D3 fixed Dry Wet node"
+          git push origin HEAD:main
+
+  cleanup-failure:
+    needs: implement
+    if: failure() && needs.implement.result == 'failure'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Remove failed one-time workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          if test -f .github/workflows/implement-phase3d3-dry-wet-main-once.yml; then
+            git rm .github/workflows/implement-phase3d3-dry-wet-main-once.yml
+            git config user.name "Garak Direct Main Development"
+            git config user.email "110483588+andongmin94@users.noreply.github.com"
+            git commit -m "chore: remove failed Phase 3D3 one-time workflow"
+            git push origin HEAD:main
+          fi
