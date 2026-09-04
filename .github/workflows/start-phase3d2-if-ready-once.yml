@@ -1,0 +1,153 @@
+name: Start Phase 3D2 on accepted main
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/start-phase3d2-if-ready-once.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: garak-direct-main-phase3d1-controller
+  cancel-in-progress: false
+
+jobs:
+  start:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Start next plan only from accepted Phase 3D1
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git branch --show-current)" = main
+          ready=false
+          if test -f native/dsp/polarity/include/garak/dsp/polarity/polarity.hpp \
+             && test -f examples/products/artist-gain-inverted.garak/product.json \
+             && grep -Fq -- '- Status: Complete' plans/0018-phase-3d1-polarity-node.md; then
+            ready=true
+          fi
+
+          if [ "$ready" = true ] && ! test -f plans/0019-phase-3d2-pan-node.md; then
+            cat > plans/0019-phase-3d2-pan-node.md <<'EOF'
+          # ExecPlan 0019 — Phase 3D2 Fixed Pan Node
+
+          - Status: In Progress
+          - Started: 2026-09-04
+          - Updated: 2026-09-04
+          - Owner: Product Compiler, Native static graph Runtime and Studio product workflow
+
+          ## 목적
+
+          Phase 3D1의 accepted Polarity baseline 위에 fixed Pan node implementation 1을 project source, deterministic compiled graph, Native execution, realtime tests와 actual Windows VST3 export까지 end-to-end로 추가한다. 모든 개발과 검증은 `main`에서 직접 수행한다.
+
+          ## 사용자 가치
+
+          제품 제작자는 새 host parameter나 macro system 없이도 제품 그래프에 고정된 stereo positioning을 포함할 수 있다. Gain-only와 Polarity 제품은 그대로 유지되고, Pan 제품의 소리도 project-owned versioned source에서 결정적으로 생성된다.
+
+          ## 현재 저장소 상태
+
+          - Phase 3D1 Polarity: Complete on direct `main`
+          - Current project schema: v4
+          - Current graph source: v2
+          - Current compiled graph: `GARAKGRF` 1.1
+          - Public Parameter IDs: Gain `1001`, Bypass `1002`
+          - Branch policy: `main` only; no development or verification branches and no PR staging
+
+          ## 범위
+
+          - fixed Pan DSP node implementation version 1
+          - project-owned finite `pan` value in inclusive `[-1, 1]`
+          - mono identity processing
+          - stereo center-unity balance law: center `(1,1)`, hard left `(1,0)`, hard right `(0,1)`
+          - project schema v5 and graph source v3 with explicit v4→v5 migration
+          - exact current topologies: Gain-only, Gain→Polarity, or Gain→Pan
+          - deterministic `GARAKGRF` 1.2 and explicit old-artifact rebuild disposition
+          - module-load prepared immutable Pan coefficients
+          - whole-product sample-accurate Bypass and allocation-free processing
+          - one panned reference product and complete Debug/Release export/Validator coverage
+          - Product Compiler, Native Runtime, inspector, realtime stress and Studio workflow regressions
+
+          ## 비범위
+
+          - host-exposed Pan parameter or new Parameter ID
+          - changing `GARAKCPD` or `GARAKPST`
+          - combined Polarity→Pan topology
+          - Dry/Wet, Biquad, Tilt EQ or Saturation
+          - arbitrary DAG, branching, sidechain, dynamic scheduler or graph editing UI
+
+          ## 설계 결정
+
+          Pan is immutable product graph configuration in Phase 3D2, not a host parameter. For stereo, negative values attenuate the right channel linearly while the left stays at unity; positive values attenuate the left while the right stays at unity. Mono remains identity. Coefficients are computed during binding preparation, not in the audio callback.
+
+          ## 구현 단계
+
+          1. [x] Write this ExecPlan on accepted direct-main Phase 3D1.
+          2. [ ] Add Pan DSP and direct mono/stereo Float32/Float64 tests.
+          3. [ ] Evolve schema v5 / graph source v3 with strict three-topology validation.
+          4. [ ] Add v4→v5 migration preserving existing Gain and Polarity sound semantics.
+          5. [ ] Evolve deterministic compiled graph to `GARAKGRF` 1.2.
+          6. [ ] Add immutable Pan binding and exact execution.
+          7. [ ] Preserve whole-product Bypass and zero allocation/deallocation.
+          8. [ ] Add panned reference product and extend inspector/Studio/export coverage.
+          9. [ ] Update architecture/status/roadmap to acceptance-pending Phase 3D2.
+          10. [ ] Run local Product Compiler, Studio and Native gates.
+          11. [ ] Commit implementation directly to `main` and run exact-main clean Windows full matrix.
+          12. [ ] Mark Complete only after a green exact-main gate and remove every one-time workflow.
+
+          ## 검증 계획
+
+          Run Product Compiler and Studio format/lint/typecheck/test/build, Native Debug/Release tests, direct Pan DSP tests, realtime allocation stress, actual Warm/Bright/Inverted/Panned Debug and Release exports, official VST3 Validator, CTest, Studio product workflow, warnings-as-errors, clang-tidy and tracked-source mutation zero.
+
+          ## 수용 기준
+
+          Pan output follows the documented mono/stereo law for in-place and out-of-place Float32/Float64 processing; bypass copies exact dry input; existing products retain identity/default/state behavior; source order and authoring IDs do not affect compiled bytes; old graph artifacts rebuild; future/corrupt data rejects; the exact current `main` commit passes the complete Windows matrix.
+
+          ## 리스크
+
+          A generic graph engine or parameter system would exceed this increment. The implementation accepts only the three explicit linear plans and stores no new public parameter/state identity.
+
+          ## 발견 사항
+
+          - 2026-09-04: Direct-main-only policy replaces the previous temporary-branch workflow.
+
+          ## 의사결정 로그
+
+          - 2026-09-04: Use a fixed Pan property and center-unity balance law before the Phase 4 host parameter/macro system.
+
+          ## 완료 기록
+
+          Implementation has not started.
+
+          ## 다음 단계
+
+          Complete Phase 3D2 on `main` before selecting Dry/Wet or another node.
+          EOF
+            sed -i 's/^          //' plans/0019-phase-3d2-pan-node.md
+          fi
+
+          git rm .github/workflows/start-phase3d2-if-ready-once.yml
+          rm -f .github/workflows/apply-phase3d1-main-once.yml
+          rm -f .github/workflows/verify-phase3d1-main-once.yml
+          rm -f .github/workflows/phase3d1-direct-main-controller-once.yml
+          rm -f .github/workflows/reconcile-phase3d1-start-phase3d2-once.yml
+          rm -f .github/workflows/recover-phase3d1-orphan-history-once.yml
+          rm -f .github/phase3d1-implementation.patch.gz.b64
+          git add -A
+          git config user.name "Garak Direct Main Development"
+          git config user.email "110483588+andongmin94@users.noreply.github.com"
+          git diff --cached --check
+          if [ "$ready" = true ]; then
+            git commit -m "plan: start Phase 3D2 fixed Pan node"
+          else
+            git commit -m "chore: remove stale Phase 3D workflows"
+          fi
+          git push origin HEAD:main
