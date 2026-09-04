@@ -1,0 +1,422 @@
+name: Complete Phase 3D1 directly on main
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/complete-phase3d1-main-once.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: garak-direct-main-phase3d1
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    outputs:
+      source_sha: ${{ steps.publish.outputs.source_sha }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Check out exact current main
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Enforce main-only repository state
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git branch --show-current)" = "main"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "${GITHUB_SHA}"
+          mapfile -t branches < <(gh api --paginate "repos/$GITHUB_REPOSITORY/branches?per_page=100" --jq '.[].name' | sort)
+          test "${#branches[@]}" -eq 1
+          test "${branches[0]}" = "main"
+          while IFS= read -r pr; do
+            [ -n "$pr" ] || continue
+            gh pr close "$pr" --repo "$GITHUB_REPOSITORY" --comment "Closed by the direct-main development policy."
+          done < <(gh pr list --repo "$GITHUB_REPOSITORY" --state open --limit 100 --json number --jq '.[].number')
+
+      - name: Apply the preserved Phase 3D1 implementation patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git cat-file -e 40cce3b91ce7212b5c93e9ba77d7a5590372e108:.github/phase3d1-implementation.patch.gz.b64
+          git show 40cce3b91ce7212b5c93e9ba77d7a5590372e108:.github/phase3d1-implementation.patch.gz.b64 \
+            | base64 --decode \
+            | gzip --decompress \
+            > "$RUNNER_TEMP/phase3d1-implementation.patch"
+          test -s "$RUNNER_TEMP/phase3d1-implementation.patch"
+          git apply --check "$RUNNER_TEMP/phase3d1-implementation.patch"
+          git apply "$RUNNER_TEMP/phase3d1-implementation.patch"
+
+          rm -rf .github/phase3d1-payload
+          rm -f .github/phase3d1-plan.md
+          git rm .github/workflows/complete-phase3d1-main-once.yml
+
+      - name: Format first-party source
+        shell: bash
+        run: |
+          set -euo pipefail
+          corepack enable
+          corepack prepare pnpm@11.16.0 --activate
+          pnpm install --frozen-lockfile
+          pnpm product:format
+          pnpm studio:format
+          mapfile -t cpp_files < <(git diff --name-only --diff-filter=ACMR -- '*.c' '*.cc' '*.cpp' '*.cxx' '*.h' '*.hh' '*.hpp' '*.hxx' | grep -v '^third_party/' || true)
+          if [ "${#cpp_files[@]}" -gt 0 ]; then
+            clang-format -i --style=file "${cpp_files[@]}"
+          fi
+          git diff --check
+
+      - name: Run local Product Compiler, Studio and Native gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm product:format:check
+          pnpm product:lint
+          pnpm product:typecheck
+          pnpm product:test
+          pnpm studio:format:check
+          pnpm studio:lint
+          pnpm studio:typecheck
+          pnpm studio:test
+          pnpm studio:build
+
+          cmake --preset debug --fresh
+          cmake --build --preset debug-build --clean-first
+          ctest --preset debug-test --no-tests=error
+
+          cmake --preset release --fresh
+          cmake --build --preset release-build --clean-first
+          ctest --preset release-test --no-tests=error
+
+          cmake --preset debug-warnings-as-errors --fresh
+          cmake --build --preset warnings-as-errors-build --clean-first
+
+          cmake --preset debug-clang-tidy --fresh
+          cmake --build --preset clang-tidy-build --clean-first
+
+      - name: Audit Phase 3D1 scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f native/dsp/polarity/include/garak/dsp/polarity/polarity.hpp
+          test -f examples/products/artist-gain-inverted.garak/product.json
+          grep -R --line-number --fixed-strings 'garak.polarity' tools/product-compiler native examples >/dev/null
+          grep -Fq -- '- Status: In Progress' plans/0018-phase-3d1-polarity-node.md
+          if git diff --name-only HEAD -- package.json pnpm-lock.yaml pnpm-workspace.yaml | grep -q .; then
+            echo 'Phase 3D1 must not change workspace dependencies.' >&2
+            exit 1
+          fi
+          if git diff | grep '^+' | grep -Eq '(PolarityParameterId|kPolarityParameterId|parameterId[^0-9]*1003|"1003")'; then
+            echo 'Phase 3D1 must not add a Polarity Parameter ID.' >&2
+            exit 1
+          fi
+          test ! -e .github/phase3d1-plan.md
+          test ! -e .github/phase3d1-payload
+          find .github/workflows -maxdepth 1 -type f 2>/dev/null | grep -q . && {
+            echo 'One-time workflows must not remain in the implementation commit.' >&2
+            exit 1
+          } || true
+
+      - name: Commit implementation directly to main
+        id: publish
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "${GITHUB_SHA}"
+          git config user.name "Garak Direct Main Development"
+          git config user.email "110483588+andongmin94@users.noreply.github.com"
+          git add -A
+          git diff --cached --check
+          git commit -m "feat: add Phase 3D1 polarity node"
+          source_sha="$(git rev-parse HEAD)"
+          git push origin HEAD:main
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$source_sha"
+          echo "source_sha=$source_sha" >> "$GITHUB_OUTPUT"
+          echo "Verified local candidate: $source_sha" >> "$GITHUB_STEP_SUMMARY"
+
+  windows-source:
+    needs: prepare
+    runs-on: windows-2025
+    timeout-minutes: 90
+    steps:
+      - name: Check out exact Phase 3D1 source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.source_sha }}
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.19.0
+
+      - name: Configure MSVC environment
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Verify source and first-party formatting
+        shell: pwsh
+        env:
+          SOURCE_SHA: ${{ needs.prepare.outputs.source_sha }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          if ((git rev-parse HEAD) -ne $env:SOURCE_SHA) { throw 'Wrong source SHA.' }
+          if (-not (Test-Path 'native/dsp/polarity/include/garak/dsp/polarity/polarity.hpp')) { throw 'Polarity DSP is missing.' }
+          if (-not (Test-Path 'examples/products/artist-gain-inverted.garak/product.json')) { throw 'Inverted product is missing.' }
+          $plan = Get-Content 'plans/0018-phase-3d1-polarity-node.md' -Raw
+          if ($plan -notmatch '(?m)^- Status: In Progress$') { throw 'Source gate requires acceptance-pending plan status.' }
+          $submodules = @(git submodule status --recursive)
+          if (@($submodules | Where-Object { $_ -match '^[+-U]' }).Count -ne 0) { throw 'Recursive SDK pin mismatch.' }
+          git diff --check
+          $files = @(git ls-files -- '*.c' '*.cc' '*.cpp' '*.cxx' '*.h' '*.hh' '*.hpp' '*.hxx' | Where-Object { $_ -notlike 'third_party/*' })
+          & clang-format --dry-run --Werror --style=file @files
+
+      - name: Install exact workspace dependencies
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          corepack enable
+          corepack prepare pnpm@11.16.0 --activate
+          pnpm install --frozen-lockfile
+
+      - name: Run Product Compiler and Studio gates
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          pnpm product:format:check
+          pnpm product:lint
+          pnpm product:typecheck
+          pnpm product:test
+          pnpm studio:format:check
+          pnpm studio:lint
+          pnpm studio:typecheck
+          pnpm studio:test
+          pnpm studio:build
+
+      - name: Build, export and validate Debug products
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          cmake --preset product-runtime-debug --fresh
+          cmake --build --preset product-runtime-debug-build --clean-first
+          foreach ($product in @('artist-gain-warm','artist-gain-bright','artist-gain-inverted')) {
+            pnpm product:export --project "examples/products/$product.garak" --configuration Debug --output out/exports/phase-3d1/debug --force --validate
+          }
+          ctest --preset product-runtime-debug-test --no-tests=error
+          pnpm --dir studio verify:product-workflow --configuration Debug
+
+      - name: Build, export and validate Release products
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          cmake --preset product-runtime-release --fresh
+          cmake --build --preset product-runtime-release-build --clean-first
+          foreach ($product in @('artist-gain-warm','artist-gain-bright','artist-gain-inverted')) {
+            pnpm product:export --project "examples/products/$product.garak" --configuration Release --output out/exports/phase-3d1/release --force --validate
+          }
+          ctest --preset product-runtime-release-test --no-tests=error
+          pnpm --dir studio verify:product-workflow --configuration Release
+
+      - name: Run strict first-party C++ gates
+        shell: pwsh
+        env:
+          SOURCE_SHA: ${{ needs.prepare.outputs.source_sha }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          cmake --preset product-runtime-werror --fresh
+          cmake --build --preset product-runtime-werror-build --clean-first
+          cmake --preset product-runtime-clang-tidy --fresh
+          cmake --build --preset product-runtime-clang-tidy-build --clean-first
+          $changes = @(git status --porcelain --untracked-files=no)
+          if ($changes.Count -ne 0) {
+            $changes | ForEach-Object { Write-Error $_ }
+            throw 'Verification rewrote tracked source.'
+          }
+          $remote = git ls-remote origin refs/heads/main
+          if (($remote -split "`t")[0] -ne $env:SOURCE_SHA) { throw 'Main moved during exact-source verification.' }
+
+  finalize:
+    needs: [prepare, windows-source]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    outputs:
+      final_sha: ${{ steps.publish.outputs.final_sha }}
+    env:
+      SOURCE_SHA: ${{ needs.prepare.outputs.source_sha }}
+      VERIFY_RUN: ${{ github.run_id }}
+    steps:
+      - name: Check out exact verified source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.source_sha }}
+          fetch-depth: 0
+
+      - name: Record Phase 3D1 acceptance
+        id: publish
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$SOURCE_SHA"
+          python - <<'PY'
+          from pathlib import Path
+          import os
+          import re
+
+          source = os.environ['SOURCE_SHA']
+          run = os.environ['VERIFY_RUN']
+
+          plan_path = Path('plans/0018-phase-3d1-polarity-node.md')
+          plan = plan_path.read_text(encoding='utf-8')
+          plan = plan.replace('- Status: In Progress', '- Status: Complete', 1)
+          plan = re.sub(r'(?m)^([0-9]+\. )\[ \]', r'\1[x]', plan)
+          marker = '## 완료 기록\n\n'
+          completion = (
+              f'Phase 3D1 is complete. Exact direct-main source `{source}` passed clean Windows run `{run}`. '
+              'Product Compiler and Studio format/lint/typecheck/test/build, Debug/Release Warm/Bright/Inverted actual export '
+              'and official Validator, CTest, Studio workflow, warnings-as-errors, clang-tidy, realtime regressions and '
+              'tracked-source mutation zero all passed. Product/FUID/Parameter/compiled-product/state contracts and '
+              'whole-product Bypass semantics remain unchanged.\n'
+          )
+          start = plan.find(marker)
+          end = plan.find('\n## 다음 단계', start + len(marker)) if start >= 0 else -1
+          if start >= 0 and end >= 0:
+              plan = plan[: start + len(marker)] + completion + plan[end:]
+          elif completion not in plan:
+              plan += '\n' + completion
+          plan_path.write_text(plan, encoding='utf-8', newline='\n')
+
+          records = {
+              'README.md': f'''\n### Phase 3D1 — Polarity Node — Complete\n\nExact direct-main source `{source}` passed clean Windows run `{run}`. Current products support exact Gain-only and Gain→Polarity plans, project schema v4, graph source v2, deterministic `GARAKGRF` 1.1, whole-product Bypass, and the `Artist Gain Inverted` reference product. Phase 3D remains In Progress.\n''',
+              'ROADMAP.md': f'''\n### Phase 3D1 — Polarity Node — Complete\n\n- exact verified main source: `{source}`\n- clean Windows run: `{run}`\n- fixed parameterless Polarity v1\n- project schema v4 / graph source v2 / `GARAKGRF` 1.1\n- Warm/Bright behavior preserved; Inverted product accepted\n''',
+              'docs/status/current.md': f'''\n### Phase 3D1 — Polarity Node — Complete\n\nExact direct-main source `{source}` passed clean Windows run `{run}`. Runtime supports the exact Gain-only and Gain→Polarity plans with whole-product Bypass and allocation-free processing. The next increment is Phase 3D2.\n''',
+          }
+          for name, record in records.items():
+              path = Path(name)
+              text = path.read_text(encoding='utf-8')
+              if '### Phase 3D1 — Polarity Node — Complete' not in text:
+                  text += record
+              if name == 'ROADMAP.md':
+                  text = text.replace(
+                      '## Phase 3D — Initial DSP Node Set — Planned',
+                      '## Phase 3D — Initial DSP Node Set — In Progress',
+                  )
+              path.write_text(text, encoding='utf-8', newline='\n')
+          PY
+
+          git config user.name "Garak Direct Main Development"
+          git config user.email "110483588+andongmin94@users.noreply.github.com"
+          git add README.md ROADMAP.md docs/status/current.md plans/0018-phase-3d1-polarity-node.md
+          git diff --cached --check
+          git commit -m "docs: accept Phase 3D1 polarity node"
+          final_sha="$(git rev-parse HEAD)"
+          git push origin HEAD:main
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$final_sha"
+          echo "final_sha=$final_sha" >> "$GITHUB_OUTPUT"
+
+  windows-final:
+    needs: [prepare, finalize]
+    runs-on: windows-2025
+    timeout-minutes: 90
+    steps:
+      - name: Check out exact accepted main commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.finalize.outputs.final_sha }}
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.19.0
+
+      - name: Configure MSVC environment
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Re-run the complete product matrix
+        shell: pwsh
+        env:
+          FINAL_SHA: ${{ needs.finalize.outputs.final_sha }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          if ((git rev-parse HEAD) -ne $env:FINAL_SHA) { throw 'Wrong final SHA.' }
+          $plan = Get-Content 'plans/0018-phase-3d1-polarity-node.md' -Raw
+          if ($plan -notmatch '(?m)^- Status: Complete$') { throw 'Phase 3D1 was not marked Complete.' }
+          git diff --check
+          $files = @(git ls-files -- '*.c' '*.cc' '*.cpp' '*.cxx' '*.h' '*.hh' '*.hpp' '*.hxx' | Where-Object { $_ -notlike 'third_party/*' })
+          & clang-format --dry-run --Werror --style=file @files
+          corepack enable
+          corepack prepare pnpm@11.16.0 --activate
+          pnpm install --frozen-lockfile
+          pnpm product:format:check
+          pnpm product:lint
+          pnpm product:typecheck
+          pnpm product:test
+          pnpm studio:format:check
+          pnpm studio:lint
+          pnpm studio:typecheck
+          pnpm studio:test
+          pnpm studio:build
+          cmake --preset product-runtime-debug --fresh
+          cmake --build --preset product-runtime-debug-build --clean-first
+          foreach ($product in @('artist-gain-warm','artist-gain-bright','artist-gain-inverted')) {
+            pnpm product:export --project "examples/products/$product.garak" --configuration Debug --output out/exports/phase-3d1-final/debug --force --validate
+          }
+          ctest --preset product-runtime-debug-test --no-tests=error
+          pnpm --dir studio verify:product-workflow --configuration Debug
+          cmake --preset product-runtime-release --fresh
+          cmake --build --preset product-runtime-release-build --clean-first
+          foreach ($product in @('artist-gain-warm','artist-gain-bright','artist-gain-inverted')) {
+            pnpm product:export --project "examples/products/$product.garak" --configuration Release --output out/exports/phase-3d1-final/release --force --validate
+          }
+          ctest --preset product-runtime-release-test --no-tests=error
+          pnpm --dir studio verify:product-workflow --configuration Release
+          cmake --preset product-runtime-werror --fresh
+          cmake --build --preset product-runtime-werror-build --clean-first
+          cmake --preset product-runtime-clang-tidy --fresh
+          cmake --build --preset product-runtime-clang-tidy-build --clean-first
+          if (@(git status --porcelain --untracked-files=no).Count -ne 0) { throw 'Final verification rewrote tracked source.' }
+          $remote = git ls-remote origin refs/heads/main
+          if (($remote -split "`t")[0] -ne $env:FINAL_SHA) { throw 'Main moved during final verification.' }
+
+  repository-shape:
+    needs: [finalize, windows-final]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Confirm clean direct-main repository shape
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t branches < <(gh api --paginate "repos/$GITHUB_REPOSITORY/branches?per_page=100" --jq '.[].name' | sort)
+          printf 'Branches:\n'
+          printf '  %s\n' "${branches[@]}"
+          test "${#branches[@]}" -eq 1
+          test "${branches[0]}" = "main"
+          test -z "$(gh pr list --repo "$GITHUB_REPOSITORY" --state open --limit 100 --json number --jq '.[].number')"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/contents/.github/workflows" >/dev/null 2>&1; echo $?)" -ne 0
