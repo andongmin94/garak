@@ -1,0 +1,383 @@
+name: Phase 3D1 direct-main acceptance
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/phase3d1-main-acceptance-once.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: garak-phase3d1-main-acceptance
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    outputs:
+      source_sha: ${{ steps.publish.outputs.source_sha }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Check out exact workflow commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Confirm main-only repository state
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$GITHUB_SHA"
+          mapfile -t branches < <(gh api --paginate "repos/$GITHUB_REPOSITORY/branches?per_page=100" --jq '.[].name' | sort)
+          test "${#branches[@]}" -eq 1
+          test "${branches[0]}" = main
+          while IFS= read -r pr; do
+            [ -n "$pr" ] || continue
+            gh pr close "$pr" --repo "$GITHUB_REPOSITORY" --comment "Closed by the direct-main development policy."
+          done < <(gh pr list --repo "$GITHUB_REPOSITORY" --state open --limit 100 --json number --jq '.[].number')
+
+      - name: Apply preserved Phase 3D1 implementation
+        shell: bash
+        run: |
+          set -euo pipefail
+          git show 40cce3b91ce7212b5c93e9ba77d7a5590372e108:.github/phase3d1-implementation.patch.gz.b64 \
+            | base64 --decode \
+            | gzip --decompress \
+            > "$RUNNER_TEMP/phase3d1.patch"
+          test -s "$RUNNER_TEMP/phase3d1.patch"
+          git apply --check "$RUNNER_TEMP/phase3d1.patch"
+          git apply "$RUNNER_TEMP/phase3d1.patch"
+          rm -rf .github/phase3d1-payload
+          rm -f .github/phase3d1-plan.md
+
+      - name: Format first-party source
+        shell: bash
+        run: |
+          set -euo pipefail
+          corepack enable
+          corepack prepare pnpm@11.16.0 --activate
+          pnpm install --frozen-lockfile
+          pnpm product:format
+          pnpm studio:format
+          mapfile -t cpp_files < <(git diff --name-only --diff-filter=ACMR -- '*.c' '*.cc' '*.cpp' '*.cxx' '*.h' '*.hh' '*.hpp' '*.hxx' | grep -v '^third_party/' || true)
+          if [ "${#cpp_files[@]}" -gt 0 ]; then
+            clang-format -i --style=file "${cpp_files[@]}"
+          fi
+          git diff --check
+
+      - name: Run local TypeScript and Native gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm product:format:check
+          pnpm product:lint
+          pnpm product:typecheck
+          pnpm product:test
+          pnpm studio:format:check
+          pnpm studio:lint
+          pnpm studio:typecheck
+          pnpm studio:test
+          pnpm studio:build
+          cmake --preset debug --fresh
+          cmake --build --preset debug-build --clean-first
+          ctest --preset debug-test --no-tests=error
+          cmake --preset release --fresh
+          cmake --build --preset release-build --clean-first
+          ctest --preset release-test --no-tests=error
+          cmake --preset debug-warnings-as-errors --fresh
+          cmake --build --preset warnings-as-errors-build --clean-first
+          cmake --preset debug-clang-tidy --fresh
+          cmake --build --preset clang-tidy-build --clean-first
+
+      - name: Audit Phase 3D1 scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f native/dsp/polarity/include/garak/dsp/polarity/polarity.hpp
+          test -f examples/products/artist-gain-inverted.garak/product.json
+          grep -R --line-number --fixed-strings 'garak.polarity' tools/product-compiler native examples >/dev/null
+          grep -Fq -- '- Status: In Progress' plans/0018-phase-3d1-polarity-node.md
+          if git diff --name-only HEAD -- package.json pnpm-lock.yaml pnpm-workspace.yaml | grep -q .; then
+            echo 'Unexpected dependency change.' >&2
+            exit 1
+          fi
+          if git diff | grep '^+' | grep -Eq '(PolarityParameterId|kPolarityParameterId|parameterId[^0-9]*1003|"1003")'; then
+            echo 'Unexpected public Polarity parameter identity.' >&2
+            exit 1
+          fi
+          test ! -e .github/phase3d1-plan.md
+          test ! -e .github/phase3d1-payload
+
+      - name: Publish exact implementation to main
+        id: publish
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$GITHUB_SHA"
+          git config user.name "Garak Direct Main Development"
+          git config user.email "110483588+andongmin94@users.noreply.github.com"
+          git add -A
+          git diff --cached --check
+          git commit -m "feat: add Phase 3D1 polarity node"
+          source_sha="$(git rev-parse HEAD)"
+          git push origin HEAD:main
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$source_sha"
+          echo "source_sha=$source_sha" >> "$GITHUB_OUTPUT"
+
+  windows-source:
+    needs: prepare
+    runs-on: windows-2025
+    timeout-minutes: 100
+    steps:
+      - name: Check out exact implementation source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.source_sha }}
+          fetch-depth: 0
+          submodules: recursive
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.19.0
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+      - name: Run complete source acceptance matrix
+        shell: pwsh
+        env:
+          SOURCE_SHA: ${{ needs.prepare.outputs.source_sha }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          if ((git rev-parse HEAD) -ne $env:SOURCE_SHA) { throw 'Wrong source SHA.' }
+          if (-not (Test-Path 'native/dsp/polarity/include/garak/dsp/polarity/polarity.hpp')) { throw 'Polarity DSP is missing.' }
+          if (-not (Test-Path 'examples/products/artist-gain-inverted.garak/product.json')) { throw 'Inverted product is missing.' }
+          $plan = Get-Content 'plans/0018-phase-3d1-polarity-node.md' -Raw
+          if ($plan -notmatch '(?m)^- Status: In Progress$') { throw 'Expected acceptance-pending plan.' }
+          $submodules = @(git submodule status --recursive)
+          if (@($submodules | Where-Object { $_ -match '^[+-U]' }).Count -ne 0) { throw 'Recursive SDK pin mismatch.' }
+          git diff --check
+          $files = @(git ls-files -- '*.c' '*.cc' '*.cpp' '*.cxx' '*.h' '*.hh' '*.hpp' '*.hxx' | Where-Object { $_ -notlike 'third_party/*' })
+          & clang-format --dry-run --Werror --style=file @files
+          corepack enable
+          corepack prepare pnpm@11.16.0 --activate
+          pnpm install --frozen-lockfile
+          pnpm product:format:check
+          pnpm product:lint
+          pnpm product:typecheck
+          pnpm product:test
+          pnpm studio:format:check
+          pnpm studio:lint
+          pnpm studio:typecheck
+          pnpm studio:test
+          pnpm studio:build
+          cmake --preset product-runtime-debug --fresh
+          cmake --build --preset product-runtime-debug-build --clean-first
+          foreach ($product in @('artist-gain-warm','artist-gain-bright','artist-gain-inverted')) {
+            pnpm product:export --project "examples/products/$product.garak" --configuration Debug --output out/exports/phase-3d1/debug --force --validate
+          }
+          ctest --preset product-runtime-debug-test --no-tests=error
+          pnpm --dir studio verify:product-workflow --configuration Debug
+          cmake --preset product-runtime-release --fresh
+          cmake --build --preset product-runtime-release-build --clean-first
+          foreach ($product in @('artist-gain-warm','artist-gain-bright','artist-gain-inverted')) {
+            pnpm product:export --project "examples/products/$product.garak" --configuration Release --output out/exports/phase-3d1/release --force --validate
+          }
+          ctest --preset product-runtime-release-test --no-tests=error
+          pnpm --dir studio verify:product-workflow --configuration Release
+          cmake --preset product-runtime-werror --fresh
+          cmake --build --preset product-runtime-werror-build --clean-first
+          cmake --preset product-runtime-clang-tidy --fresh
+          cmake --build --preset product-runtime-clang-tidy-build --clean-first
+          if (@(git status --porcelain --untracked-files=no).Count -ne 0) { throw 'Verification rewrote tracked source.' }
+          $remote = git ls-remote origin refs/heads/main
+          if (($remote -split "`t")[0] -ne $env:SOURCE_SHA) { throw 'Main moved during source verification.' }
+
+  finalize:
+    needs: [prepare, windows-source]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    outputs:
+      docs_sha: ${{ steps.publish.outputs.docs_sha }}
+    env:
+      SOURCE_SHA: ${{ needs.prepare.outputs.source_sha }}
+      VERIFY_RUN: ${{ github.run_id }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.source_sha }}
+          fetch-depth: 0
+      - name: Record accepted Phase 3D1 evidence
+        id: publish
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$SOURCE_SHA"
+          python - <<'PY'
+          from pathlib import Path
+          import os
+          import re
+
+          source = os.environ['SOURCE_SHA']
+          run = os.environ['VERIFY_RUN']
+          plan_path = Path('plans/0018-phase-3d1-polarity-node.md')
+          plan = plan_path.read_text(encoding='utf-8')
+          plan = plan.replace('- Status: In Progress', '- Status: Complete', 1)
+          plan = re.sub(r'(?m)^([0-9]+\. )\[ \]', r'\1[x]', plan)
+          old = 'Implementation has not started. This plan is the first Phase 3D1 source change and was committed directly to `main`.'
+          completion = (
+              f'Phase 3D1 is complete. Exact direct-main source `{source}` passed clean Windows run `{run}`. '
+              'Product Compiler and Studio quality gates, Debug/Release Warm/Bright/Inverted export and official Validator, '
+              'CTest, Studio workflow, warnings-as-errors, clang-tidy, realtime regressions and tracked-source mutation zero passed. '
+              'Product/FUID/Parameter/compiled-product/state contracts and whole-product Bypass semantics remain unchanged.'
+          )
+          if old in plan:
+              plan = plan.replace(old, completion, 1)
+          elif completion not in plan:
+              plan += '\n' + completion + '\n'
+          plan_path.write_text(plan, encoding='utf-8', newline='\n')
+
+          records = {
+              'README.md': f'''\n### Phase 3D1 — Polarity Node — Complete\n\nExact direct-main source `{source}` passed clean Windows run `{run}`. Current products support exact Gain-only and Gain→Polarity plans, project schema v4, graph source v2, deterministic `GARAKGRF` 1.1, whole-product Bypass, and `Artist Gain Inverted`. Phase 3D remains In Progress.\n''',
+              'ROADMAP.md': f'''\n### Phase 3D1 — Polarity Node — Complete\n\n- exact verified main source: `{source}`\n- clean Windows run: `{run}`\n- fixed parameterless Polarity v1\n- project schema v4 / graph source v2 / `GARAKGRF` 1.1\n- Warm/Bright preserved; Inverted product accepted\n''',
+              'docs/status/current.md': f'''\n### Phase 3D1 — Polarity Node — Complete\n\nExact direct-main source `{source}` passed clean Windows run `{run}`. Runtime supports exact Gain-only and Gain→Polarity plans with whole-product Bypass and allocation-free processing. The next increment is Phase 3D2.\n''',
+          }
+          for name, record in records.items():
+              path = Path(name)
+              text = path.read_text(encoding='utf-8')
+              if '### Phase 3D1 — Polarity Node — Complete' not in text:
+                  text += record
+              if name == 'ROADMAP.md':
+                  text = text.replace('## Phase 3D — Initial DSP Node Set — Planned', '## Phase 3D — Initial DSP Node Set — In Progress')
+              path.write_text(text, encoding='utf-8', newline='\n')
+          PY
+          git config user.name "Garak Direct Main Development"
+          git config user.email "110483588+andongmin94@users.noreply.github.com"
+          git add README.md ROADMAP.md docs/status/current.md plans/0018-phase-3d1-polarity-node.md
+          git diff --cached --check
+          git commit -m "docs: accept Phase 3D1 polarity node"
+          docs_sha="$(git rev-parse HEAD)"
+          git push origin HEAD:main
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$docs_sha"
+          echo "docs_sha=$docs_sha" >> "$GITHUB_OUTPUT"
+
+  wait-for-workflow-removal:
+    needs: finalize
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    outputs:
+      clean_sha: ${{ steps.wait.outputs.clean_sha }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Wait for connector cleanup commit
+        id: wait
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 120); do
+            main_sha="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)"
+            if ! gh api "repos/$GITHUB_REPOSITORY/contents/.github/workflows/phase3d1-main-acceptance-once.yml?ref=$main_sha" >/dev/null 2>&1; then
+              echo "clean_sha=$main_sha" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            echo "Waiting for workflow removal: $attempt/120"
+            sleep 15
+          done
+          echo 'Timed out waiting for one-time workflow removal.' >&2
+          exit 1
+
+  windows-final:
+    needs: [finalize, wait-for-workflow-removal]
+    runs-on: windows-2025
+    timeout-minutes: 100
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.wait-for-workflow-removal.outputs.clean_sha }}
+          fetch-depth: 0
+          submodules: recursive
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.19.0
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+      - name: Re-run complete matrix on clean final main
+        shell: pwsh
+        env:
+          CLEAN_SHA: ${{ needs.wait-for-workflow-removal.outputs.clean_sha }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          if ((git rev-parse HEAD) -ne $env:CLEAN_SHA) { throw 'Wrong clean final SHA.' }
+          if (Test-Path '.github/workflows') { throw 'One-time workflows remain.' }
+          $plan = Get-Content 'plans/0018-phase-3d1-polarity-node.md' -Raw
+          if ($plan -notmatch '(?m)^- Status: Complete$') { throw 'Phase 3D1 is not Complete.' }
+          git diff --check
+          $files = @(git ls-files -- '*.c' '*.cc' '*.cpp' '*.cxx' '*.h' '*.hh' '*.hpp' '*.hxx' | Where-Object { $_ -notlike 'third_party/*' })
+          & clang-format --dry-run --Werror --style=file @files
+          corepack enable
+          corepack prepare pnpm@11.16.0 --activate
+          pnpm install --frozen-lockfile
+          pnpm product:format:check
+          pnpm product:lint
+          pnpm product:typecheck
+          pnpm product:test
+          pnpm studio:format:check
+          pnpm studio:lint
+          pnpm studio:typecheck
+          pnpm studio:test
+          pnpm studio:build
+          cmake --preset product-runtime-debug --fresh
+          cmake --build --preset product-runtime-debug-build --clean-first
+          foreach ($product in @('artist-gain-warm','artist-gain-bright','artist-gain-inverted')) {
+            pnpm product:export --project "examples/products/$product.garak" --configuration Debug --output out/exports/phase-3d1-final/debug --force --validate
+          }
+          ctest --preset product-runtime-debug-test --no-tests=error
+          pnpm --dir studio verify:product-workflow --configuration Debug
+          cmake --preset product-runtime-release --fresh
+          cmake --build --preset product-runtime-release-build --clean-first
+          foreach ($product in @('artist-gain-warm','artist-gain-bright','artist-gain-inverted')) {
+            pnpm product:export --project "examples/products/$product.garak" --configuration Release --output out/exports/phase-3d1-final/release --force --validate
+          }
+          ctest --preset product-runtime-release-test --no-tests=error
+          pnpm --dir studio verify:product-workflow --configuration Release
+          cmake --preset product-runtime-werror --fresh
+          cmake --build --preset product-runtime-werror-build --clean-first
+          cmake --preset product-runtime-clang-tidy --fresh
+          cmake --build --preset product-runtime-clang-tidy-build --clean-first
+          if (@(git status --porcelain --untracked-files=no).Count -ne 0) { throw 'Final verification rewrote tracked source.' }
+          $remote = git ls-remote origin refs/heads/main
+          if (($remote -split "`t")[0] -ne $env:CLEAN_SHA) { throw 'Main moved during clean final verification.' }
+
+  repository-shape:
+    needs: [wait-for-workflow-removal, windows-final]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Confirm final direct-main shape
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "${{ needs.wait-for-workflow-removal.outputs.clean_sha }}"
+          mapfile -t branches < <(gh api --paginate "repos/$GITHUB_REPOSITORY/branches?per_page=100" --jq '.[].name' | sort)
+          test "${#branches[@]}" -eq 1
+          test "${branches[0]}" = main
+          test -z "$(gh pr list --repo "$GITHUB_REPOSITORY" --state open --limit 100 --json number --jq '.[].number')"
+          if gh api "repos/$GITHUB_REPOSITORY/contents/.github/workflows" >/dev/null 2>&1; then
+            echo 'Workflow directory remains.' >&2
+            exit 1
+          fi
