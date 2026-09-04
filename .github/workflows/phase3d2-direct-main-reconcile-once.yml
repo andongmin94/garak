@@ -1,0 +1,330 @@
+name: Reconcile Phase 3D2 Pan directly on main
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/phase3d2-direct-main-reconcile-once.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  models: read
+
+concurrency:
+  group: garak-direct-main-phase3d1-controller
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    outputs:
+      state: ${{ steps.publish.outputs.state }}
+      source_sha: ${{ steps.publish.outputs.source_sha }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+      OPENAI_API_KEY: ${{ github.token }}
+      OPENAI_API_BASE: https://models.github.ai/inference
+    steps:
+      - name: Check out current main and recursive SDK graph
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Verify direct-main prerequisite
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git branch --show-current)" = main
+          test -f plans/0018-phase-3d1-polarity-node.md
+          test -f plans/0019-phase-3d2-pan-node.md
+          grep -Fq -- '- Status: Complete' plans/0018-phase-3d1-polarity-node.md
+          grep -Eq -- '^- Status: (In Progress|Complete)$' plans/0019-phase-3d2-pan-node.md
+
+      - name: Stop early when Phase 3D2 is already complete
+        id: complete
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -Fq -- '- Status: Complete' plans/0019-phase-3d2-pan-node.md \
+             && test -f native/dsp/pan/include/garak/dsp/pan/pan.hpp \
+             && test -f examples/products/artist-gain-panned.garak/product.json; then
+            echo 'value=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'value=false' >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install exact development tools
+        if: steps.complete.outputs.value != 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          corepack enable
+          corepack prepare pnpm@11.16.0 --activate
+          pnpm install --frozen-lockfile
+          python -m pip install --disable-pip-version-check --quiet 'aider-chat>=0.86,<1'
+
+      - name: Run existing implementation through local matrix
+        if: steps.complete.outputs.value != 'true' && hashFiles('native/dsp/pan/include/garak/dsp/pan/pan.hpp') != ''
+        id: existing_gate
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm product:format
+          pnpm studio:format
+          mapfile -t cpp_files < <(git diff --name-only --diff-filter=ACMR -- '*.c' '*.cc' '*.cpp' '*.cxx' '*.h' '*.hh' '*.hpp' '*.hxx' | grep -v '^third_party/' || true)
+          if [ "${#cpp_files[@]}" -gt 0 ]; then clang-format -i --style=file "${cpp_files[@]}"; fi
+          {
+            git diff --check &&
+            pnpm product:format:check && pnpm product:lint && pnpm product:typecheck && pnpm product:test &&
+            pnpm studio:format:check && pnpm studio:lint && pnpm studio:typecheck && pnpm studio:test && pnpm studio:build &&
+            cmake --preset debug --fresh && cmake --build --preset debug-build --clean-first && ctest --preset debug-test --no-tests=error &&
+            cmake --preset release --fresh && cmake --build --preset release-build --clean-first && ctest --preset release-test --no-tests=error
+          } 2>&1 | tee "$RUNNER_TEMP/existing-gate.log"
+
+      - name: Implement or repair Phase 3D2 with repository context
+        if: steps.complete.outputs.value != 'true' && (hashFiles('native/dsp/pan/include/garak/dsp/pan/pan.hpp') == '' || steps.existing_gate.outcome == 'failure')
+        shell: bash
+        run: |
+          set -euo pipefail
+          if test -f "$RUNNER_TEMP/existing-gate.log"; then tail -n 600 "$RUNNER_TEMP/existing-gate.log" > "$RUNNER_TEMP/failure-tail.txt"; else : > "$RUNNER_TEMP/failure-tail.txt"; fi
+          cat > "$RUNNER_TEMP/prompt.txt" <<'PROMPT'
+          Read AGENTS.md, native/AGENTS.md, studio/AGENTS.md, PLANS.md, plans/0018-phase-3d1-polarity-node.md, and plans/0019-phase-3d2-pan-node.md. Work in the current clean main checkout and implement or repair Phase 3D2 completely, without committing or marking the plan Complete.
+
+          The accepted product must add fixed Pan implementation 1 as immutable graph configuration. `pan` is finite in [-1,1]. Mono is exact identity. Stereo is center-unity balance: 0 => (1,1), -1 => (1,0), +1 => (0,1), linear between. Coefficients are prepared outside the callback. Preserve whole-product sample-accurate Bypass so bypassed output is exact dry input.
+
+          Evolve explicit persistent contracts: project schema v5, graph source v3, deterministic GARAKGRF 1.2, and ordered v4->v5 migration. Preserve historical meanings and existing Gain-only and Gain->Polarity products. Accept exactly Gain-only, Gain->Polarity, or Gain->Pan; reject combined Polarity->Pan, repeated nodes, arbitrary DAGs, branches, feedback, and sidechains. Tooling rebuilds old compiled graphs and Runtime rejects non-current data.
+
+          Add a modular Pan DSP target, direct Float32/Float64 mono/stereo in-place/out-of-place tests, graph/migration/codec/compatibility tests, immutable Native binding and execution, inspector and realtime no-allocation stress, one `artist-gain-panned.garak` reference product, and all Studio/export/CMake coverage. Preserve Product/FUID derivation, Gain 1001, Bypass 1002, GARAKCPD and GARAKPST. Add no dependency, host Pan parameter, Parameter ID, state field, generic registry/scheduler, graph UI, macro system, Dry/Wet, EQ, Saturation, compatibility alias, or fallback.
+
+          Update architecture/status/roadmap to acceptance-pending only. Remove obsolete pre-release internal paths when replaced. Use existing libraries and patterns. Fix every supplied local-gate failure at its root; never delete or weaken tests, validation, warnings, versioning, or realtime guarantees.
+          PROMPT
+
+          mapfile -t context_files < <(git ls-files \
+            'AGENTS.md' 'PLANS.md' 'README.md' 'ROADMAP.md' 'plans/0018-*' 'plans/0019-*' \
+            'docs/status/current.md' 'docs/architecture/*.md' \
+            'tools/product-compiler/src/*.ts' 'tools/product-compiler/tests/*.ts' \
+            'native/**/*.hpp' 'native/**/*.cpp' 'native/**/CMakeLists.txt' 'CMakeLists.txt' 'CMakePresets.json' \
+            'studio/**/*.mts' 'studio/**/*.tsx' 'studio/**/*.ts' \
+            'examples/products/*/product.json')
+          files=("${context_files[@]}" "$RUNNER_TEMP/failure-tail.txt")
+          success=false
+          for model in openai/gpt-5 openai/gpt-4.1 openai/gpt-5-mini; do
+            if aider --yes-always --no-auto-commits --no-gitignore --model "$model" \
+              --openai-api-base "$OPENAI_API_BASE" \
+              --chat-history-file "$RUNNER_TEMP/aider-history.md" \
+              --message-file "$RUNNER_TEMP/prompt.txt" "${files[@]}"; then
+              success=true
+              break
+            fi
+          done
+          test "$success" = true
+
+      - name: Iterate root-cause repairs until local matrix is green
+        if: steps.complete.outputs.value != 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3; do
+            pnpm product:format
+            pnpm studio:format
+            mapfile -t cpp_files < <(git diff --name-only --diff-filter=ACMR -- '*.c' '*.cc' '*.cpp' '*.cxx' '*.h' '*.hh' '*.hpp' '*.hxx' | grep -v '^third_party/' || true)
+            if [ "${#cpp_files[@]}" -gt 0 ]; then clang-format -i --style=file "${cpp_files[@]}"; fi
+            set +e
+            {
+              git diff --check &&
+              pnpm product:format:check && pnpm product:lint && pnpm product:typecheck && pnpm product:test &&
+              pnpm studio:format:check && pnpm studio:lint && pnpm studio:typecheck && pnpm studio:test && pnpm studio:build &&
+              cmake --preset debug --fresh && cmake --build --preset debug-build --clean-first && ctest --preset debug-test --no-tests=error &&
+              cmake --preset release --fresh && cmake --build --preset release-build --clean-first && ctest --preset release-test --no-tests=error
+            } > "$RUNNER_TEMP/gate-$attempt.log" 2>&1
+            rc=$?
+            set -e
+            if [ "$rc" -eq 0 ]; then exit 0; fi
+            if [ "$attempt" -eq 3 ]; then cat "$RUNNER_TEMP/gate-$attempt.log"; exit "$rc"; fi
+            tail -n 700 "$RUNNER_TEMP/gate-$attempt.log" > "$RUNNER_TEMP/repair-tail.txt"
+            cat > "$RUNNER_TEMP/repair-prompt.txt" <<'PROMPT'
+          Phase 3D2 is still failing its local matrix. Read the failure log and current diff, diagnose the exact root cause, and repair production code/tests/fixtures/build/docs. Obey the ExecPlan and AGENTS files. Do not weaken or delete tests, validation, warnings, version boundaries, realtime guarantees, or scope constraints. Do not add dependencies, commit, or mark Complete.
+          PROMPT
+            mapfile -t changed < <(git status --porcelain | sed -E 's/^.. //' | sort -u)
+            files=(AGENTS.md plans/0019-phase-3d2-pan-node.md "$RUNNER_TEMP/repair-tail.txt" "${changed[@]}")
+            success=false
+            for model in openai/gpt-5 openai/gpt-4.1 openai/gpt-5-mini; do
+              if aider --yes-always --no-auto-commits --no-gitignore --model "$model" \
+                --openai-api-base "$OPENAI_API_BASE" --chat-history-file "$RUNNER_TEMP/repair-history.md" \
+                --message-file "$RUNNER_TEMP/repair-prompt.txt" "${files[@]}"; then success=true; break; fi
+            done
+            test "$success" = true
+          done
+
+      - name: Audit Phase 3D2 scope and publish exact source
+        if: steps.complete.outputs.value != 'true'
+        id: publish
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f native/dsp/pan/include/garak/dsp/pan/pan.hpp
+          test -f examples/products/artist-gain-panned.garak/product.json
+          grep -R --line-number --fixed-strings 'garak.pan' tools/product-compiler native examples >/dev/null
+          grep -Fq -- '- Status: In Progress' plans/0019-phase-3d2-pan-node.md
+          if git diff --name-only HEAD -- package.json pnpm-lock.yaml pnpm-workspace.yaml | grep -q .; then echo 'Unexpected dependency change.' >&2; exit 1; fi
+          rm -f .github/workflows/implement-phase3d2-pan-main-once.yml
+          git rm .github/workflows/phase3d2-direct-main-reconcile-once.yml
+          git add -A
+          git config user.name "Garak Direct Main Development"
+          git config user.email "110483588+andongmin94@users.noreply.github.com"
+          git diff --cached --check
+          git commit -m "feat: add Phase 3D2 fixed Pan node"
+          sha="$(git rev-parse HEAD)"
+          git push origin HEAD:main
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$sha"
+          echo 'state=verify' >> "$GITHUB_OUTPUT"
+          echo "source_sha=$sha" >> "$GITHUB_OUTPUT"
+
+      - name: Remove redundant reconcile workflow
+        if: steps.complete.outputs.value == 'true'
+        id: publish_complete
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f .github/workflows/implement-phase3d2-pan-main-once.yml
+          git rm .github/workflows/phase3d2-direct-main-reconcile-once.yml
+          git add -A
+          git config user.name "Garak Direct Main Development"
+          git config user.email "110483588+andongmin94@users.noreply.github.com"
+          git commit -m "chore: remove redundant Phase 3D2 workflows"
+          git push origin HEAD:main
+          echo 'state=complete' >> "$GITHUB_OUTPUT"
+          echo "source_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+  windows:
+    needs: prepare
+    if: needs.prepare.outputs.state == 'verify'
+    runs-on: windows-2025
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.source_sha }}
+          fetch-depth: 0
+          submodules: recursive
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.19.0
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+      - name: Run full exact-source matrix
+        shell: pwsh
+        env:
+          SOURCE_SHA: ${{ needs.prepare.outputs.source_sha }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          if ((git rev-parse HEAD) -ne $env:SOURCE_SHA) { throw 'Wrong source SHA.' }
+          $status = @(git submodule status --recursive)
+          if (@($status | Where-Object { $_ -match '^[+-U]' }).Count -ne 0) { throw 'Recursive SDK pin mismatch.' }
+          git diff --check
+          $files = @(git ls-files -- '*.c' '*.cc' '*.cpp' '*.cxx' '*.h' '*.hh' '*.hpp' '*.hxx' | Where-Object { $_ -notlike 'third_party/*' })
+          & clang-format --dry-run --Werror --style=file @files
+          corepack enable
+          corepack prepare pnpm@11.16.0 --activate
+          pnpm install --frozen-lockfile
+          pnpm product:format:check
+          pnpm product:lint
+          pnpm product:typecheck
+          pnpm product:test
+          pnpm studio:format:check
+          pnpm studio:lint
+          pnpm studio:typecheck
+          pnpm studio:test
+          pnpm studio:build
+          cmake --preset product-runtime-debug --fresh
+          cmake --build --preset product-runtime-debug-build --clean-first
+          foreach ($p in @('artist-gain-warm','artist-gain-bright','artist-gain-inverted','artist-gain-panned')) { pnpm product:export --project "examples/products/$p.garak" --configuration Debug --output out/exports/phase-3d2/debug --force --validate }
+          ctest --preset product-runtime-debug-test --no-tests=error
+          pnpm --dir studio verify:product-workflow --configuration Debug
+          cmake --preset product-runtime-release --fresh
+          cmake --build --preset product-runtime-release-build --clean-first
+          foreach ($p in @('artist-gain-warm','artist-gain-bright','artist-gain-inverted','artist-gain-panned')) { pnpm product:export --project "examples/products/$p.garak" --configuration Release --output out/exports/phase-3d2/release --force --validate }
+          ctest --preset product-runtime-release-test --no-tests=error
+          pnpm --dir studio verify:product-workflow --configuration Release
+          cmake --preset product-runtime-werror --fresh
+          cmake --build --preset product-runtime-werror-build --clean-first
+          cmake --preset product-runtime-clang-tidy --fresh
+          cmake --build --preset product-runtime-clang-tidy-build --clean-first
+          if (@(git status --porcelain --untracked-files=no).Count -ne 0) { throw 'Verification rewrote tracked source.' }
+          $remote = git ls-remote origin refs/heads/main
+          if (($remote -split "`t")[0] -ne $env:SOURCE_SHA) { throw 'Main moved during verification.' }
+
+  finalize:
+    needs: [prepare, windows]
+    if: needs.prepare.outputs.state == 'verify' && needs.windows.result == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      SOURCE_SHA: ${{ needs.prepare.outputs.source_sha }}
+      VERIFY_RUN: ${{ github.run_id }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Mark Phase 3D2 complete
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          python - <<'PY'
+          from pathlib import Path
+          import os, re
+          source=os.environ['SOURCE_SHA']; run=os.environ['VERIFY_RUN']
+          p=Path('plans/0019-phase-3d2-pan-node.md'); t=p.read_text(encoding='utf-8')
+          t=t.replace('- Status: In Progress','- Status: Complete',1)
+          t=re.sub(r'(?m)^([0-9]+\. )\[ \]',r'\1[x]',t)
+          t=t.replace('Implementation has not started.',f'Phase 3D2 is complete. Exact direct-main source `{source}` passed clean Windows run `{run}` with the complete Product Compiler, Studio, Debug/Release export/Validator, CTest, realtime, warnings-as-errors, clang-tidy and tracked-source-mutation matrix.')
+          p.write_text(t,encoding='utf-8',newline='\n')
+          for name,block in {
+            'README.md':f'\n### Phase 3D2 — Fixed Pan Node — Complete\n\nExact direct-main source `{source}` passed clean Windows run `{run}`.\n',
+            'ROADMAP.md':f'\n### Phase 3D2 — Fixed Pan Node — Complete\n\n- exact verified main source: `{source}`\n- clean Windows run: `{run}`\n',
+            'docs/status/current.md':f'\n### Phase 3D2 — Fixed Pan Node — Complete\n\nExact direct-main source `{source}` passed clean Windows run `{run}`.\n'
+          }.items():
+            q=Path(name); s=q.read_text(encoding='utf-8')
+            if '### Phase 3D2 — Fixed Pan Node — Complete' not in s: s+=block
+            q.write_text(s,encoding='utf-8',newline='\n')
+          PY
+          git add README.md ROADMAP.md docs/status/current.md plans/0019-phase-3d2-pan-node.md
+          git config user.name "Garak Direct Main Development"
+          git config user.email "110483588+andongmin94@users.noreply.github.com"
+          git diff --cached --check
+          git commit -m "docs: accept Phase 3D2 fixed Pan node"
+          git push origin HEAD:main
+
+  cleanup-failure:
+    needs: prepare
+    if: failure() && needs.prepare.result == 'failure'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Remove failed reconcile workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          if test -f .github/workflows/phase3d2-direct-main-reconcile-once.yml; then
+            git rm .github/workflows/phase3d2-direct-main-reconcile-once.yml
+            rm -f .github/workflows/implement-phase3d2-pan-main-once.yml
+            git add -A
+            git config user.name "Garak Direct Main Development"
+            git config user.email "110483588+andongmin94@users.noreply.github.com"
+            git commit -m "chore: remove failed Phase 3D2 workflows"
+            git push origin HEAD:main
+          fi
