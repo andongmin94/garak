@@ -1,0 +1,156 @@
+name: Guard Phase 3D1 direct-main completion
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/phase3d1-main-guardian-once.yml
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: garak-phase3d1-main-guardian
+  cancel-in-progress: false
+
+jobs:
+  guard:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TARGET_WORKFLOW: phase3d1-main-implementation-once.yml
+    steps:
+      - name: Enforce main-only repository shape
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(gh api "repos/$GITHUB_REPOSITORY" --jq .default_branch)" = main
+          while IFS= read -r pr; do
+            [ -n "$pr" ] || continue
+            gh pr close "$pr" --repo "$GITHUB_REPOSITORY" --comment "Closed by the direct-main development policy." || true
+          done < <(gh pr list --repo "$GITHUB_REPOSITORY" --state open --limit 200 --json number --jq '.[].number')
+          while IFS= read -r full_ref; do
+            [ -n "$full_ref" ] || continue
+            branch="${full_ref#refs/heads/}"
+            [ "$branch" = main ] && continue
+            gh api --method DELETE "repos/$GITHUB_REPOSITORY/git/refs/heads/$branch"
+          done < <(gh api --paginate "repos/$GITHUB_REPOSITORY/git/matching-refs/heads/" --jq '.[].ref')
+
+      - name: Wait for or retry the Phase 3D1 workflow
+        id: monitor
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          latest_run() {
+            gh api "repos/$GITHUB_REPOSITORY/actions/workflows/$TARGET_WORKFLOW/runs?per_page=1" --jq '.workflow_runs[0].id // empty' 2>/dev/null || true
+          }
+
+          run_id=''
+          for _ in $(seq 1 60); do
+            run_id="$(latest_run)"
+            [ -n "$run_id" ] && break
+            sleep 10
+          done
+          if [ -z "$run_id" ]; then
+            echo 'No Phase 3D1 implementation run was found.' >&2
+            echo 'result=missing' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          for attempt in 1 2 3; do
+            echo "Monitoring run $run_id, attempt $attempt"
+            for _ in $(seq 1 240); do
+              status="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id" --jq .status)"
+              conclusion="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id" --jq '.conclusion // empty')"
+              echo "status=$status conclusion=$conclusion"
+              [ "$status" = completed ] && break
+              sleep 30
+            done
+
+            status="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id" --jq .status)"
+            conclusion="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id" --jq '.conclusion // empty')"
+            if [ "$status" = completed ] && [ "$conclusion" = success ]; then
+              echo 'result=success' >> "$GITHUB_OUTPUT"
+              echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+
+            if [ "$attempt" -eq 3 ]; then
+              echo 'result=failure' >> "$GITHUB_OUTPUT"
+              echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+
+            echo "Retrying failed jobs for run $run_id"
+            gh api --method POST "repos/$GITHUB_REPOSITORY/actions/runs/$run_id/rerun-failed-jobs"
+            sleep 20
+          done
+
+      - name: Verify repository outcome
+        id: outcome
+        shell: bash
+        env:
+          MONITOR_RESULT: ${{ steps.monitor.outputs.result }}
+          TARGET_RUN_ID: ${{ steps.monitor.outputs.run_id }}
+        run: |
+          set -euo pipefail
+          main_sha="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)"
+          plan="$(gh api "repos/$GITHUB_REPOSITORY/contents/plans/0018-phase-3d1-polarity-node.md?ref=$main_sha" -H 'Accept: application/vnd.github.raw+json' 2>/dev/null || true)"
+          polarity_status="$(gh api -i "repos/$GITHUB_REPOSITORY/contents/native/dsp/polarity/include/garak/dsp/polarity/polarity.hpp?ref=$main_sha" 2>/dev/null | head -n 1 || true)"
+          inverted_status="$(gh api -i "repos/$GITHUB_REPOSITORY/contents/examples/products/artist-gain-inverted.garak/product.json?ref=$main_sha" 2>/dev/null | head -n 1 || true)"
+          complete=false
+          if grep -Fq -- '- Status: Complete' <<< "$plan" \
+             && grep -Eq ' 200 ' <<< "$polarity_status" \
+             && grep -Eq ' 200 ' <<< "$inverted_status"; then
+            complete=true
+          fi
+          echo "main_sha=$main_sha" >> "$GITHUB_OUTPUT"
+          echo "complete=$complete" >> "$GITHUB_OUTPUT"
+          echo "monitor_result=$MONITOR_RESULT" >> "$GITHUB_OUTPUT"
+          echo "target_run=$TARGET_RUN_ID" >> "$GITHUB_OUTPUT"
+          {
+            echo "## Phase 3D1 guardian outcome"
+            echo "- monitor: $MONITOR_RESULT"
+            echo "- target run: $TARGET_RUN_ID"
+            echo "- main: $main_sha"
+            echo "- Phase 3D1 complete on main: $complete"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Remove guardian from current main
+        shell: bash
+        env:
+          COMPLETE: ${{ steps.outcome.outputs.complete }}
+          MAIN_SHA: ${{ steps.outcome.outputs.main_sha }}
+        run: |
+          set -euo pipefail
+          rm -rf cleanup
+          git clone --quiet "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" cleanup
+          cd cleanup
+          test "$(git rev-parse HEAD)" = "$MAIN_SHA"
+          if test -f .github/workflows/phase3d1-main-guardian-once.yml; then
+            git rm .github/workflows/phase3d1-main-guardian-once.yml
+            git config user.name 'Garak Direct Main Development'
+            git config user.email '110483588+andongmin94@users.noreply.github.com'
+            if [ "$COMPLETE" = true ]; then
+              message='chore: remove completed Phase 3D1 guardian'
+            else
+              message='chore: remove exhausted Phase 3D1 guardian'
+            fi
+            git commit -m "$message"
+            git push origin HEAD:main
+          fi
+
+      - name: Confirm no auxiliary branch or open PR remains
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t branches < <(gh api --paginate "repos/$GITHUB_REPOSITORY/branches?per_page=100" --jq '.[].name' | sort)
+          test "${#branches[@]}" -eq 1
+          test "${branches[0]}" = main
+          test -z "$(gh pr list --repo "$GITHUB_REPOSITORY" --state open --limit 100 --json number --jq '.[].number')"
