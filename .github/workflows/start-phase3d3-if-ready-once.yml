@@ -1,0 +1,149 @@
+name: Start Phase 3D3 on accepted main
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/start-phase3d3-if-ready-once.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: garak-direct-main-phase3d1-controller
+  cancel-in-progress: false
+
+jobs:
+  start:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Start Dry/Wet plan only from accepted Pan baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git branch --show-current)" = main
+          ready=false
+          if test -f native/dsp/pan/include/garak/dsp/pan/pan.hpp \
+             && test -f examples/products/artist-gain-panned.garak/product.json \
+             && grep -Fq -- '- Status: Complete' plans/0019-phase-3d2-pan-node.md; then
+            ready=true
+          fi
+
+          if [ "$ready" = true ] && ! test -f plans/0020-phase-3d3-dry-wet-node.md; then
+            cat > plans/0020-phase-3d3-dry-wet-node.md <<'EOF'
+          # ExecPlan 0020 — Phase 3D3 Fixed Dry/Wet Node
+
+          - Status: In Progress
+          - Started: 2026-09-04
+          - Updated: 2026-09-04
+          - Owner: Product Compiler, Native static graph Runtime and Studio product workflow
+
+          ## 목적
+
+          Phase 3D2의 accepted fixed-Pan baseline 위에 최초의 explicit two-input DSP operation인 fixed Dry/Wet node implementation 1을 project source, deterministic compiled graph, immutable Native binding, realtime execution과 actual Windows VST3 export까지 end-to-end로 추가한다. 개발과 검증은 `main`에서 직접 수행한다.
+
+          ## 사용자 가치
+
+          제품 제작자는 제품 그래프에 원신호와 처리신호의 고정 혼합을 명시적으로 포함할 수 있다. Dry 신호를 Runtime의 암묵적 side channel로 참조하지 않고 typed graph edge로 표현하므로 이후 fan-out과 merge capability의 최소하고 검증 가능한 기반이 된다.
+
+          ## 현재 저장소 상태
+
+          - Phase 3D1 fixed Polarity: Complete
+          - Phase 3D2 fixed Pan: Complete
+          - Existing Product/FUID/Parameter/state contracts remain authoritative
+          - Branch policy: `main` only; no development or verification branches and no PR staging
+
+          ## 범위
+
+          - fixed Dry/Wet DSP node implementation version 1
+          - project-owned finite `mix` value in inclusive `[0,1]`
+          - versioned linear law `output = (1 - mix) * dry + mix * wet`
+          - explicit typed `dry`, `wet`, and `audio` ports
+          - exactly one approved fan-out/merge topology: Input feeds Dry/Wet dry, and Input→Gain feeds Dry/Wet wet, followed by Output
+          - preservation of existing Gain-only, Gain→Polarity, and Gain→Pan topologies
+          - explicit project schema, graph source, and GARAKGRF minor evolution
+          - deterministic two-input routing and module-load prepared mix coefficients
+          - whole-product host Bypass returning exact original input
+          - direct Float32/Float64 mono/stereo in-place/out-of-place tests and no-allocation stress
+          - one Dry/Wet reference product and complete inspector/Studio/Debug/Release Validator coverage
+
+          ## 비범위
+
+          - host-exposed Mix parameter or new Parameter ID
+          - combining Dry/Wet with Polarity or Pan
+          - arbitrary fan-out, merge, DAG, sidechain, feedback or dynamic scheduler
+          - Biquad, Tilt EQ, Saturation, macro mapping or graph editing UI
+          - changes to GARAKCPD, GARAKPST, Product ID or FUID derivation
+
+          ## 설계 결정
+
+          Dry/Wet source routing is explicit. The Audio Input node has two outgoing edges: one to Gain and one to Dry/Wet.dry. Gain output connects to Dry/Wet.wet; Dry/Wet.audio connects to Audio Output. The compiler derives the exact buffer plan. The Runtime does not obtain dry input through an implicit pointer or hidden product-global channel.
+
+          Mix is immutable graph configuration and has no host-visible identity in this phase. Coefficients are prepared outside the callback. Host Bypass remains a whole-product operation and copies original input regardless of graph mix.
+
+          ## 구현 단계
+
+          1. [x] Write this ExecPlan on accepted direct-main Phase 3D2.
+          2. [ ] Add Dry/Wet DSP and direct numerical tests.
+          3. [ ] Evolve project/graph source contracts with strict legacy migration.
+          4. [ ] Add the one exact explicit fan-out/two-input topology while preserving existing plans.
+          5. [ ] Evolve GARAKGRF with deterministic two-input buffer binding.
+          6. [ ] Add immutable mix coefficients and whole-product Bypass execution.
+          7. [ ] Extend realtime allocation/bounded-work stress.
+          8. [ ] Add a Dry/Wet reference product and full inspector/Studio/export coverage.
+          9. [ ] Update architecture/status/roadmap to acceptance-pending Phase 3D3.
+          10. [ ] Run local Product Compiler, Studio and Native gates.
+          11. [ ] Commit implementation directly to `main` and run the exact-main clean Windows matrix.
+          12. [ ] Mark Complete only after green acceptance and remove every one-time workflow.
+
+          ## 검증 계획
+
+          Run Product Compiler and Studio format/lint/typecheck/test/build, Native Debug/Release tests, direct Dry/Wet tests, graph migration/codec/compatibility tests, realtime allocation stress, all current reference products in actual Debug/Release VST3 exports, official Validator, CTest, Studio workflow, warnings-as-errors, clang-tidy and tracked-source mutation zero.
+
+          ## 수용 기준
+
+          Dry/Wet output follows the exact versioned linear law at mix 0, 0.5, 1 and intermediate values; input aliasing is safe; Bypass is exact dry input; the compiled buffer plan derives from explicit typed edges; existing products preserve sound, identity and state; malformed or unapproved graph shapes fail closed; old compiled graphs rebuild and future/corrupt data rejects; exact current `main` passes the complete clean Windows matrix.
+
+          ## 리스크
+
+          This is the first fan-out and two-input operation. The implementation must not generalize into an unfinished arbitrary graph allocator. It supports only the approved topology with fixed-size compile-time/runtime storage and rejects everything else.
+
+          ## 발견 사항
+
+          - 2026-09-04: Dry/Wet is selected after Polarity and Pan because it proves explicit multi-input routing without adding a public parameter system.
+
+          ## 의사결정 로그
+
+          - 2026-09-04: Use explicit dry and wet graph edges and a fixed linear mix law; reject implicit dry-channel access.
+
+          ## 완료 기록
+
+          Implementation has not started.
+
+          ## 다음 단계
+
+          Complete Phase 3D3 on `main` before choosing Biquad, Tilt EQ or Saturation.
+          EOF
+            sed -i 's/^          //' plans/0020-phase-3d3-dry-wet-node.md
+          fi
+
+          rm -f .github/workflows/implement-phase3d2-pan-main-once.yml
+          rm -f .github/workflows/phase3d2-direct-main-reconcile-once.yml
+          git rm .github/workflows/start-phase3d3-if-ready-once.yml
+          git add -A
+          git config user.name "Garak Direct Main Development"
+          git config user.email "110483588+andongmin94@users.noreply.github.com"
+          git diff --cached --check
+          if [ "$ready" = true ]; then
+            git commit -m "plan: start Phase 3D3 fixed Dry/Wet node"
+          else
+            git commit -m "chore: remove stale Phase 3D2 workflows"
+          fi
+          git push origin HEAD:main
