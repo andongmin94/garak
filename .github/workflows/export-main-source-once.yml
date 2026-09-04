@@ -1,0 +1,51 @@
+name: Export current main source once
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/export-main-source-once.yml
+
+permissions:
+  contents: write
+
+jobs:
+  export:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Check out workflow commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 2
+          submodules: false
+
+      - name: Archive exact parent source
+        shell: bash
+        run: |
+          set -euo pipefail
+          source_sha="$(git rev-parse HEAD^)"
+          git archive --format=tar.gz --output="$RUNNER_TEMP/garak-main-source.tar.gz" "$source_sha"
+          printf '%s\n' "$source_sha" > "$RUNNER_TEMP/source-sha.txt"
+
+      - name: Upload source archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: garak-main-source
+          path: |
+            ${{ runner.temp }}/garak-main-source.tar.gz
+            ${{ runner.temp }}/source-sha.txt
+          retention-days: 1
+          if-no-files-found: error
+
+      - name: Remove one-time workflow from main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "Garak Direct Main Development"
+          git config user.email "110483588+andongmin94@users.noreply.github.com"
+          git rm .github/workflows/export-main-source-once.yml
+          git commit -m "chore: remove one-time source exporter"
+          git push origin HEAD:main
