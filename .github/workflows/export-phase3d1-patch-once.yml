@@ -1,0 +1,42 @@
+name: Export preserved Phase 3D1 patch
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/export-phase3d1-patch-once.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Check out full main history
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Export exact historical blob and diagnostics
+        shell: bash
+        run: |
+          set -euo pipefail
+          git show 40cce3b91ce7212b5c93e9ba77d7a5590372e108:.github/phase3d1-implementation.patch.gz.b64 > "$RUNNER_TEMP/phase3d1-implementation.patch.gz.b64"
+          wc -c "$RUNNER_TEMP/phase3d1-implementation.patch.gz.b64" > "$RUNNER_TEMP/size.txt"
+          sha256sum "$RUNNER_TEMP/phase3d1-implementation.patch.gz.b64" > "$RUNNER_TEMP/sha256.txt"
+          tail -c 128 "$RUNNER_TEMP/phase3d1-implementation.patch.gz.b64" | base64 > "$RUNNER_TEMP/tail-128.base64"
+      - name: Upload exact blob
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase3d1-preserved-patch
+          path: |
+            ${{ runner.temp }}/phase3d1-implementation.patch.gz.b64
+            ${{ runner.temp }}/size.txt
+            ${{ runner.temp }}/sha256.txt
+            ${{ runner.temp }}/tail-128.base64
+          retention-days: 1
+          if-no-files-found: error
