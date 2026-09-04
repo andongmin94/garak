@@ -1,0 +1,98 @@
+name: Resume direct-main Phase 3D progression
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/resume-phase3d-main-once.yml
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: write
+
+concurrency:
+  group: garak-direct-main-phase3d-resume
+  cancel-in-progress: false
+
+jobs:
+  resume:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 140
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Wait for any active direct-main Phase 3D controller
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 120); do
+            active="$(gh api --paginate "repos/$GITHUB_REPOSITORY/actions/runs?status=in_progress&per_page=100" --jq '[.workflow_runs[] | select(.id != '"$GITHUB_RUN_ID"') | select(.name | test("Phase 3D|Phase3D|phase3d"; "i"))] | length')"
+            queued="$(gh api --paginate "repos/$GITHUB_REPOSITORY/actions/runs?status=queued&per_page=100" --jq '[.workflow_runs[] | select(.id != '"$GITHUB_RUN_ID"') | select(.name | test("Phase 3D|Phase3D|phase3d"; "i"))] | length')"
+            if [ "$active" -eq 0 ] && [ "$queued" -eq 0 ]; then
+              exit 0
+            fi
+            sleep 30
+          done
+          echo 'Timed out waiting for another Phase 3D controller.' >&2
+          exit 1
+
+      - name: Re-run the latest failed continuation once
+        shell: bash
+        run: |
+          set -euo pipefail
+          run_json="$(gh api --paginate "repos/$GITHUB_REPOSITORY/actions/runs?per_page=100" --jq '[.workflow_runs[] | select(.id != '"$GITHUB_RUN_ID"') | select((.path == ".github/workflows/continue-phase3d-main-once.yml") or (.name | test("Continue next Phase 3D increment"; "i")))] | sort_by(.created_at) | reverse | .[0] // {}')"
+          run_id="$(jq -r '.id // empty' <<<"$run_json")"
+          status="$(jq -r '.status // empty' <<<"$run_json")"
+          conclusion="$(jq -r '.conclusion // empty' <<<"$run_json")"
+          echo "Latest continuation run: id=$run_id status=$status conclusion=$conclusion"
+          if [ -z "$run_id" ]; then
+            echo 'No prior continuation run exists; nothing to rerun.'
+            exit 0
+          fi
+          if [ "$status" != completed ]; then
+            echo 'Continuation is not completed.' >&2
+            exit 1
+          fi
+          case "$conclusion" in
+            success) exit 0 ;;
+            failure|cancelled|timed_out|action_required|stale)
+              gh api --method POST "repos/$GITHUB_REPOSITORY/actions/runs/$run_id/rerun-failed-jobs"
+              ;;
+            *) echo "Unsupported conclusion: $conclusion" >&2; exit 1 ;;
+          esac
+
+          for attempt in $(seq 1 240); do
+            current="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$run_id")"
+            status="$(jq -r .status <<<"$current")"
+            conclusion="$(jq -r '.conclusion // empty' <<<"$current")"
+            echo "attempt=$attempt status=$status conclusion=$conclusion"
+            if [ "$status" = completed ]; then
+              test "$conclusion" = success
+              exit 0
+            fi
+            sleep 30
+          done
+          echo 'Timed out waiting for the continuation rerun.' >&2
+          exit 1
+
+      - name: Remove this one-time resume workflow
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --quiet "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" cleanup
+          cd cleanup
+          git checkout main
+          if test -f .github/workflows/resume-phase3d-main-once.yml; then
+            git rm .github/workflows/resume-phase3d-main-once.yml
+            git config user.name "Garak Direct Main Development"
+            git config user.email "110483588+andongmin94@users.noreply.github.com"
+            git commit -m "chore: remove Phase 3D resume workflow"
+            for attempt in 1 2 3 4 5; do
+              if git push origin HEAD:main; then exit 0; fi
+              git pull --rebase origin main
+            done
+            exit 1
+          fi
