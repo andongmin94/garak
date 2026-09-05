@@ -53,8 +53,9 @@ Phase 3C3는 compiled graph의 current/missing/old/future/corrupt disposition을
 Native Runtime과 first-party inspector에 통일했다. Exact source `d60667d8806e5dac7963ae928dcf98dc377cf0f7`의 clean Windows run `33657806095`에서
 Product Compiler와 Studio quality gate, Debug/Release Runtime build, Warm/Bright actual export와 official
 Validator, CTest, Studio workflow, warnings-as-errors, clang-tidy와 tracked-source mutation `0`이 모두
-통과했다. 따라서 **Phase 3C3와 Phase 3C는 PASS / Complete**다. 현재 사실은
-[`docs/status/current.md`](docs/status/current.md)를 따른다.
+통과했다. 따라서 **Phase 3C3와 Phase 3C는 PASS / Complete**다.
+
+Phase 3D는 `plans/0018-phase-3d1-polarity-node.md`의 Polarity increment로 시작했지만, 현재 production source와 Windows acceptance는 아직 완료되지 않았다. 현재 사실은 [`docs/status/current.md`](docs/status/current.md)를 따른다.
 
 ## 빠른 시작
 

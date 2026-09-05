@@ -1,6 +1,6 @@
 # Garak Roadmap
 
-- 기준일: 2026-09-02
+- 기준일: 2026-09-05
 - Branch: `main`
 - Phase 3B historical Windows foundation: **PASS**
 - Phase 3B verified implementation: `4b2535deba302eddab86c5c02b165e8d4f168cf4`
@@ -15,7 +15,7 @@
 - Phase 3C3 clean Windows run: `33657806095`
 - Phase 3C3 status: **PASS / Complete**
 - Current Phase 3C status: **PASS / Complete**
-- 다음 gate: **Phase 3D — Initial DSP Node Set ExecPlan**
+- 다음 gate: **Phase 3D1 — Polarity implementation and exact-main Windows acceptance**
 
 이 roadmap은 기능 목록을 미리 쌓는 문서가 아니다. 각 milestone은 직전의 실제 end-to-end 제품 경로가 clean checkout에서 통과한 뒤에만 다음 층으로 진행한다.
 
@@ -313,26 +313,39 @@ Phase 3C is **Complete**. Phase 3D starts under a separate ExecPlan.
 
 ---
 
-## Phase 3D — Initial DSP Node Set — Planned
+## Phase 3D — Initial DSP Node Set — In Progress
 
-Phase 3C 완료 뒤 별도 ExecPlan으로 시작한다.
+Phase 3D는 node를 한꺼번에 구현하지 않는다. 한 번에 하나의 ExecPlan만 활성화하고, 각 node를 source → compiler → Runtime → actual export까지 독립적으로 수용한 뒤 다음 node로 진행한다.
 
-목표:
+### Phase 3D1 — Polarity Node — In Progress
+
+활성 계획: [`plans/0018-phase-3d1-polarity-node.md`](plans/0018-phase-3d1-polarity-node.md)
+
+현재 상태:
+
+- ExecPlan 작성 완료
+- Polarity production source는 아직 `main`에 수용되지 않음
+- Phase 3C Gain-only 제품 경로는 계속 canonical baseline
+- Phase 3D2 이후 계획은 Phase 3D1 acceptance 전 시작하지 않음
+
+수용 기준:
+
+- parameterless Polarity direct DSP tests
+- explicit project/graph/compiled version evolution과 migration
+- exact Gain-only 및 Gain→Polarity plan validation/execution
+- whole-product Bypass와 no-allocation realtime stress
+- Warm/Bright behavior 보존
+- Inverted actual Debug/Release VST3 export와 official Validator
+- 정확한 최종 `main` commit의 clean Windows full gate
+
+후속 후보:
 
 - Pan
-- Polarity
 - Dry/Wet
 - Biquad
 - Tilt EQ
 - Saturation
 - node metadata와 parameter declaration
-
-수용 기준:
-
-- 각 node direct DSP test
-- graph compilation/execution regression
-- no-allocation realtime stress
-- actual exported product verification
 
 ---
 
