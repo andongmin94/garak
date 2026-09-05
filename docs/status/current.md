@@ -5,7 +5,7 @@
 - 권위 문서: current source tree → `ROADMAP.md` → 현재 ExecPlan
 - 수용된 기준선: **Phase 3C Complete**
 - 활성 increment: **Phase 3D1 — Polarity Node, In Progress**
-- 현재 Phase 3D1 구현 수용 여부: **미수용**
+- 현재 Phase 3D1 구현 수용 여부: **미수용 — 독립 DSP 모듈과 테스트만 구현됨**
 
 ## 현재 동작하는 제품 경로
 
@@ -21,7 +21,7 @@
 ```
 
 현재 reference products는 `Artist Gain Warm`과 `Artist Gain Bright`다.
-현재 source tree에서 수용된 DSP node는 Gain뿐이며, Polarity source나 Inverted product를 완료된 기능으로 간주하지 않는다.
+생성 플러그인에서 수용된 DSP node는 여전히 Gain뿐이다. `native/dsp/polarity`에 독립 Polarity primitive와 테스트가 추가됐지만, graph source/compiler/Runtime 연결이나 Inverted product는 아직 구현되지 않았다.
 
 ## 수용된 계약
 
@@ -50,7 +50,13 @@
 
 현재 계획은 [`plans/0018-phase-3d1-polarity-node.md`](../../plans/0018-phase-3d1-polarity-node.md) 하나다.
 
-수용 목표:
+구현된 부분은 ExecPlan의 step 2다. Polarity primitive는 Float32/Float64의 정확한 부호 반전, in-place/out-of-place span 처리와 길이 불일치 시 무수정 거부를 제공한다. 기존 CMake quality aggregate와 직접 테스트에 연결됐으며 기존 Gain 제품 경로는 바뀌지 않았다.
+
+Linux 검증: GCC Debug/Release, Clang warnings-as-errors, Clang ASan/UBSan에서 각각 Native CTest 5/5 통과. 독립 Polarity stress는 sample type별 20,000블록과 1,907,696 channel-samples를 처리했고 계측한 C++ allocation/deallocation은 모두 0이었다. 이는 standalone primitive 검증이며 compiled Polarity graph나 Windows 제품 수용 결과가 아니다.
+
+이번 변경에서 Product Compiler/Studio pinned quality gate, clang-format, clang-tidy, Windows/MSVC, actual export와 official Validator는 실행하지 않았다.
+
+남은 수용 목표:
 
 ```text
 project schema v4 / graph source v2
@@ -62,7 +68,7 @@ project schema v4 / graph source v2
 → Artist Gain Inverted actual export
 ```
 
-현재 상태는 계획 작성 완료, 구현 미수용이다. 다음 작업은 source를 직접 `main`에 구현한 뒤 아래 순서로 검증하는 것이다.
+위 제품 경로를 구현한 뒤 아래 순서로 검증한다.
 
 1. Product Compiler와 Studio format/lint/typecheck/test/build
 2. Native Debug/Release build와 CTest
@@ -73,7 +79,7 @@ project schema v4 / graph source v2
 
 ## 아직 완료하지 않은 영역
 
-- Polarity와 그 이후 Pan, Dry/Wet, Biquad, Tilt EQ, Saturation
+- Polarity의 제품 통합과 그 이후 Pan, Dry/Wet, Biquad, Tilt EQ, Saturation
 - arbitrary graph, split/merge, feedback와 sidechain
 - parameter/macro system
 - functional Sound/Control graph authoring

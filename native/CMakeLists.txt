@@ -17,6 +17,7 @@ if(GARAK_BUILD_PRODUCT_RUNTIME_V1)
     DEPENDS
       garak_product_contract_v1
       garak_dsp_gain
+      garak_dsp_polarity
       garak_product_runtime_v1_objects
       garak_product_runtime_v1_vst3
       garak_product_inspector
@@ -26,6 +27,7 @@ if(GARAK_BUILD_PRODUCT_RUNTIME_V1)
       garak_product_runtime_v1_quality
       garak_version_tests
       garak_gain_dsp_tests
+      garak_polarity_dsp_tests
       garak_static_graph_tests
       garak_realtime_stress_tests
       garak_product_v1_contract_tests

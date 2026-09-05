@@ -2,7 +2,7 @@
 
 - Status: In Progress
 - Started: 2026-09-04
-- Updated: 2026-09-04
+- Updated: 2026-09-05
 - Owner: Product Compiler, Native static graph Runtime and Studio product workflow
 
 ## 목적
@@ -90,7 +90,7 @@ The existing Gain automation loop is extended with an active-sample transform. T
 ## 구현 단계
 
 1. [x] Write this ExecPlan directly on `main` before source implementation.
-2. [ ] Add Polarity DSP module and direct Float32/Float64/in-place tests.
+2. [x] Add Polarity DSP module and direct Float32/Float64/in-place tests.
 3. [ ] Evolve project schema to v4 and graph source to v2 with strict dual-topology validation.
 4. [ ] Add ordered v3→v4 migration and fixed legacy v3 fixtures while preserving identity and sound semantics.
 5. [ ] Evolve deterministic compiled graph to `GARAKGRF` 1.1 with exact gain-only and polarity fixtures.
@@ -185,6 +185,8 @@ Authoritative acceptance remains a clean Windows x64 checkout of the exact `main
 
 ## 발견 사항
 
+- 2026-09-05: The available source archive has the exact same `native`, `studio`, `tools`, `examples`, and `cmake` tree hashes as main `9d7431dae8539ef02d13b5c2ded5c744ae3bb863`. Implementation was written against those verified source trees.
+
 - 2026-09-04: Repository-wide branch cleanup left only `main`; all Phase 3D work proceeds directly on `main`.
 - 2026-09-04: Polarity is the smallest additional node because it needs no new persistent host parameter or state entry while still proving project-owned multi-operation sound execution.
 - 2026-09-04: The existing Gain kernel owns sample-accurate Bypass, so a naive post-Gain polarity pass would violate whole-product bypass behavior.
@@ -198,7 +200,20 @@ Authoritative acceptance remains a clean Windows x64 checkout of the exact `main
 
 ## 완료 기록
 
-Implementation has not started. This plan is the first Phase 3D1 source change and was committed directly to `main`.
+Only step 2 is implemented: a standalone `garak::dsp_polarity` module, Float32/Float64 scalar and span processing, direct mono/stereo in-place/out-of-place tests, and standalone Polarity coverage in the existing allocation-counted stress executable. Span length mismatches are rejected without partial output. The pure inverter does not own signal sanitation or host Bypass.
+
+Changed source files are `native/dsp/polarity/{CMakeLists.txt,include/garak/dsp/polarity/polarity.hpp,src/polarity.cpp}`, `native/dsp/CMakeLists.txt`, `native/CMakeLists.txt`, `native/tests/{CMakeLists.txt,polarity_dsp_tests.cpp,realtime_stress_tests.cpp}`. The Product Runtime quality aggregate builds the module and its tests, but the plug-in processing path is unchanged.
+
+Actual local verification on Linux, using CMake 3.31.6, GCC 14.2 and Clang 17:
+
+- `cmake --preset debug --fresh`, `cmake --build --preset debug-build --clean-first`, `ctest --preset debug-test --no-tests=error`: 5/5 passed.
+- Corresponding `release`, `release-build`, `release-test` commands: 5/5 passed.
+- `cmake --preset debug-warnings-as-errors --fresh -DCMAKE_CXX_COMPILER=clang++`, `cmake --build --preset warnings-as-errors-build --clean-first`, then CTest in that build directory: 5/5 passed.
+- A separate Clang Debug build with `-fsanitize=address,undefined -fno-omit-frame-pointer`, matching linker flags and warnings-as-errors: 5/5 passed.
+- The standalone Polarity stress processes 20,000 blocks per sample type, 1,907,696 channel-samples each, with measured C++ allocations and deallocations both zero. Existing Gain stress also passes. This is not a compiled Polarity graph test.
+- `git diff --check`: passed.
+
+Not run: pinned Product Compiler/Studio quality gates, clang-format, clang-tidy, Windows/MSVC builds, VST3 export or official Validator. No package, dependency, source schema, binary contract, public parameter, plug-in state, or existing Gain processing behavior was changed. Graph-source/compiler/Runtime integration and the Inverted product remain unimplemented. Phase 3D1 remains In Progress; the accepted product baseline is still Phase 3C.
 
 ## 다음 단계
 

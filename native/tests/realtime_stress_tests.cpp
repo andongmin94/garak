@@ -1,3 +1,4 @@
+#include "garak/dsp/polarity/polarity.hpp"
 #include "garak/runtime/static_graph/gain_plan.hpp"
 
 #include "garak/dsp/gain/gain.hpp"
@@ -10,6 +11,7 @@
 #include <cstdlib>
 #include <limits>
 #include <new>
+#include <span>
 #include <type_traits>
 
 #ifdef _MSC_VER
@@ -294,6 +296,54 @@ template <typename Sample>
   return result;
 }
 
+// Exercise the standalone Polarity primitive separately from the accepted Gain
+// graph. This does not claim a compiled Polarity product exists yet.
+template <typename Sample> [[nodiscard]] StressResult run_polarity_stress() noexcept {
+  constexpr std::size_t maximum_samples = 127;
+  std::array<std::array<Sample, maximum_samples>, 2> input{};
+  std::array<std::array<Sample, maximum_samples>, 2> output{};
+  StressResult result{};
+  result.output_matches = true;
+  allocation_tracking::begin();
+  for (std::size_t block = 0; block < kBlockCount; ++block) {
+    const auto channels = (block % 2) + 1;
+    const auto samples = block % (maximum_samples + 1);
+    for (std::size_t channel = 0; channel < channels; ++channel) {
+      for (std::size_t sample = 0; sample < samples; ++sample) {
+        input[channel][sample] = static_cast<Sample>(
+            static_cast<double>(static_cast<int>((sample + block + channel) % 65) - 32) / 32.0);
+      }
+      const bool in_place = ((block / 2) % 2) != 0;
+      auto& destination = in_place ? input[channel] : output[channel];
+      if (!garak::dsp::polarity::process_block(
+              std::span<const Sample>{input[channel]}.first(samples),
+              std::span<Sample>{destination}.first(samples))) {
+        result.output_matches = false;
+        break;
+      }
+      for (std::size_t sample = 0; sample < samples; ++sample) {
+        const auto original = static_cast<Sample>(
+            static_cast<double>(static_cast<int>((sample + block + channel) % 65) - 32) / 32.0);
+        if (destination[sample] != -original ||
+            std::signbit(destination[sample]) == std::signbit(original)) {
+          result.output_matches = false;
+          break;
+        }
+      }
+      if (!result.output_matches) {
+        break;
+      }
+    }
+    if (!result.output_matches) {
+      break;
+    }
+    ++result.processed_blocks;
+    result.processed_samples += static_cast<std::uint64_t>(samples * channels);
+  }
+  result.counts = allocation_tracking::end();
+  return result;
+}
+
 [[nodiscard]] bool report(const char* const label, const StressResult& result) noexcept {
   if (!result.output_matches) {
     std::fprintf(stderr, "%s realtime stress output/state mismatch after %llu blocks\n", label,
@@ -317,6 +367,13 @@ template <typename Sample>
 int main() {
   const auto float_result = run_stress<float>(0xB10C'F32A'1234'5678ULL);
   const auto double_result = run_stress<double>(0xB10C'F64A'8765'4321ULL);
-  return report("Float32", float_result) && report("Float64", double_result) ? EXIT_SUCCESS
-                                                                             : EXIT_FAILURE;
+  const auto polarity_float = run_polarity_stress<float>();
+  const auto polarity_double = run_polarity_stress<double>();
+  const bool gain_float_passed = report("Gain Float32", float_result);
+  const bool gain_double_passed = report("Gain Float64", double_result);
+  const bool polarity_float_passed = report("Polarity primitive Float32", polarity_float);
+  const bool polarity_double_passed = report("Polarity primitive Float64", polarity_double);
+  return gain_float_passed && gain_double_passed && polarity_float_passed && polarity_double_passed
+             ? EXIT_SUCCESS
+             : EXIT_FAILURE;
 }
