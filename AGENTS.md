@@ -197,4 +197,7 @@ Current build에 Phase 1A/1B option, preset, target 또는 package script를 다
 - Pull request를 개발·검증의 중간 저장소로 사용하지 않는다.
 - 검증은 정확한 `main` commit의 clean checkout을 대상으로 수행하고, 실패하면 다음 수정도 `main`에 직접 반영한다.
 - 일회성 검증 workflow가 불가피하면 `main`에 추가하고 같은 작업 안에서 제거하여 최종 source tree에 남기지 않는다.
+- `.github` 아래에 source patch, base64 payload, 복제된 ExecPlan 또는 agent 전달 파일을 저장하지 않는다.
+- self-modifying workflow, guardian/controller workflow 묶음, workflow를 통한 source 운반을 사용하지 않는다.
+- 동시에 활성화하는 ExecPlan은 하나뿐이며, 현재 increment가 검증·문서화될 때까지 다음 increment를 시작하지 않는다.
 - 현재 요구를 충족하지 않는 과거 branch·workflow·compatibility path는 보존하지 않는다.
