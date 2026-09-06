@@ -1,6 +1,7 @@
 #include "garak/dsp/polarity/polarity.hpp"
 
 #include <cstddef>
+#include <functional>
 
 namespace garak::dsp::polarity {
 namespace {
@@ -11,6 +12,22 @@ template <typename Sample>
   if (input.size() != output.size()) {
     return false;
   }
+  if (input.empty()) {
+    return true;
+  }
+
+  const auto* const input_begin = input.data();
+  const auto* const input_end = input_begin + input.size();
+  const auto* const output_begin = static_cast<const Sample*>(output.data());
+  const auto* const output_end = output_begin + output.size();
+  const bool same_buffer = input_begin == output_begin;
+  const auto pointer_less_equal = std::less_equal<const Sample*>{};
+  const bool disjoint =
+      pointer_less_equal(input_end, output_begin) || pointer_less_equal(output_end, input_begin);
+  if (!same_buffer && !disjoint) {
+    return false;
+  }
+
   for (std::size_t index = 0; index < input.size(); ++index) {
     output[index] = processed_sample(input[index]);
   }

@@ -56,7 +56,7 @@ export function App() {
           <p className="eyebrow">Garak Studio</p>
           <h1>Build your product contract</h1>
         </div>
-        <p className="phase-badge">Phase 1C.2 · Windows</p>
+        <p className="phase-badge">Windows · Product workflow</p>
       </header>
 
       <div className="workspace-layout">

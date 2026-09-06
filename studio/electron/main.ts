@@ -73,7 +73,7 @@ const productDialogs: ProductDialogPort = {
       title: 'Upgrade This Garak Project?',
       message: 'This project uses an older editable schema.',
       detail:
-        'Choose Back Up & Upgrade to retain a verified copy of the original project before Garak publishes schema 2. Product ID, VST3 FUIDs, parameter IDs, and sound defaults remain unchanged. Choose Open Read-Only to leave the source untouched.',
+        'Choose Back Up & Upgrade to retain a verified copy of the original project before Garak upgrades it to the current editable schema. Product ID, VST3 FUIDs, parameter IDs, and sound defaults remain unchanged. Choose Open Read-Only to leave the source untouched.',
       buttons: ['Open Read-Only', 'Back Up & Upgrade'],
       defaultId: 0,
       cancelId: 0,

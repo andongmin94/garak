@@ -113,6 +113,21 @@ template <typename Sample> void test_span_boundaries(TestContext& test) {
               "block inversion does not write outside the output span");
   test.expect(output[1] == -input[0] && output[2] == -input[1],
               "subspan output has the exact expected polarity");
+
+  std::array<Sample, 5> overlap{static_cast<Sample>(1), static_cast<Sample>(2),
+                                static_cast<Sample>(3), static_cast<Sample>(4),
+                                static_cast<Sample>(5)};
+  const auto overlap_original = overlap;
+  test.expect(!process_block(std::span<const Sample>{overlap}.first(4),
+                             std::span<Sample>{overlap}.subspan(1, 4)),
+              "forward partial overlap is rejected");
+  test.expect(overlap == overlap_original,
+              "forward partial-overlap rejection leaves storage unchanged");
+  test.expect(!process_block(std::span<const Sample>{overlap}.subspan(1, 4),
+                             std::span<Sample>{overlap}.first(4)),
+              "backward partial overlap is rejected");
+  test.expect(overlap == overlap_original,
+              "backward partial-overlap rejection leaves storage unchanged");
 }
 
 } // namespace

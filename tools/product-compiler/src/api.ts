@@ -1,4 +1,8 @@
-import { compileProductFile, exportWindowsProduct } from "./export_windows.ts";
+import {
+  compileProductFile,
+  exportWindowsProduct,
+  resolveProductRuntimeArtifacts,
+} from "./export_windows.ts";
 import type {
   CompileFileResult,
   ExportWindowsResult,
@@ -6,6 +10,7 @@ import type {
   ProductRuntimeArtifacts,
   TransactionFileSystem,
 } from "./export_windows.ts";
+import { assertProductRuntimeArtifactContainment } from "./runtime_artifact_validation.ts";
 import { fail } from "./errors.ts";
 import { deriveProductIdentity } from "./identity.ts";
 import { inspectionFor } from "./project_model.ts";
@@ -232,6 +237,13 @@ export async function exportProductProject(
   options: ExportProductProjectOptions,
 ): Promise<ExportWindowsResult> {
   const loaded = await loadProductProjectSource(options.projectPath);
+  const artifacts =
+    options.artifacts ??
+    resolveProductRuntimeArtifacts(
+      options.repositoryRoot,
+      options.configuration,
+    );
+  await assertProductRuntimeArtifactContainment(artifacts, options.validate);
   return await exportWindowsProduct({
     project: loaded.project,
     sourceDirectory: loaded.physicalSourceDirectory,
@@ -240,9 +252,7 @@ export async function exportProductProject(
     repositoryRoot: options.repositoryRoot,
     force: options.force,
     validate: options.validate,
-    ...(options.artifacts === undefined
-      ? {}
-      : { artifacts: options.artifacts }),
+    artifacts,
     ...(options.processRunner === undefined
       ? {}
       : { processRunner: options.processRunner }),
