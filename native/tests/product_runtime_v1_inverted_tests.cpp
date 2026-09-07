@@ -168,7 +168,7 @@ void stop(Session& session) {
 [[nodiscard]] bool set_bypass(Session& session) {
   garak::runtime::product_v1::EncodedProductState encoded{};
   if (!garak::runtime::product_v1::encode_product_state(
-          garak::test::product_v1::kInvertedProductId, {5.0 / 6.0, true}, encoded)) {
+        garak::test::product_v1::kInvertedProductId, {5.0 / 6.0, true}, encoded)) {
     return false;
   }
   MemoryStream stream(encoded);
@@ -185,8 +185,8 @@ int main(const int argc, char* argv[]) {
   try {
     std::string error;
     Session session{};
-    session.module = VST3::Hosting::Module::create(std::filesystem::path(argv[1]).generic_string(),
-                                                   error);
+    session.module =
+        VST3::Hosting::Module::create(std::filesystem::path(argv[1]).generic_string(), error);
     if (!session.module) {
       std::fprintf(stderr, "Failed to load Inverted module: %s\n", error.c_str());
       return EXIT_FAILURE;
