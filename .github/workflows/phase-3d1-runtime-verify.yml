@@ -18,21 +18,21 @@ jobs:
         with:
           arch: x64
       - run: cmake --preset product-runtime-debug --fresh
-      - name: Build Inverted smoke target verbosely
+      - name: Build full Product Runtime aggregate verbosely
         id: build
         shell: pwsh
         continue-on-error: true
         run: |
           New-Item -ItemType Directory -Force -Path out | Out-Null
-          $output = & cmake --build out/build/product-runtime-debug --target garak_product_runtime_v1_inverted_tests --verbose 2>&1
+          $output = & cmake --build out/build/product-runtime-debug --target garak_product_runtime_v1_all --verbose 2>&1
           $code = $LASTEXITCODE
-          $output | Tee-Object -FilePath out/inverted-msvc-build.log
+          $output | Tee-Object -FilePath out/product-runtime-msvc-build.log
           "exit_code=$code" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: inverted-msvc-build-log
-          path: out/inverted-msvc-build.log
+          name: product-runtime-msvc-build-log
+          path: out/product-runtime-msvc-build.log
           if-no-files-found: error
       - shell: pwsh
         run: |
