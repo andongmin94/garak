@@ -140,7 +140,10 @@ export function canonicalPolarityGraphPlan(): CompiledGraphPlan {
   return compileProductGraph(canonicalPolarityProductGraphSource());
 }
 
-function plansEqual(left: CompiledGraphPlan, right: CompiledGraphPlan): boolean {
+function plansEqual(
+  left: CompiledGraphPlan,
+  right: CompiledGraphPlan,
+): boolean {
   return (
     left.bufferCount === right.bufferCount &&
     left.latencySamples === right.latencySamples &&
