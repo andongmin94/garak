@@ -17,11 +17,11 @@ jobs:
           node-version: '24'
       - run: corepack enable
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --dir tools/product-compiler exec prettier src/compiled_graph.ts
       - run: pnpm product:format:check
       - run: pnpm product:lint
       - run: pnpm product:typecheck
       - run: pnpm product:test
+      - run: find native -type f \( -name '*.c' -o -name '*.cc' -o -name '*.cpp' -o -name '*.h' -o -name '*.hpp' \) -print0 | xargs -0 clang-format --dry-run --Werror --style=file
       - run: cmake --preset debug --fresh
       - run: cmake --build --preset debug-build --clean-first
       - run: ctest --preset debug-test --no-tests=error
@@ -31,3 +31,5 @@ jobs:
       - run: cmake --preset debug-warnings-as-errors --fresh -DCMAKE_CXX_COMPILER=clang++
       - run: cmake --build --preset warnings-as-errors-build --clean-first
       - run: ctest --test-dir out/build/debug-warnings-as-errors --no-tests=error
+      - run: cmake --preset debug-clang-tidy --fresh -DCMAKE_CXX_COMPILER=clang++
+      - run: cmake --build --preset clang-tidy-build --clean-first
