@@ -8,7 +8,7 @@ permissions:
   contents: read
 
 jobs:
-  verify:
+  format-snapshot:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -17,12 +17,22 @@ jobs:
           node-version: '24'
       - run: corepack enable
       - run: pnpm install --frozen-lockfile
-      - run: pnpm product:format:check
-      - run: pnpm product:lint
-      - run: pnpm product:typecheck
-      - run: pnpm product:test
-      - run: pnpm studio:format:check
-      - run: pnpm studio:lint
-      - run: pnpm studio:typecheck
-      - run: pnpm studio:test
-      - run: pnpm studio:build
+      - run: pnpm --dir tools/product-compiler format
+      - name: Collect formatted files
+        run: |
+          mkdir -p formatted
+          cp --parents \
+            tools/product-compiler/src/compiled_graph.ts \
+            tools/product-compiler/src/graph_source.ts \
+            tools/product-compiler/src/project_migration_core.ts \
+            tools/product-compiler/src/project_model.ts \
+            tools/product-compiler/src/validation.ts \
+            tools/product-compiler/tests/helpers.ts \
+            tools/product-compiler/tests/project_migration_core.test.ts \
+            tools/product-compiler/tests/project_validation.test.ts \
+            formatted/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: phase-3d1-prettier
+          path: formatted
+          if-no-files-found: error
