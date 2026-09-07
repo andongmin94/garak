@@ -29,9 +29,13 @@ test("callable validation and inspection facade preserves the CLI result contrac
     repositoryRoot,
     "examples/products/artist-gain-bright.garak",
   );
-  const validated = await validateProductProjects([warm, bright]);
+  const inverted = path.join(
+    repositoryRoot,
+    "examples/products/artist-gain-inverted.garak",
+  );
+  const validated = await validateProductProjects([warm, bright, inverted]);
   assert.equal(validated.valid, true);
-  assert.equal(validated.products.length, 2);
+  assert.equal(validated.products.length, 3);
   assert.deepEqual(
     validated.products.map((product) => ({
       sourceSchemaVersion: product.sourceSchemaVersion,
@@ -52,11 +56,17 @@ test("callable validation and inspection facade preserves the CLI result contrac
         migrationRequired: false,
         migrationPath: [],
       },
+      {
+        sourceSchemaVersion: 4,
+        currentSchemaVersion: 4,
+        migrationRequired: false,
+        migrationPath: [],
+      },
     ],
   );
   assert.deepEqual(
     validated.products.map(({ name }) => name),
-    ["Artist Gain Warm", "Artist Gain Bright"],
+    ["Artist Gain Warm", "Artist Gain Bright", "Artist Gain Inverted"],
   );
   const inspection = await inspectProductProject(warm);
   assert.equal(inspection.productId, validated.products[0]?.productId);
@@ -68,6 +78,29 @@ test("callable validation and inspection facade preserves the CLI result contrac
     migrationRequired: false,
     steps: [],
   });
+
+  const invertedProject = await loadProductProject(inverted);
+  const invertedInspection = await inspectProductProject(inverted);
+  assert.equal(invertedProject.defaults.gainDb, 0);
+  assert.deepEqual(
+    invertedProject.graph.nodes.map(({ type }) => type),
+    [
+      "garak.audio-input",
+      "garak.gain",
+      "garak.polarity",
+      "garak.audio-output",
+    ],
+  );
+  assert.equal(
+    invertedInspection.processorFuid,
+    "0F9440082CB44B2520D74808ABBE9BB7",
+  );
+  assert.equal(
+    invertedInspection.controllerFuid,
+    "46A92FFD833F6E288AF7CCFC5C735230",
+  );
+  assert.equal(invertedInspection.gain.defaultNormalized, 5 / 6);
+
   await expectProductError(
     () => validateProductProjects([]),
     "GARAK_VALIDATE_EMPTY_BATCH",
