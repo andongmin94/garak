@@ -34,6 +34,7 @@ if(GARAK_BUILD_PRODUCT_RUNTIME_V1)
       garak_product_compatibility_tests
       garak_compiled_graph_resource_tests
       garak_product_runtime_v1_smoke_tests
+      garak_product_runtime_v1_inverted_tests
     )
   endif()
 
