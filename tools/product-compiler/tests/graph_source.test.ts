@@ -8,8 +8,11 @@ import {
 } from "../src/compiled_graph.ts";
 import { diagnosticFor } from "../src/errors.ts";
 import {
+  canonicalPolarityProductGraphSource,
   canonicalProductGraphSource,
+  canonicalProductGraphSourceV1,
   validateProductGraphSource,
+  validateProductGraphSourceV1,
 } from "../src/graph_source.ts";
 
 function expectGraphError(value: unknown, code: string): void {
@@ -36,13 +39,33 @@ function mutableGraph(): MutableGraph {
   return structuredClone(canonicalProductGraphSource()) as MutableGraph;
 }
 
-test("canonical graph source v1 validates and compiles to the normative Gain plan", () => {
+test("graph source v1 remains the exact historical Gain-only contract", () => {
+  const source = canonicalProductGraphSourceV1();
+  assert.deepEqual(validateProductGraphSourceV1(source), source);
+  assert.throws(
+    () => validateProductGraphSource(source),
+    (error: unknown) =>
+      diagnosticFor(error).code === "GARAK_PROJECT_GRAPH_SCHEMA_VERSION",
+  );
+});
+
+test("canonical graph source v2 validates and compiles to the normative Gain plan", () => {
   const source = canonicalProductGraphSource();
   assert.deepEqual(validateProductGraphSource(source), source);
   assert.deepEqual(compileProductGraph(source), canonicalGainGraphPlan());
 });
 
-test("node IDs and source array order do not affect compiled graph bytes", () => {
+test("graph source v2 accepts the exact Gain to Polarity linear topology", () => {
+  const source = canonicalPolarityProductGraphSource();
+  assert.deepEqual(validateProductGraphSource(source), source);
+  assert.throws(
+    () => compileProductGraph(source),
+    (error: unknown) =>
+      diagnosticFor(error).code === "GARAK_COMPILED_GRAPH_SOURCE_UNSUPPORTED",
+  );
+});
+
+test("node IDs and source array order do not affect Gain-only compiled graph bytes", () => {
   const source = mutableGraph();
   source.nodes = [
     { ...source.nodes[2]!, id: "speaker-output" },
@@ -114,7 +137,7 @@ test("graph source rejects duplicate nodes, node types, and connections", () => 
 
 test("graph source rejects unsupported versions, node IDs, types, and ports", () => {
   expectGraphError(
-    { ...mutableGraph(), schemaVersion: 2 },
+    { ...mutableGraph(), schemaVersion: 3 },
     "GARAK_PROJECT_GRAPH_SCHEMA_VERSION",
   );
 

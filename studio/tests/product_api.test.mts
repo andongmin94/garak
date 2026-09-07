@@ -12,7 +12,7 @@ import {
 } from '../src/shared/product_api.mts';
 
 const GRAPH = {
-  schemaVersion: 1,
+  schemaVersion: 2,
   nodes: [
     { id: 'input', type: 'garak.audio-input', implementationVersion: 1 },
     { id: 'gain', type: 'garak.gain', implementationVersion: 1 },
@@ -81,10 +81,10 @@ test('Product IPC response guards reject malformed or authority-bearing results'
     documentId: 'document-1',
     locationLabel: null,
     saved: false,
-    schemaVersion: 3,
+    schemaVersion: 4,
     schemaStatus: {
-      sourceSchemaVersion: 3,
-      currentSchemaVersion: 3,
+      sourceSchemaVersion: 4,
+      currentSchemaVersion: 4,
       migrationRequired: false,
       steps: [],
     },
@@ -122,9 +122,13 @@ test('Product IPC response guards reject malformed or authority-bearing results'
         ...document,
         schemaStatus: {
           sourceSchemaVersion: 1,
-          currentSchemaVersion: 3,
+          currentSchemaVersion: 4,
           migrationRequired: true,
-          steps: ['project-schema-1-to-2', 'project-schema-2-to-3'],
+          steps: [
+            'project-schema-1-to-2',
+            'project-schema-2-to-3',
+            'project-schema-3-to-4',
+          ],
         },
       },
     }),
@@ -137,9 +141,24 @@ test('Product IPC response guards reject malformed or authority-bearing results'
         ...document,
         schemaStatus: {
           sourceSchemaVersion: 2,
-          currentSchemaVersion: 3,
+          currentSchemaVersion: 4,
           migrationRequired: true,
-          steps: ['project-schema-2-to-3'],
+          steps: ['project-schema-2-to-3', 'project-schema-3-to-4'],
+        },
+      },
+    }),
+    true,
+  );
+  assert.equal(
+    isProductDocumentResult({
+      status: 'ok',
+      value: {
+        ...document,
+        schemaStatus: {
+          sourceSchemaVersion: 3,
+          currentSchemaVersion: 4,
+          migrationRequired: true,
+          steps: ['project-schema-3-to-4'],
         },
       },
     }),
@@ -152,7 +171,7 @@ test('Product IPC response guards reject malformed or authority-bearing results'
         ...document,
         schemaStatus: {
           sourceSchemaVersion: 1,
-          currentSchemaVersion: 3,
+          currentSchemaVersion: 4,
           migrationRequired: false,
           steps: [],
         },

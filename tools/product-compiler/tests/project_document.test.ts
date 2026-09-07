@@ -57,7 +57,7 @@ async function captureProductError(
 test("draft validation owns the canonical document and inspection contract", () => {
   const document = validateProductProjectDraft(PRODUCT_ID, warmDraft());
   assert.deepEqual(document, {
-    schemaVersion: 3,
+    schemaVersion: 4,
     productId: PRODUCT_ID,
     vendor: "Garak Test Artist",
     name: "Artist Gain Warm",

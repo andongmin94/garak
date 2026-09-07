@@ -41,14 +41,14 @@ test("callable validation and inspection facade preserves the CLI result contrac
     })),
     [
       {
-        sourceSchemaVersion: 3,
-        currentSchemaVersion: 3,
+        sourceSchemaVersion: 4,
+        currentSchemaVersion: 4,
         migrationRequired: false,
         migrationPath: [],
       },
       {
-        sourceSchemaVersion: 3,
-        currentSchemaVersion: 3,
+        sourceSchemaVersion: 4,
+        currentSchemaVersion: 4,
         migrationRequired: false,
         migrationPath: [],
       },
@@ -63,8 +63,8 @@ test("callable validation and inspection facade preserves the CLI result contrac
   assert.equal(inspection.processorFuid, validated.products[0]?.processorFuid);
   assert.deepEqual(inspection.template, { id: "garak.gain", version: 1 });
   assert.deepEqual(inspection.schemaStatus, {
-    sourceSchemaVersion: 3,
-    currentSchemaVersion: 3,
+    sourceSchemaVersion: 4,
+    currentSchemaVersion: 4,
     migrationRequired: false,
     steps: [],
   });

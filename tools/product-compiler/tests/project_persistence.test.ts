@@ -127,7 +127,7 @@ test("external future schema and Product ID replacement fail before publication"
       createInnerTransactionId: () => "create-a-inner",
     });
     const future = mutableWarmProduct();
-    future.schemaVersion = 4;
+    future.schemaVersion = 5;
     await writeFile(
       path.join(projectDirectory, "product.json"),
       `${JSON.stringify(future, undefined, 2)}\n`,
@@ -319,7 +319,7 @@ test("explicit in-place migration keeps identity and retains the exact legacy ba
       createPersistenceTransactionId: () => "migrate",
       createInnerTransactionId: () => "migrate-inner",
     });
-    assert.equal(migrated.document.schemaVersion, 3);
+    assert.equal(migrated.document.schemaVersion, 4);
     assert.equal(migrated.document.productId, PRODUCT_ID);
     assert.equal(
       migrated.inspection.processorFuid,
