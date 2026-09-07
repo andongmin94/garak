@@ -167,8 +167,8 @@ void stop(Session& session) {
 
 [[nodiscard]] bool set_bypass(Session& session) {
   garak::runtime::product_v1::EncodedProductState encoded{};
-  if (!garak::runtime::product_v1::encode_product_state(
-        garak::test::product_v1::kInvertedProductId, {5.0 / 6.0, true}, encoded)) {
+  if (!garak::runtime::product_v1::encode_product_state(garak::test::product_v1::kInvertedProductId,
+                                                         {5.0 / 6.0, true}, encoded)) {
     return false;
   }
   MemoryStream stream(encoded);
