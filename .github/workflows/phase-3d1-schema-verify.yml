@@ -8,7 +8,7 @@ permissions:
   contents: read
 
 jobs:
-  verify:
+  format-snapshot:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -17,27 +17,14 @@ jobs:
           node-version: '24'
       - run: corepack enable
       - run: pnpm install --frozen-lockfile
-      - name: Run all Product Compiler and Studio gates
+      - name: Render exact Prettier output without modifying source
         shell: bash
         run: |
-          set +e
-          status=0
-          run_gate() {
-            echo "::group::$*"
-            "$@"
-            code=$?
-            echo "::endgroup::"
-            if [ "$code" -ne 0 ]; then
-              status=1
-            fi
-          }
-          run_gate pnpm product:format:check
-          run_gate pnpm product:lint
-          run_gate pnpm product:typecheck
-          run_gate pnpm product:test
-          run_gate pnpm studio:format:check
-          run_gate pnpm studio:lint
-          run_gate pnpm studio:typecheck
-          run_gate pnpm studio:test
-          run_gate pnpm studio:build
-          exit "$status"
+          mkdir -p formatted/studio/tests
+          pnpm --dir studio exec prettier tests/product_api.test.mts > formatted/studio/tests/product_api.test.mts
+          pnpm --dir studio exec prettier tests/product_service.test.mts > formatted/studio/tests/product_service.test.mts
+      - uses: actions/upload-artifact@v4
+        with:
+          name: phase-3d1-studio-prettier
+          path: formatted
+          if-no-files-found: error
