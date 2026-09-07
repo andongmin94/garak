@@ -5,7 +5,7 @@ on:
     branches: [main]
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   verify:
@@ -21,18 +21,11 @@ jobs:
       - run: pnpm product:lint
       - run: pnpm product:typecheck
       - run: pnpm product:test
-      - name: Apply canonical Inverted smoke formatting
-        run: |
-          set -euo pipefail
-          file=native/tests/product_runtime_v1_inverted_tests.cpp
-          clang-format -i --style=file "$file"
-          if ! git diff --quiet -- "$file"; then
-            git config user.name "andongmin94"
-            git config user.email "110483588+andongmin94@users.noreply.github.com"
-            git add -- "$file"
-            git commit -m "style: apply canonical Inverted smoke formatting"
-            git push origin HEAD:main
-          fi
+      - run: pnpm studio:format:check
+      - run: pnpm studio:lint
+      - run: pnpm studio:typecheck
+      - run: pnpm studio:test
+      - run: pnpm studio:build
       - run: find native -type f \( -name '*.c' -o -name '*.cc' -o -name '*.cpp' -o -name '*.h' -o -name '*.hpp' \) -print0 | xargs -0 clang-format --dry-run --Werror --style=file
       - run: cmake --preset debug --fresh
       - run: cmake --build --preset debug-build --clean-first
