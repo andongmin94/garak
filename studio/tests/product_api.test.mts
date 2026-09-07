@@ -124,11 +124,7 @@ test('Product IPC response guards reject malformed or authority-bearing results'
           sourceSchemaVersion: 1,
           currentSchemaVersion: 4,
           migrationRequired: true,
-          steps: [
-            'project-schema-1-to-2',
-            'project-schema-2-to-3',
-            'project-schema-3-to-4',
-          ],
+          steps: ['project-schema-1-to-2', 'project-schema-2-to-3', 'project-schema-3-to-4'],
         },
       },
     }),
