@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   canonicalGainGraphPlan,
+  canonicalPolarityGraphPlan,
   compileProductGraph,
   encodeCompiledGraph,
 } from "../src/compiled_graph.ts";
@@ -55,14 +56,10 @@ test("canonical graph source v2 validates and compiles to the normative Gain pla
   assert.deepEqual(compileProductGraph(source), canonicalGainGraphPlan());
 });
 
-test("graph source v2 accepts the exact Gain to Polarity linear topology", () => {
+test("graph source v2 accepts and compiles the exact Gain to Polarity linear topology", () => {
   const source = canonicalPolarityProductGraphSource();
   assert.deepEqual(validateProductGraphSource(source), source);
-  assert.throws(
-    () => compileProductGraph(source),
-    (error: unknown) =>
-      diagnosticFor(error).code === "GARAK_COMPILED_GRAPH_SOURCE_UNSUPPORTED",
-  );
+  assert.deepEqual(compileProductGraph(source), canonicalPolarityGraphPlan());
 });
 
 test("node IDs and source array order do not affect Gain-only compiled graph bytes", () => {
