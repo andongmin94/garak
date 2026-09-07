@@ -105,6 +105,25 @@ if(GARAK_BUILD_PRODUCT_RUNTIME_V1)
   garak_apply_warnings(garak_product_runtime_v1_smoke_tests)
   garak_apply_clang_tidy(garak_product_runtime_v1_smoke_tests)
 
+  add_executable(
+    garak_product_runtime_v1_inverted_tests
+    product_runtime_v1_inverted_tests.cpp
+    product_v1_test_fixtures.hpp
+  )
+  target_link_libraries(
+    garak_product_runtime_v1_inverted_tests
+    PRIVATE
+      garak::product_contract_v1
+      vst3_sdk_product_runtime_host_support
+      sdk_hosting
+  )
+  target_include_directories(
+    garak_product_runtime_v1_inverted_tests
+    SYSTEM PRIVATE "${GARAK_VST3_SDK_DIR}"
+  )
+  garak_apply_warnings(garak_product_runtime_v1_inverted_tests)
+  garak_apply_clang_tidy(garak_product_runtime_v1_inverted_tests)
+
   string(TOLOWER "${CMAKE_BUILD_TYPE}" garak_product_runtime_configuration_slug)
   set(
     garak_product_export_root
@@ -118,6 +137,10 @@ if(GARAK_BUILD_PRODUCT_RUNTIME_V1)
     garak_bright_bundle
     "${garak_product_export_root}/Artist Gain Bright.vst3"
   )
+  set(
+    garak_inverted_bundle
+    "${garak_product_export_root}/Artist Gain Inverted.vst3"
+  )
 
   add_test(
     NAME garak_product_runtime_v1_smoke_tests
@@ -125,6 +148,10 @@ if(GARAK_BUILD_PRODUCT_RUNTIME_V1)
       garak_product_runtime_v1_smoke_tests
       "${garak_warm_bundle}"
       "${garak_bright_bundle}"
+  )
+  add_test(
+    NAME garak_product_runtime_v1_inverted_tests
+    COMMAND garak_product_runtime_v1_inverted_tests "${garak_inverted_bundle}"
   )
   add_test(
     NAME garak_product_runtime_v1_warm_inspection
@@ -163,6 +190,24 @@ if(GARAK_BUILD_PRODUCT_RUNTIME_V1)
       --bypass-default-normalized 0
   )
   add_test(
+    NAME garak_product_runtime_v1_inverted_inspection
+    COMMAND
+      garak_product_inspector
+      --bundle "${garak_inverted_bundle}"
+      --product-id d1331806-9ae0-4971-b83f-871d4af677b5
+      --vendor "Garak Test Artist"
+      --name "Artist Gain Inverted"
+      --version 0.1.0
+      --category Fx
+      --template garak.gain-v1
+      --processor-fuid 0F9440082CB44B2520D74808ABBE9BB7
+      --controller-fuid 46A92FFD833F6E288AF7CCFC5C735230
+      --gain-id 1001
+      --gain-default-normalized 0.8333333333333334
+      --bypass-id 1002
+      --bypass-default-normalized 0
+  )
+  add_test(
     NAME garak_product_runtime_v1_warm_validator
     COMMAND validator "${garak_warm_bundle}"
   )
@@ -177,5 +222,13 @@ if(GARAK_BUILD_PRODUCT_RUNTIME_V1)
   add_test(
     NAME garak_product_runtime_v1_bright_validator_extensive
     COMMAND validator -e "${garak_bright_bundle}"
+  )
+  add_test(
+    NAME garak_product_runtime_v1_inverted_validator
+    COMMAND validator "${garak_inverted_bundle}"
+  )
+  add_test(
+    NAME garak_product_runtime_v1_inverted_validator_extensive
+    COMMAND validator -e "${garak_inverted_bundle}"
   )
 endif()
