@@ -2,10 +2,7 @@ import assert from "node:assert/strict";
 import path from "node:path";
 import test from "node:test";
 
-import {
-  inspectProductProject,
-  validateProductProjects,
-} from "../src/api.ts";
+import { inspectProductProject, validateProductProjects } from "../src/api.ts";
 import {
   canonicalPolarityGraphPlan,
   compileProductGraph,
@@ -30,7 +27,12 @@ test("Warm, Bright, and Inverted are collision-free current reference products",
     validated.products.map(({ name }) => name),
     ["Artist Gain Warm", "Artist Gain Bright", "Artist Gain Inverted"],
   );
-  assert.equal(validated.products.every(({ sourceSchemaVersion }) => sourceSchemaVersion === 4), true);
+  assert.equal(
+    validated.products.every(
+      ({ sourceSchemaVersion }) => sourceSchemaVersion === 4,
+    ),
+    true,
+  );
 });
 
 test("Inverted is the exact current Gain-to-Polarity reference product", async () => {
@@ -46,9 +48,17 @@ test("Inverted is the exact current Gain-to-Polarity reference product", async (
   assert.equal(project.defaults.gainDb, 0);
   assert.deepEqual(
     project.graph.nodes.map(({ type }) => type),
-    ["garak.audio-input", "garak.gain", "garak.polarity", "garak.audio-output"],
+    [
+      "garak.audio-input",
+      "garak.gain",
+      "garak.polarity",
+      "garak.audio-output",
+    ],
   );
-  assert.deepEqual(compileProductGraph(project.graph), canonicalPolarityGraphPlan());
+  assert.deepEqual(
+    compileProductGraph(project.graph),
+    canonicalPolarityGraphPlan(),
+  );
   assert.equal(inspection.processorFuid, INVERTED_PROCESSOR_FUID);
   assert.equal(inspection.controllerFuid, INVERTED_CONTROLLER_FUID);
   assert.equal(inspection.gain.defaultNormalized, 5 / 6);
