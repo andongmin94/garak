@@ -219,6 +219,10 @@ template <bool Polarity> [[nodiscard]] bool test_execution() {
   constexpr auto binding = garak::runtime::static_graph::bind_static_execution_plan(
       plan, kGainParameterId, kBypassParameterId);
   static_assert(binding.has_value());
+  if (!binding) {
+    return false;
+  }
+  const auto execution_binding = binding.value();
 
   std::array<float, 3> input{1.0F, -0.5F, 0.25F};
   std::array<float, 3> output{};
@@ -231,9 +235,10 @@ template <bool Polarity> [[nodiscard]] bool test_execution() {
   bool current_bypass = false;
 
   garak::runtime::static_graph::execute_static_binding(
-      *binding, garak::dsp::gain::ProcessBlockContext<float, PointSource, PointSource>{
-                    input_channels.data(), output_channels.data(), 1, 3, 0, output_silence_flags,
-                    gain_source, bypass_source, current_gain, current_bypass});
+      execution_binding, garak::dsp::gain::ProcessBlockContext<float, PointSource, PointSource>{
+                             input_channels.data(), output_channels.data(), 1, 3, 0,
+                             output_silence_flags, gain_source, bypass_source, current_gain,
+                             current_bypass});
   const auto linear = static_cast<float>(garak::dsp::gain::decibels_to_linear(-6.0));
   const auto sign = Polarity ? -1.0F : 1.0F;
   if (!almost_equal(output[0], input[0] * linear * sign) ||
@@ -244,9 +249,10 @@ template <bool Polarity> [[nodiscard]] bool test_execution() {
   PointSource bypass_on(1.0);
   current_bypass = false;
   garak::runtime::static_graph::execute_static_binding(
-      *binding, garak::dsp::gain::ProcessBlockContext<float, PointSource, PointSource>{
-                    input_channels.data(), output_channels.data(), 1, 3, 0, output_silence_flags,
-                    gain_source, bypass_on, current_gain, current_bypass});
+      execution_binding, garak::dsp::gain::ProcessBlockContext<float, PointSource, PointSource>{
+                             input_channels.data(), output_channels.data(), 1, 3, 0,
+                             output_silence_flags, gain_source, bypass_on, current_gain,
+                             current_bypass});
   return output == input && current_bypass;
 }
 

@@ -156,6 +156,10 @@ template <typename Sample, bool Polarity> [[nodiscard]] StressResult run() noexc
   constexpr auto binding = garak::runtime::static_graph::bind_static_execution_plan(
       plan, kGainParameterId, kBypassParameterId);
   static_assert(binding.has_value());
+  if (!binding) {
+    return {false, 0, 0, {}};
+  }
+  const auto execution_binding = binding.value();
 
   std::array<std::array<Sample, kMaximumSamples>, 2> input{};
   std::array<std::array<Sample, kMaximumSamples>, 2> output{};
@@ -183,9 +187,10 @@ template <typename Sample, bool Polarity> [[nodiscard]] StressResult run() noexc
     }
     std::uint64_t output_silence = 0;
     garak::runtime::static_graph::execute_static_binding(
-        *binding, garak::dsp::gain::ProcessBlockContext<Sample, PointSource, PointSource>{
-                      inputs.data(), outputs.data(), channel_count, sample_count, 0, output_silence,
-                      gain_source, bypass_source, current_gain, current_bypass});
+        execution_binding,
+        garak::dsp::gain::ProcessBlockContext<Sample, PointSource, PointSource>{
+            inputs.data(), outputs.data(), channel_count, sample_count, 0, output_silence,
+            gain_source, bypass_source, current_gain, current_bypass});
     const auto linear = garak::dsp::gain::decibels_to_linear(
         garak::dsp::gain::normalized_to_decibels(gain_normalized));
     for (std::int32_t channel = 0; channel < channel_count && result.ok; ++channel) {
