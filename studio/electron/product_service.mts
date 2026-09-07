@@ -69,7 +69,7 @@ interface SavedSession {
   readonly productId: string;
   readonly projectDirectory: string;
   graph: ProductGraphSource;
-  sourceSchemaVersion: 1 | 2 | 3;
+  sourceSchemaVersion: ProductSchemaStatus['sourceSchemaVersion'];
   revision: string;
 }
 

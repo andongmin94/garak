@@ -1,5 +1,5 @@
-import { lstat, readFile, readdir, realpath } from "node:fs/promises";
 import type { Dirent } from "node:fs";
+import { lstat, readFile, readdir, realpath } from "node:fs/promises";
 import path from "node:path";
 import { TextDecoder } from "node:util";
 
@@ -7,6 +7,7 @@ import { fail } from "./errors.ts";
 import {
   cloneProductGraphSource,
   validateProductGraphSource,
+  validateProductGraphSourceV1,
 } from "./graph_source.ts";
 import { deriveProductIdentity } from "./identity.ts";
 import {
@@ -20,6 +21,7 @@ import {
   PRODUCT_SCHEMA_V1,
   PRODUCT_SCHEMA_V2,
   PRODUCT_SCHEMA_V3,
+  PRODUCT_SCHEMA_V4,
   PRODUCT_SCHEMA_VERSION,
   PRODUCT_TEMPLATE,
   PRODUCT_TEMPLATE_ID,
@@ -36,6 +38,7 @@ import type {
   ProductProjectSource,
   ProductProjectSourceV1,
   ProductProjectSourceV2,
+  ProductProjectSourceV3,
   ProductVersion,
   ProjectSchemaDetection,
   ProjectSchemaStatus,
@@ -54,7 +57,7 @@ const TOP_LEVEL_KEYS_V1_V2 = Object.freeze([
   "template",
   "defaults",
 ]);
-const TOP_LEVEL_KEYS_V3 = Object.freeze([...TOP_LEVEL_KEYS_V1_V2, "graph"]);
+const TOP_LEVEL_KEYS_WITH_GRAPH = Object.freeze([...TOP_LEVEL_KEYS_V1_V2, "graph"]);
 const DEFAULT_KEYS = Object.freeze(["gainDb"]);
 const TEMPLATE_KEYS = Object.freeze(["id", "version"]);
 const CANONICAL_UUID =
@@ -75,9 +78,7 @@ export interface BatchProductRecord {
 function projectFailure(code: string, field: string, message: string): never {
   fail(
     code,
-    field.length === 0
-      ? PRODUCT_JSON_FILENAME
-      : `${PRODUCT_JSON_FILENAME}.${field}`,
+    field.length === 0 ? PRODUCT_JSON_FILENAME : `${PRODUCT_JSON_FILENAME}.${field}`,
     message,
   );
 }
@@ -114,7 +115,6 @@ function assertExactKeys(
       `Unknown field '${unknown[0]}' is not allowed by product schema v${schemaVersion}.`,
     );
   }
-
   for (const key of expected) {
     if (!Object.hasOwn(value, key)) {
       const child = field.length === 0 ? key : `${field}.${key}`;
@@ -129,11 +129,7 @@ function assertExactKeys(
 
 function requireString(value: unknown, field: string): string {
   if (typeof value !== "string") {
-    projectFailure(
-      "GARAK_PROJECT_WRONG_TYPE",
-      field,
-      `${field} must be a string.`,
-    );
+    projectFailure("GARAK_PROJECT_WRONG_TYPE", field, `${field} must be a string.`);
   }
   return value;
 }
@@ -144,11 +140,7 @@ function validateDisplayString(
   maximumBytes: number,
 ): void {
   if (value.trim().length === 0) {
-    projectFailure(
-      "GARAK_PROJECT_EMPTY_STRING",
-      field,
-      `${field} must not be empty or whitespace-only.`,
-    );
+    projectFailure("GARAK_PROJECT_EMPTY_STRING", field, `${field} must not be empty or whitespace-only.`);
   }
   if (!isWellFormedUnicode(value)) {
     projectFailure(
@@ -223,9 +215,7 @@ function parseVersion(value: string): ProductVersion {
     major === undefined ||
     minor === undefined ||
     patch === undefined ||
-    components.some(
-      (component) => !Number.isInteger(component) || component > 65_535,
-    )
+    components.some((component) => !Number.isInteger(component) || component > 65_535)
   ) {
     projectFailure(
       "GARAK_PROJECT_VERSION_RANGE",
@@ -236,9 +226,7 @@ function parseVersion(value: string): ProductVersion {
   return { major, minor, patch };
 }
 
-export function detectProjectSchemaVersion(
-  value: unknown,
-): ProjectSchemaDetection {
+export function detectProjectSchemaVersion(value: unknown): ProjectSchemaDetection {
   if (!isJsonObject(value)) {
     return { kind: "invalid", reason: "root-type" };
   }
@@ -246,10 +234,7 @@ export function detectProjectSchemaVersion(
     return { kind: "invalid", reason: "missing" };
   }
   const schemaVersion = value.schemaVersion;
-  if (
-    typeof schemaVersion !== "number" ||
-    !Number.isSafeInteger(schemaVersion)
-  ) {
+  if (typeof schemaVersion !== "number" || !Number.isSafeInteger(schemaVersion)) {
     return { kind: "invalid", reason: "non-integer" };
   }
   if (schemaVersion < PRODUCT_SCHEMA_V1) {
@@ -260,39 +245,30 @@ export function detectProjectSchemaVersion(
     };
   }
   if (schemaVersion > PRODUCT_SCHEMA_VERSION) {
+    return { kind: "too-new", schemaVersion, currentSchemaVersion: PRODUCT_SCHEMA_VERSION };
+  }
+  if (
+    schemaVersion === PRODUCT_SCHEMA_V1 ||
+    schemaVersion === PRODUCT_SCHEMA_V2 ||
+    schemaVersion === PRODUCT_SCHEMA_V3
+  ) {
     return {
-      kind: "too-new",
+      kind: "supported-legacy",
       schemaVersion,
       currentSchemaVersion: PRODUCT_SCHEMA_VERSION,
     };
   }
-  if (schemaVersion === PRODUCT_SCHEMA_V1) {
-    return {
-      kind: "supported-legacy",
-      schemaVersion: PRODUCT_SCHEMA_V1,
-      currentSchemaVersion: PRODUCT_SCHEMA_VERSION,
-    };
-  }
-  if (schemaVersion === PRODUCT_SCHEMA_V2) {
-    return {
-      kind: "supported-legacy",
-      schemaVersion: PRODUCT_SCHEMA_V2,
-      currentSchemaVersion: PRODUCT_SCHEMA_VERSION,
-    };
-  }
-  if (schemaVersion === PRODUCT_SCHEMA_V3) {
+  if (schemaVersion === PRODUCT_SCHEMA_V4) {
     return {
       kind: "current",
-      schemaVersion: PRODUCT_SCHEMA_V3,
+      schemaVersion: PRODUCT_SCHEMA_V4,
       currentSchemaVersion: PRODUCT_SCHEMA_VERSION,
     };
   }
   return { kind: "invalid", reason: "non-integer" };
 }
 
-function requireSupportedProjectSchemaVersion(
-  value: unknown,
-): SupportedProductSchemaVersion {
+function requireSupportedProjectSchemaVersion(value: unknown): SupportedProductSchemaVersion {
   const detection = detectProjectSchemaVersion(value);
   switch (detection.kind) {
     case "supported-legacy":
@@ -312,11 +288,7 @@ function requireSupportedProjectSchemaVersion(
       );
     case "invalid":
       if (detection.reason === "root-type") {
-        projectFailure(
-          "GARAK_PROJECT_ROOT_TYPE",
-          "",
-          "product.json root must be a JSON object.",
-        );
+        projectFailure("GARAK_PROJECT_ROOT_TYPE", "", "product.json root must be a JSON object.");
       }
       if (detection.reason === "missing") {
         projectFailure(
@@ -348,7 +320,6 @@ function validateCommonFields(
   topLevelKeys: readonly string[],
 ): ValidatedCommonFields {
   assertExactKeys(value, topLevelKeys, "", schemaVersion);
-
   const productId = requireString(value.productId, "productId");
   if (!CANONICAL_UUID.test(productId)) {
     projectFailure(
@@ -358,22 +329,15 @@ function validateCommonFields(
     );
   }
   if (productId === NIL_UUID) {
-    projectFailure(
-      "GARAK_PROJECT_NIL_PRODUCT_ID",
-      "productId",
-      "productId must not be the nil UUID.",
-    );
+    projectFailure("GARAK_PROJECT_NIL_PRODUCT_ID", "productId", "productId must not be the nil UUID.");
   }
-
   const vendor = requireString(value.vendor, "vendor");
   const name = requireString(value.name, "name");
   validateDisplayString(vendor, "vendor", PRODUCT_VENDOR_MAXIMUM_BYTES);
   validateDisplayString(name, "name", PRODUCT_NAME_MAXIMUM_BYTES);
   assertValidWindowsProductName(name);
-
   const version = requireString(value.version, "version");
   const versionParts = parseVersion(version);
-
   if (value.category !== PRODUCT_CATEGORY) {
     projectFailure(
       "GARAK_PROJECT_INVALID_CATEGORY",
@@ -381,29 +345,16 @@ function validateCommonFields(
       `category must be exactly '${PRODUCT_CATEGORY}'.`,
     );
   }
-
   if (!isJsonObject(value.defaults)) {
-    projectFailure(
-      "GARAK_PROJECT_WRONG_TYPE",
-      "defaults",
-      "defaults must be a JSON object.",
-    );
+    projectFailure("GARAK_PROJECT_WRONG_TYPE", "defaults", "defaults must be a JSON object.");
   }
   assertExactKeys(value.defaults, DEFAULT_KEYS, "defaults", schemaVersion);
   const gainDb = value.defaults.gainDb;
   if (typeof gainDb !== "number") {
-    projectFailure(
-      "GARAK_PROJECT_WRONG_TYPE",
-      "defaults.gainDb",
-      "defaults.gainDb must be a number.",
-    );
+    projectFailure("GARAK_PROJECT_WRONG_TYPE", "defaults.gainDb", "defaults.gainDb must be a number.");
   }
   if (!Number.isFinite(gainDb)) {
-    projectFailure(
-      "GARAK_PROJECT_NONFINITE_GAIN",
-      "defaults.gainDb",
-      "defaults.gainDb must be finite.",
-    );
+    projectFailure("GARAK_PROJECT_NONFINITE_GAIN", "defaults.gainDb", "defaults.gainDb must be finite.");
   }
   if (gainDb < PRODUCT_MINIMUM_GAIN_DB || gainDb > PRODUCT_MAXIMUM_GAIN_DB) {
     projectFailure(
@@ -412,7 +363,6 @@ function validateCommonFields(
       `defaults.gainDb must be between ${PRODUCT_MINIMUM_GAIN_DB} and ${PRODUCT_MAXIMUM_GAIN_DB}.`,
     );
   }
-
   return {
     productId,
     vendor,
@@ -425,7 +375,10 @@ function validateCommonFields(
 
 function validateStructuredTemplate(
   value: unknown,
-  schemaVersion: typeof PRODUCT_SCHEMA_V2 | typeof PRODUCT_SCHEMA_V3,
+  schemaVersion:
+    | typeof PRODUCT_SCHEMA_V2
+    | typeof PRODUCT_SCHEMA_V3
+    | typeof PRODUCT_SCHEMA_V4,
 ): void {
   if (!isJsonObject(value)) {
     projectFailure(
@@ -435,43 +388,22 @@ function validateStructuredTemplate(
     );
   }
   assertExactKeys(value, TEMPLATE_KEYS, "template", schemaVersion);
-  if (value.id !== PRODUCT_TEMPLATE_ID) {
+  if (value.id !== PRODUCT_TEMPLATE_ID || value.version !== PRODUCT_TEMPLATE_VERSION) {
     projectFailure(
       "GARAK_PROJECT_INVALID_TEMPLATE",
-      "template.id",
-      `template.id must be exactly '${PRODUCT_TEMPLATE_ID}'.`,
-    );
-  }
-  if (value.version !== PRODUCT_TEMPLATE_VERSION) {
-    projectFailure(
-      "GARAK_PROJECT_INVALID_TEMPLATE",
-      "template.version",
-      `template.version must be exactly ${PRODUCT_TEMPLATE_VERSION}.`,
+      "template",
+      `template must be exactly '${PRODUCT_TEMPLATE_ID}' implementation ${PRODUCT_TEMPLATE_VERSION}.`,
     );
   }
 }
 
-export function validateProjectSchemaV1(
-  value: unknown,
-  sourceDirectory: string,
-): ProductProjectSourceV1 {
+export function validateProjectSchemaV1(value: unknown, sourceDirectory: string): ProductProjectSourceV1 {
   void sourceDirectory;
   const detectedVersion = requireSupportedProjectSchemaVersion(value);
-  if (detectedVersion !== PRODUCT_SCHEMA_V1) {
-    projectFailure(
-      "GARAK_PROJECT_SCHEMA_VERSION",
-      "schemaVersion",
-      `schemaVersion must be exactly ${PRODUCT_SCHEMA_V1} for a v1 source validator.`,
-    );
+  if (detectedVersion !== PRODUCT_SCHEMA_V1 || !isJsonObject(value)) {
+    projectFailure("GARAK_PROJECT_SCHEMA_VERSION", "schemaVersion", "Expected product schema v1.");
   }
-  if (!isJsonObject(value)) {
-    throw new Error("Unreachable project root validation state.");
-  }
-  const common = validateCommonFields(
-    value,
-    PRODUCT_SCHEMA_V1,
-    TOP_LEVEL_KEYS_V1_V2,
-  );
+  const common = validateCommonFields(value, PRODUCT_SCHEMA_V1, TOP_LEVEL_KEYS_V1_V2);
   if (value.template !== LEGACY_PRODUCT_TEMPLATE) {
     projectFailure(
       "GARAK_PROJECT_INVALID_TEMPLATE",
@@ -492,27 +424,13 @@ export function validateProjectSchemaV1(
   };
 }
 
-export function validateProjectSchemaV2(
-  value: unknown,
-  sourceDirectory: string,
-): ProductProjectSourceV2 {
+export function validateProjectSchemaV2(value: unknown, sourceDirectory: string): ProductProjectSourceV2 {
   void sourceDirectory;
   const detectedVersion = requireSupportedProjectSchemaVersion(value);
-  if (detectedVersion !== PRODUCT_SCHEMA_V2) {
-    projectFailure(
-      "GARAK_PROJECT_SCHEMA_VERSION",
-      "schemaVersion",
-      `schemaVersion must be exactly ${PRODUCT_SCHEMA_V2} for a v2 source validator.`,
-    );
+  if (detectedVersion !== PRODUCT_SCHEMA_V2 || !isJsonObject(value)) {
+    projectFailure("GARAK_PROJECT_SCHEMA_VERSION", "schemaVersion", "Expected product schema v2.");
   }
-  if (!isJsonObject(value)) {
-    throw new Error("Unreachable project root validation state.");
-  }
-  const common = validateCommonFields(
-    value,
-    PRODUCT_SCHEMA_V2,
-    TOP_LEVEL_KEYS_V1_V2,
-  );
+  const common = validateCommonFields(value, PRODUCT_SCHEMA_V2, TOP_LEVEL_KEYS_V1_V2);
   validateStructuredTemplate(value.template, PRODUCT_SCHEMA_V2);
   return {
     schemaVersion: PRODUCT_SCHEMA_V2,
@@ -527,30 +445,38 @@ export function validateProjectSchemaV2(
   };
 }
 
-export function validateProjectSchemaV3(
-  value: unknown,
-  sourceDirectory: string,
-): ProductProject {
+export function validateProjectSchemaV3(value: unknown, sourceDirectory: string): ProductProjectSourceV3 {
   void sourceDirectory;
   const detectedVersion = requireSupportedProjectSchemaVersion(value);
-  if (detectedVersion !== PRODUCT_SCHEMA_V3) {
-    projectFailure(
-      "GARAK_PROJECT_SCHEMA_VERSION",
-      "schemaVersion",
-      `schemaVersion must be exactly ${PRODUCT_SCHEMA_V3} for a v3 source validator.`,
-    );
+  if (detectedVersion !== PRODUCT_SCHEMA_V3 || !isJsonObject(value)) {
+    projectFailure("GARAK_PROJECT_SCHEMA_VERSION", "schemaVersion", "Expected product schema v3.");
   }
-  if (!isJsonObject(value)) {
-    throw new Error("Unreachable project root validation state.");
-  }
-  const common = validateCommonFields(
-    value,
-    PRODUCT_SCHEMA_V3,
-    TOP_LEVEL_KEYS_V3,
-  );
+  const common = validateCommonFields(value, PRODUCT_SCHEMA_V3, TOP_LEVEL_KEYS_WITH_GRAPH);
   validateStructuredTemplate(value.template, PRODUCT_SCHEMA_V3);
   return {
     schemaVersion: PRODUCT_SCHEMA_V3,
+    productId: common.productId,
+    vendor: common.vendor,
+    name: common.name,
+    version: common.version,
+    versionParts: common.versionParts,
+    category: PRODUCT_CATEGORY,
+    template: { ...PRODUCT_TEMPLATE },
+    defaults: { gainDb: common.gainDb },
+    graph: validateProductGraphSourceV1(value.graph),
+  };
+}
+
+export function validateProjectSchemaV4(value: unknown, sourceDirectory: string): ProductProject {
+  void sourceDirectory;
+  const detectedVersion = requireSupportedProjectSchemaVersion(value);
+  if (detectedVersion !== PRODUCT_SCHEMA_V4 || !isJsonObject(value)) {
+    projectFailure("GARAK_PROJECT_SCHEMA_VERSION", "schemaVersion", "Expected product schema v4.");
+  }
+  const common = validateCommonFields(value, PRODUCT_SCHEMA_V4, TOP_LEVEL_KEYS_WITH_GRAPH);
+  validateStructuredTemplate(value.template, PRODUCT_SCHEMA_V4);
+  return {
+    schemaVersion: PRODUCT_SCHEMA_V4,
     productId: common.productId,
     vendor: common.vendor,
     name: common.name,
@@ -563,11 +489,9 @@ export function validateProjectSchemaV3(
   };
 }
 
-function sourceValueForCurrentProject(
-  project: ProductProject,
-): Record<string, unknown> {
+function sourceValueForCurrentProject(project: ProductProject): Record<string, unknown> {
   return {
-    schemaVersion: PRODUCT_SCHEMA_V3,
+    schemaVersion: PRODUCT_SCHEMA_VERSION,
     productId: project.productId,
     vendor: project.vendor,
     name: project.name,
@@ -595,25 +519,17 @@ export function validateVersionedProjectValue(
     source = validateProjectSchemaV1(value, sourceDirectory);
   } else if (schemaVersion === PRODUCT_SCHEMA_V2) {
     source = validateProjectSchemaV2(value, sourceDirectory);
-  } else {
+  } else if (schemaVersion === PRODUCT_SCHEMA_V3) {
     source = validateProjectSchemaV3(value, sourceDirectory);
+  } else {
+    source = validateProjectSchemaV4(value, sourceDirectory);
   }
   const migrated = migrateValidatedProjectToCurrent(source);
-  const project = validateProjectSchemaV3(
-    sourceValueForCurrentProject(migrated.project),
-    sourceDirectory,
-  );
-  return {
-    sourceProject: source,
-    project,
-    schemaStatus: migrated.schemaStatus,
-  };
+  const project = validateProjectSchemaV4(sourceValueForCurrentProject(migrated.project), sourceDirectory);
+  return { sourceProject: source, project, schemaStatus: migrated.schemaStatus };
 }
 
-export function validateProjectValue(
-  value: unknown,
-  sourceDirectory: string,
-): ProductProject {
+export function validateProjectValue(value: unknown, sourceDirectory: string): ProductProject {
   return validateVersionedProjectValue(value, sourceDirectory).project;
 }
 
@@ -626,15 +542,10 @@ export interface LoadedProductProject {
   readonly schemaStatus: ProjectSchemaStatus;
 }
 
-export async function loadProductProjectSource(
-  projectPath: string,
-): Promise<LoadedProductProject> {
+export async function loadProductProjectSource(projectPath: string): Promise<LoadedProductProject> {
   const projectDirectory = path.resolve(projectPath);
   const projectLeaf = path.basename(projectDirectory);
-  if (
-    projectLeaf.length <= ".garak".length ||
-    !projectLeaf.endsWith(".garak")
-  ) {
+  if (projectLeaf.length <= ".garak".length || !projectLeaf.endsWith(".garak")) {
     fail(
       "GARAK_PROJECT_PACKAGE_SUFFIX",
       "project",
@@ -652,9 +563,7 @@ export async function loadProductProjectSource(
 
   let physicalProjectLeaf: string | undefined;
   try {
-    const parentEntries = await readdir(path.dirname(projectDirectory), {
-      withFileTypes: true,
-    });
+    const parentEntries = await readdir(path.dirname(projectDirectory), { withFileTypes: true });
     physicalProjectLeaf = parentEntries.find(
       (entry) => entry.name.toLowerCase() === projectLeaf.toLowerCase(),
     )?.name;
@@ -688,10 +597,7 @@ export async function loadProductProjectSource(
     );
   }
   const physicalLeaf = path.basename(physicalProjectDirectory);
-  if (
-    physicalLeaf.length <= ".garak".length ||
-    !physicalLeaf.endsWith(".garak")
-  ) {
+  if (physicalLeaf.length <= ".garak".length || !physicalLeaf.endsWith(".garak")) {
     fail(
       "GARAK_PROJECT_PACKAGE_SUFFIX",
       "project",
@@ -709,7 +615,6 @@ export async function loadProductProjectSource(
       `Project directory cannot be read: ${projectDirectory}`,
     );
   }
-
   if (
     entries.length !== 1 ||
     entries[0]?.name !== PRODUCT_JSON_FILENAME ||
@@ -741,12 +646,7 @@ export async function loadProductProjectSource(
   }
 
   const bytes = await readFile(productJsonPath);
-  if (
-    bytes.length >= 3 &&
-    bytes[0] === 0xef &&
-    bytes[1] === 0xbb &&
-    bytes[2] === 0xbf
-  ) {
+  if (bytes.length >= 3 && bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf) {
     fail(
       "GARAK_PROJECT_UTF8_BOM",
       PRODUCT_JSON_FILENAME,
@@ -764,23 +664,15 @@ export async function loadProductProjectSource(
     );
   }
   const parsed = parseStrictJsonWithNumberTokens(text);
-  const schemaVersionToken = parsed.numberTokens.get(
-    `${PRODUCT_JSON_FILENAME}.schemaVersion`,
-  );
-  if (
-    schemaVersionToken !== undefined &&
-    !/^-?(?:0|[1-9][0-9]*)$/u.test(schemaVersionToken)
-  ) {
+  const schemaVersionToken = parsed.numberTokens.get(`${PRODUCT_JSON_FILENAME}.schemaVersion`);
+  if (schemaVersionToken !== undefined && !/^-?(?:0|[1-9][0-9]*)$/u.test(schemaVersionToken)) {
     projectFailure(
       "GARAK_PROJECT_VERSION_INVALID",
       "schemaVersion",
       "schemaVersion must use an exact integer JSON token without a fraction or exponent.",
     );
   }
-  const validated = validateVersionedProjectValue(
-    parsed.value,
-    projectDirectory,
-  );
+  const validated = validateVersionedProjectValue(parsed.value, projectDirectory);
   return {
     sourceDirectory: projectDirectory,
     physicalSourceDirectory: physicalProjectDirectory,
@@ -791,9 +683,7 @@ export async function loadProductProjectSource(
   };
 }
 
-export async function loadProductProject(
-  projectPath: string,
-): Promise<ProductProject> {
+export async function loadProductProject(projectPath: string): Promise<ProductProject> {
   return (await loadProductProjectSource(projectPath)).project;
 }
 
@@ -807,20 +697,15 @@ export function batchRecord(
     project,
     identity,
     ...(sourceLabel === undefined ? {} : { sourceLabel }),
-    ...(artifactPath === undefined
-      ? {}
-      : { artifactPath: path.resolve(artifactPath) }),
+    ...(artifactPath === undefined ? {} : { artifactPath: path.resolve(artifactPath) }),
   };
 }
 
-export function assertNoBatchCollisions(
-  records: readonly BatchProductRecord[],
-): void {
+export function assertNoBatchCollisions(records: readonly BatchProductRecord[]): void {
   const productIds = new Map<string, string>();
   const fuids = new Map<string, string>();
   const artifactLeaves = new Map<string, string>();
   const outputPaths = new Map<string, string>();
-
   for (const record of records) {
     const label = record.sourceLabel ?? record.project.name;
     const previousProduct = productIds.get(record.project.productId);
@@ -832,7 +717,6 @@ export function assertNoBatchCollisions(
       );
     }
     productIds.set(record.project.productId, label);
-
     for (const [role, fuid] of [
       ["processor", record.identity.processorFuid],
       ["controller", record.identity.controllerFuid],
@@ -847,7 +731,6 @@ export function assertNoBatchCollisions(
       }
       fuids.set(fuid, `${label}:${role}`);
     }
-
     const artifactLeaf = `${record.project.name}.vst3`;
     const artifactKey = artifactLeaf.toUpperCase();
     const previousArtifact = artifactLeaves.get(artifactKey);
@@ -859,7 +742,6 @@ export function assertNoBatchCollisions(
       );
     }
     artifactLeaves.set(artifactKey, artifactLeaf);
-
     if (record.artifactPath !== undefined) {
       const outputKey = path.normalize(record.artifactPath).toUpperCase();
       const previousOutput = outputPaths.get(outputKey);

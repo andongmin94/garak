@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 3,
+  "schemaVersion": 4,
   "productId": "c8a56d90-7e4b-4af1-91d3-2b6c8e0f1357",
   "vendor": "Garak Test Artist",
   "name": "Artist Gain Bright",
@@ -13,7 +13,7 @@
     "gainDb": 3
   },
   "graph": {
-    "schemaVersion": 1,
+    "schemaVersion": 2,
     "nodes": [
       {
         "id": "input",

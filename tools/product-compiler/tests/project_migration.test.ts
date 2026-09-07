@@ -45,7 +45,7 @@ const PRODUCT_ID = "6f0e50f1-a2d4-4b37-8c9e-1f2a3b4c5d6e";
 const PROCESSOR_FUID = "3BA93DD6A062C97D89EC78F3652F83C4";
 const CONTROLLER_FUID = "00DD9000A50F7F28F4AE084CD29C4330";
 const CANONICAL_SHA =
-  "A3CF6EA3C9F8E8D1BB7EB3C0A57B434F8AC80534D1857E50B6EF6EEA082B5E28";
+  "318C9B3FA0D553C253239E6BF65F4141B6F120CE473F8BF2D6AF2183B8D6D597";
 const CLI = path.resolve(import.meta.dirname, "../src/cli.ts");
 const REPOSITORY_ROOT = path.resolve(import.meta.dirname, "../../..");
 
@@ -127,9 +127,13 @@ test("migration status classifies legacy and current projects without mutation",
 
     assert.deepEqual(await inspectProjectMigration(legacy), {
       detectedSchemaVersion: 1,
-      currentSchemaVersion: 3,
+      currentSchemaVersion: 4,
       migrationRequired: true,
-      migrationPath: ["project-schema-1-to-2", "project-schema-2-to-3"],
+      migrationPath: [
+        "project-schema-1-to-2",
+        "project-schema-2-to-3",
+        "project-schema-3-to-4",
+      ],
       identity: {
         productId: PRODUCT_ID,
         processorFuid: PROCESSOR_FUID,
@@ -138,8 +142,8 @@ test("migration status classifies legacy and current projects without mutation",
       sourceModified: false,
     });
     assert.deepEqual(await inspectProjectMigration(current), {
-      detectedSchemaVersion: 3,
-      currentSchemaVersion: 3,
+      detectedSchemaVersion: 4,
+      currentSchemaVersion: 4,
       migrationRequired: false,
       migrationPath: [],
       identity: {
@@ -212,8 +216,12 @@ test("dry-run is deterministic for legacy and is a current-schema no-op", async 
     assert.deepEqual(first, second);
     assert.deepEqual(first, {
       sourceSchemaVersion: 1,
-      targetSchemaVersion: 3,
-      steps: ["project-schema-1-to-2", "project-schema-2-to-3"],
+      targetSchemaVersion: 4,
+      steps: [
+        "project-schema-1-to-2",
+        "project-schema-2-to-3",
+        "project-schema-3-to-4",
+      ],
       sourceProductId: PRODUCT_ID,
       targetProductId: PRODUCT_ID,
       processorFuidBefore: PROCESSOR_FUID,
@@ -234,7 +242,7 @@ test("dry-run is deterministic for legacy and is a current-schema no-op", async 
       dryRun: true,
       force: false,
     });
-    assert.equal(currentReport.sourceSchemaVersion, 3);
+    assert.equal(currentReport.sourceSchemaVersion, 4);
     assert.deepEqual(currentReport.steps, []);
     assert.equal(currentReport.canonicalSha256, CANONICAL_SHA);
     assert.deepEqual(await sourceSnapshot(legacy), before);
@@ -254,16 +262,20 @@ test("ordinary project open migrates in memory while save refuses a legacy sourc
     );
     const before = await sourceSnapshot(legacy);
     const opened = await openProductProject(legacy);
-    assert.equal(opened.document.schemaVersion, 3);
+    assert.equal(opened.document.schemaVersion, 4);
     assert.deepEqual(opened.document.template, {
       id: "garak.gain",
       version: 1,
     });
     assert.deepEqual(opened.schemaStatus, {
       sourceSchemaVersion: 1,
-      currentSchemaVersion: 3,
+      currentSchemaVersion: 4,
       migrationRequired: true,
-      steps: ["project-schema-1-to-2", "project-schema-2-to-3"],
+      steps: [
+        "project-schema-1-to-2",
+        "project-schema-2-to-3",
+        "project-schema-3-to-4",
+      ],
     });
     await expectCode(
       () =>
@@ -279,7 +291,7 @@ test("ordinary project open migrates in memory while save refuses a legacy sourc
   });
 });
 
-test("explicit migration publishes exact canonical v3 and preserves legacy bytes and metadata", async () => {
+test("explicit migration publishes exact canonical v4 and preserves legacy bytes and metadata", async () => {
   await withTemporaryDirectory(async (temporary) => {
     const legacy = await writeProject(
       temporary,
@@ -305,8 +317,8 @@ test("explicit migration publishes exact canonical v3 and preserves legacy bytes
     assert.deepEqual(await readdir(output), ["product.json"]);
     const loaded = await loadProductProjectSource(output);
     assert.deepEqual(loaded.schemaStatus, {
-      sourceSchemaVersion: 3,
-      currentSchemaVersion: 3,
+      sourceSchemaVersion: 4,
+      currentSchemaVersion: 4,
       migrationRequired: false,
       steps: [],
     });
@@ -623,8 +635,8 @@ test("force migration may safely replace a legacy same-product output without en
     assert.equal(report.outputWritten, true);
     assert.deepEqual(await sourceSnapshot(legacy), sourceBefore);
     assert.deepEqual((await loadProductProjectSource(output)).schemaStatus, {
-      sourceSchemaVersion: 3,
-      currentSchemaVersion: 3,
+      sourceSchemaVersion: 4,
+      currentSchemaVersion: 4,
       migrationRequired: false,
       steps: [],
     });
@@ -635,7 +647,7 @@ test("future and unsupported-old projects fail closed before any migration outpu
   await withTemporaryDirectory(async (temporary) => {
     for (const [version, code] of [
       [0, "GARAK_PROJECT_VERSION_TOO_OLD"],
-      [4, "GARAK_PROJECT_VERSION_TOO_NEW"],
+      [5, "GARAK_PROJECT_VERSION_TOO_NEW"],
     ] as const) {
       const value = mutableWarmProduct();
       value.schemaVersion = version;
@@ -749,8 +761,8 @@ test("headless CLI exposes human and JSON status, dry-run, and explicit output",
       true,
     );
     assert.deepEqual((await loadProductProjectSource(output)).schemaStatus, {
-      sourceSchemaVersion: 3,
-      currentSchemaVersion: 3,
+      sourceSchemaVersion: 4,
+      currentSchemaVersion: 4,
       migrationRequired: false,
       steps: [],
     });
@@ -762,7 +774,7 @@ test("headless CLI reports future/old failures and rejects in-place output", asy
   await withTemporaryDirectory(async (temporary) => {
     for (const [version, code] of [
       [0, "GARAK_PROJECT_VERSION_TOO_OLD"],
-      [4, "GARAK_PROJECT_VERSION_TOO_NEW"],
+      [5, "GARAK_PROJECT_VERSION_TOO_NEW"],
     ] as const) {
       const value = mutableWarmProduct();
       value.schemaVersion = version;

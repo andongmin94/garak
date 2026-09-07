@@ -10,11 +10,13 @@ import {
   validateProjectSchemaV1,
   validateProjectSchemaV2,
   validateProjectSchemaV3,
+  validateProjectSchemaV4,
   validateProjectValue,
 } from "../src/validation.ts";
 import {
   expectProductError,
   mutableLegacyV2WarmProduct,
+  mutableLegacyV3WarmProduct,
   mutableLegacyWarmProduct,
   mutableWarmProduct,
   withTemporaryDirectory,
@@ -32,7 +34,7 @@ test("validates the Warm and Bright reference projects", async () => {
   );
   assert.equal(warm.defaults.gainDb, -6);
   assert.equal(bright.defaults.gainDb, 3);
-  assert.equal(warm.schemaVersion, 3);
+  assert.equal(warm.schemaVersion, 4);
   assert.deepEqual(warm.template, { id: "garak.gain", version: 1 });
   assert.equal(Object.hasOwn(warm, "sourceDirectory"), false);
 
@@ -43,7 +45,7 @@ test("validates the Warm and Bright reference projects", async () => {
   const legacySourcePath = path.join(legacyWarmDirectory, "product.json");
   const legacyBytesBefore = await readFile(legacySourcePath);
   const legacyWarm = await loadProductProjectSource(legacyWarmDirectory);
-  assert.equal(legacyWarm.project.schemaVersion, 3);
+  assert.equal(legacyWarm.project.schemaVersion, 4);
   assert.deepEqual(legacyWarm.project.template, {
     id: "garak.gain",
     version: 1,
@@ -56,9 +58,13 @@ test("validates the Warm and Bright reference projects", async () => {
   );
   assert.deepEqual(legacyWarm.schemaStatus, {
     sourceSchemaVersion: 1,
-    currentSchemaVersion: 3,
+    currentSchemaVersion: 4,
     migrationRequired: true,
-    steps: ["project-schema-1-to-2", "project-schema-2-to-3"],
+    steps: [
+      "project-schema-1-to-2",
+      "project-schema-2-to-3",
+      "project-schema-3-to-4",
+    ],
   });
   assert.deepEqual(await readFile(legacySourcePath), legacyBytesBefore);
   assert.match(legacyBytesBefore.toString("utf8"), /"schemaVersion": 1/u);
@@ -75,13 +81,13 @@ test("validates the Warm and Bright reference projects", async () => {
     const sourcePath = path.join(legacyV2Directory, "product.json");
     const bytesBefore = await readFile(sourcePath);
     const loaded = await loadProductProjectSource(legacyV2Directory);
-    assert.equal(loaded.project.schemaVersion, 3);
+    assert.equal(loaded.project.schemaVersion, 4);
     assert.equal(loaded.project.defaults.gainDb, gainDb);
     assert.deepEqual(loaded.schemaStatus, {
       sourceSchemaVersion: 2,
-      currentSchemaVersion: 3,
+      currentSchemaVersion: 4,
       migrationRequired: true,
-      steps: ["project-schema-2-to-3"],
+      steps: ["project-schema-2-to-3", "project-schema-3-to-4"],
     });
     assert.deepEqual(await readFile(sourcePath), bytesBefore);
     assert.match(bytesBefore.toString("utf8"), /"schemaVersion": 2/u);
@@ -206,30 +212,27 @@ test("rejects malformed JSON, duplicate escaped keys, invalid UTF-8, and BOM", a
 });
 
 test("classifies schema version before version-specific fields", async () => {
-  assert.deepEqual(detectProjectSchemaVersion({ schemaVersion: 1 }), {
-    kind: "supported-legacy",
-    schemaVersion: 1,
-    currentSchemaVersion: 3,
-  });
-  assert.deepEqual(detectProjectSchemaVersion({ schemaVersion: 2 }), {
-    kind: "supported-legacy",
-    schemaVersion: 2,
-    currentSchemaVersion: 3,
-  });
-  assert.deepEqual(detectProjectSchemaVersion({ schemaVersion: 3 }), {
+  for (const schemaVersion of [1, 2, 3] as const) {
+    assert.deepEqual(detectProjectSchemaVersion({ schemaVersion }), {
+      kind: "supported-legacy",
+      schemaVersion,
+      currentSchemaVersion: 4,
+    });
+  }
+  assert.deepEqual(detectProjectSchemaVersion({ schemaVersion: 4 }), {
     kind: "current",
-    schemaVersion: 3,
-    currentSchemaVersion: 3,
+    schemaVersion: 4,
+    currentSchemaVersion: 4,
   });
   assert.deepEqual(detectProjectSchemaVersion({ schemaVersion: 0 }), {
     kind: "too-old",
     schemaVersion: 0,
     minimumSupportedSchemaVersion: 1,
   });
-  assert.deepEqual(detectProjectSchemaVersion({ schemaVersion: 4 }), {
+  assert.deepEqual(detectProjectSchemaVersion({ schemaVersion: 5 }), {
     kind: "too-new",
-    schemaVersion: 4,
-    currentSchemaVersion: 3,
+    schemaVersion: 5,
+    currentSchemaVersion: 4,
   });
   assert.deepEqual(detectProjectSchemaVersion({}), {
     kind: "invalid",
@@ -247,11 +250,11 @@ test("classifies schema version before version-specific fields", async () => {
   for (const [schemaVersion, code] of [
     [0, "GARAK_PROJECT_VERSION_TOO_OLD"],
     [-1, "GARAK_PROJECT_VERSION_TOO_OLD"],
-    [4, "GARAK_PROJECT_VERSION_TOO_NEW"],
+    [5, "GARAK_PROJECT_VERSION_TOO_NEW"],
     [Number.MAX_SAFE_INTEGER, "GARAK_PROJECT_VERSION_TOO_NEW"],
     [1.5, "GARAK_PROJECT_VERSION_INVALID"],
     [Number.MAX_SAFE_INTEGER + 1, "GARAK_PROJECT_VERSION_INVALID"],
-    ["3", "GARAK_PROJECT_VERSION_INVALID"],
+    ["4", "GARAK_PROJECT_VERSION_INVALID"],
   ] as const) {
     await expectProductError(
       () =>
@@ -272,13 +275,13 @@ test("classifies schema version before version-specific fields", async () => {
 test("rejects non-integer schemaVersion tokens before JSON numeric rounding", async () => {
   await withTemporaryDirectory(async (temporary) => {
     for (const [leaf, token] of [
-      ["rounded-fraction.garak", "3.0000000000000001"],
+      ["rounded-fraction.garak", "4.0000000000000001"],
       ["fraction.garak", "1.0"],
-      ["exponent.garak", "3e0"],
-      ["excessive-exponent.garak", "3e999"],
+      ["exponent.garak", "4e0"],
+      ["excessive-exponent.garak", "4e999"],
     ] as const) {
       const source = JSON.stringify(mutableWarmProduct()).replace(
-        '"schemaVersion":3',
+        '"schemaVersion":4',
         `"schemaVersion":${token}`,
       );
       const project = await writeRawProject(temporary, source, leaf);
@@ -290,22 +293,15 @@ test("rejects non-integer schemaVersion tokens before JSON numeric rounding", as
   });
 });
 
-test("uses separate exact v1, v2, and v3 template validators", async () => {
+test("uses separate exact v1, v2, v3, and v4 validators", async () => {
   const legacy = mutableLegacyWarmProduct();
   const legacyV2 = mutableLegacyV2WarmProduct();
+  const legacyV3 = mutableLegacyV3WarmProduct();
   const current = mutableWarmProduct();
-  assert.equal(
-    validateProjectSchemaV1(legacy, "legacy.garak").schemaVersion,
-    1,
-  );
-  assert.equal(
-    validateProjectSchemaV2(legacyV2, "legacy-v2.garak").schemaVersion,
-    2,
-  );
-  assert.equal(
-    validateProjectSchemaV3(current, "current.garak").schemaVersion,
-    3,
-  );
+  assert.equal(validateProjectSchemaV1(legacy, "legacy.garak").schemaVersion, 1);
+  assert.equal(validateProjectSchemaV2(legacyV2, "legacy-v2.garak").schemaVersion, 2);
+  assert.equal(validateProjectSchemaV3(legacyV3, "legacy-v3.garak").schemaVersion, 3);
+  assert.equal(validateProjectSchemaV4(current, "current.garak").schemaVersion, 4);
 
   await expectProductError(
     () => validateProjectSchemaV1(current, "current.garak"),
@@ -313,6 +309,10 @@ test("uses separate exact v1, v2, and v3 template validators", async () => {
   );
   await expectProductError(
     () => validateProjectSchemaV2(current, "current.garak"),
+    "GARAK_PROJECT_SCHEMA_VERSION",
+  );
+  await expectProductError(
+    () => validateProjectSchemaV3(current, "current.garak"),
     "GARAK_PROJECT_SCHEMA_VERSION",
   );
 
@@ -387,7 +387,7 @@ test("rejects every strict schema and identity failure category", async () => {
     [
       "future schema version",
       (product) => {
-        product.schemaVersion = 4;
+        product.schemaVersion = 5;
       },
       "GARAK_PROJECT_VERSION_TOO_NEW",
     ],

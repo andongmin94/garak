@@ -1,10 +1,11 @@
-export const PRODUCT_GRAPH_SCHEMA_VERSION = 1 as const;
+export const PRODUCT_GRAPH_SCHEMA_VERSION = 2 as const;
 export const PRODUCT_GRAPH_IMPLEMENTATION_VERSION = 1 as const;
 export const PRODUCT_GRAPH_AUDIO_PORT = 'audio' as const;
 
 export const PRODUCT_GRAPH_NODE_TYPE = Object.freeze({
   audioInput: 'garak.audio-input',
   gain: 'garak.gain',
+  polarity: 'garak.polarity',
   audioOutput: 'garak.audio-output',
 } as const);
 
@@ -89,10 +90,10 @@ export function isProductGraphSource(value: unknown): value is ProductGraphSourc
     !hasExactKeys(value, ['schemaVersion', 'nodes', 'connections']) ||
     value.schemaVersion !== PRODUCT_GRAPH_SCHEMA_VERSION ||
     !Array.isArray(value.nodes) ||
-    value.nodes.length !== 3 ||
+    (value.nodes.length !== 3 && value.nodes.length !== 4) ||
     !value.nodes.every(isGraphNode) ||
     !Array.isArray(value.connections) ||
-    value.connections.length !== 2 ||
+    value.connections.length !== value.nodes.length - 1 ||
     !value.connections.every(isGraphConnection)
   ) {
     return false;
@@ -100,16 +101,21 @@ export function isProductGraphSource(value: unknown): value is ProductGraphSourc
 
   const nodesById = new Map(value.nodes.map((node) => [node.id, node]));
   const nodesByType = new Map(value.nodes.map((node) => [node.type, node]));
-  if (nodesById.size !== 3 || nodesByType.size !== 3) {
+  if (nodesById.size !== value.nodes.length || nodesByType.size !== value.nodes.length) {
     return false;
   }
-  const audioInput = nodesByType.get(PRODUCT_GRAPH_NODE_TYPE.audioInput);
+  const input = nodesByType.get(PRODUCT_GRAPH_NODE_TYPE.audioInput);
   const gain = nodesByType.get(PRODUCT_GRAPH_NODE_TYPE.gain);
-  const audioOutput = nodesByType.get(PRODUCT_GRAPH_NODE_TYPE.audioOutput);
-  if (audioInput === undefined || gain === undefined || audioOutput === undefined) {
+  const polarity = nodesByType.get(PRODUCT_GRAPH_NODE_TYPE.polarity);
+  const output = nodesByType.get(PRODUCT_GRAPH_NODE_TYPE.audioOutput);
+  if (input === undefined || gain === undefined || output === undefined) {
+    return false;
+  }
+  if ((value.nodes.length === 3) !== (polarity === undefined)) {
     return false;
   }
 
+  const ordered = polarity === undefined ? [input, gain, output] : [input, gain, polarity, output];
   const connections = new Set<string>();
   for (const connection of value.connections) {
     if (!nodesById.has(connection.from.nodeId) || !nodesById.has(connection.to.nodeId)) {
@@ -117,9 +123,11 @@ export function isProductGraphSource(value: unknown): value is ProductGraphSourc
     }
     connections.add(connectionKey(connection));
   }
-  return (
-    connections.size === 2 &&
-    connections.has(`${audioInput.id}->${gain.id}`) &&
-    connections.has(`${gain.id}->${audioOutput.id}`)
-  );
+  if (connections.size !== ordered.length - 1) {
+    return false;
+  }
+  return ordered.slice(0, -1).every((node, index) => {
+    const next = ordered[index + 1];
+    return next !== undefined && connections.has(`${node.id}->${next.id}`);
+  });
 }

@@ -18,7 +18,8 @@ export type {
 
 export const PRODUCT_SCHEMA_V1 = 1 as const;
 export const PRODUCT_SCHEMA_V2 = 2 as const;
-export const PRODUCT_SCHEMA_VERSION = 3 as const;
+export const PRODUCT_SCHEMA_V3 = 3 as const;
+export const PRODUCT_SCHEMA_VERSION = 4 as const;
 export const PRODUCT_CATEGORY = 'Fx' as const;
 export const PRODUCT_TEMPLATE_ID = 'garak.gain' as const;
 export const PRODUCT_TEMPLATE_VERSION = 1 as const;
@@ -28,6 +29,7 @@ export const PRODUCT_TEMPLATE = Object.freeze({
 });
 export const PROJECT_MIGRATION_STEP_V1_TO_V2 = 'project-schema-1-to-2' as const;
 export const PROJECT_MIGRATION_STEP_V2_TO_V3 = 'project-schema-2-to-3' as const;
+export const PROJECT_MIGRATION_STEP_V3_TO_V4 = 'project-schema-3-to-4' as const;
 
 export type ProductConfiguration = 'Debug' | 'Release';
 
@@ -46,11 +48,16 @@ export interface ProductDraft {
 
 export interface ProductSchemaStatus {
   readonly sourceSchemaVersion:
-    typeof PRODUCT_SCHEMA_V1 | typeof PRODUCT_SCHEMA_V2 | typeof PRODUCT_SCHEMA_VERSION;
+    | typeof PRODUCT_SCHEMA_V1
+    | typeof PRODUCT_SCHEMA_V2
+    | typeof PRODUCT_SCHEMA_V3
+    | typeof PRODUCT_SCHEMA_VERSION;
   readonly currentSchemaVersion: typeof PRODUCT_SCHEMA_VERSION;
   readonly migrationRequired: boolean;
   readonly steps: readonly (
-    typeof PROJECT_MIGRATION_STEP_V1_TO_V2 | typeof PROJECT_MIGRATION_STEP_V2_TO_V3
+    | typeof PROJECT_MIGRATION_STEP_V1_TO_V2
+    | typeof PROJECT_MIGRATION_STEP_V2_TO_V3
+    | typeof PROJECT_MIGRATION_STEP_V3_TO_V4
   )[];
 }
 
@@ -195,16 +202,25 @@ function isProductSchemaStatus(value: unknown): value is ProductSchemaStatus {
   if (value.sourceSchemaVersion === PRODUCT_SCHEMA_V1) {
     return (
       value.migrationRequired === true &&
-      value.steps.length === 2 &&
+      value.steps.length === 3 &&
       value.steps[0] === PROJECT_MIGRATION_STEP_V1_TO_V2 &&
-      value.steps[1] === PROJECT_MIGRATION_STEP_V2_TO_V3
+      value.steps[1] === PROJECT_MIGRATION_STEP_V2_TO_V3 &&
+      value.steps[2] === PROJECT_MIGRATION_STEP_V3_TO_V4
     );
   }
   if (value.sourceSchemaVersion === PRODUCT_SCHEMA_V2) {
     return (
       value.migrationRequired === true &&
+      value.steps.length === 2 &&
+      value.steps[0] === PROJECT_MIGRATION_STEP_V2_TO_V3 &&
+      value.steps[1] === PROJECT_MIGRATION_STEP_V3_TO_V4
+    );
+  }
+  if (value.sourceSchemaVersion === PRODUCT_SCHEMA_V3) {
+    return (
+      value.migrationRequired === true &&
       value.steps.length === 1 &&
-      value.steps[0] === PROJECT_MIGRATION_STEP_V2_TO_V3
+      value.steps[0] === PROJECT_MIGRATION_STEP_V3_TO_V4
     );
   }
   return (
@@ -275,6 +291,15 @@ export function isCleanupProductArtifactRequest(
 ): value is CleanupProductArtifactRequest {
   return (
     isRecord(value) && hasExactKeys(value, ['cleanupId']) && isOpaqueCapability(value.cleanupId)
+  );
+}
+
+function isProductCleanupWarning(value: unknown): value is ProductCleanupWarning {
+  return (
+    isRecord(value) &&
+    hasExactKeys(value, ['cleanupId', 'diagnostic']) &&
+    (isOpaqueCapability(value.cleanupId) || value.cleanupId === null) &&
+    isProductDiagnostic(value.diagnostic)
   );
 }
 
@@ -361,15 +386,6 @@ function isProductExportChildProcess(value: unknown): value is ProductExportChil
     value.tool.length > 0 &&
     !/[\\/]/u.test(value.tool) &&
     isNonNegativeInteger(value.exitCode)
-  );
-}
-
-function isProductCleanupWarning(value: unknown): value is ProductCleanupWarning {
-  return (
-    isRecord(value) &&
-    hasExactKeys(value, ['cleanupId', 'diagnostic']) &&
-    (isOpaqueCapability(value.cleanupId) || value.cleanupId === null) &&
-    isProductDiagnostic(value.diagnostic)
   );
 }
 

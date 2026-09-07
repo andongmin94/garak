@@ -42,8 +42,8 @@ async function main(): Promise<void> {
     readonly productId: string;
     readonly processorFuid: string;
     readonly controllerFuid: string;
-    readonly schemaVersion: 3;
-    readonly graphSchemaVersion: 1;
+    readonly schemaVersion: 4;
+    readonly graphSchemaVersion: 2;
     readonly saved: true;
     readonly reopened: true;
   };
@@ -80,8 +80,8 @@ async function main(): Promise<void> {
     if (
       reopened.status !== 'ok' ||
       !reopened.value.saved ||
-      reopened.value.schemaVersion !== 3 ||
-      reopened.value.schemaStatus.sourceSchemaVersion !== 3 ||
+      reopened.value.schemaVersion !== 4 ||
+      reopened.value.schemaStatus.sourceSchemaVersion !== 4 ||
       reopened.value.schemaStatus.migrationRequired ||
       !isProductGraphSource(reopened.value.graph) ||
       reopened.value.productId !== created.value.productId ||
@@ -94,7 +94,7 @@ async function main(): Promise<void> {
       productId: reopened.value.productId,
       processorFuid: validated.value.processorFuid,
       controllerFuid: validated.value.controllerFuid,
-      schemaVersion: 3,
+      schemaVersion: 4,
       graphSchemaVersion: reopened.value.graph.schemaVersion,
       saved: true,
       reopened: true,
@@ -117,7 +117,7 @@ async function main(): Promise<void> {
   );
   let migrationEvidence: {
     readonly sourceSchemaVersion: 2;
-    readonly targetSchemaVersion: 3;
+    readonly targetSchemaVersion: 4;
     readonly backupFingerprint: string;
     readonly graphPreserved: true;
     readonly reopened: true;
@@ -144,13 +144,13 @@ async function main(): Promise<void> {
     const migrated = await migrationService.openProduct();
     if (
       migrated.status !== 'ok' ||
-      migrated.value.schemaVersion !== 3 ||
-      migrated.value.schemaStatus.sourceSchemaVersion !== 3 ||
+      migrated.value.schemaVersion !== 4 ||
+      migrated.value.schemaStatus.sourceSchemaVersion !== 4 ||
       migrated.value.schemaStatus.migrationRequired ||
       !isProductGraphSource(migrated.value.graph) ||
       backupNotice === undefined
     ) {
-      throw new Error(`Studio v2-to-v3 migration failed: ${JSON.stringify(migrated)}`);
+      throw new Error(`Studio v2-to-v4 migration failed: ${JSON.stringify(migrated)}`);
     }
     const backupSource = JSON.parse(
       await readFile(path.join(backupNotice.projectDirectory, 'product.json'), 'utf8'),
@@ -173,7 +173,7 @@ async function main(): Promise<void> {
     }
     migrationEvidence = {
       sourceSchemaVersion: 2,
-      targetSchemaVersion: 3,
+      targetSchemaVersion: 4,
       backupFingerprint: backupNotice.fingerprint,
       graphPreserved: true,
       reopened: true,

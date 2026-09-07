@@ -26,27 +26,38 @@ const DRAFT: ProductDraft = {
 
 function snapshot(
   revision = 'a'.repeat(64),
-  sourceSchemaVersion: 1 | 2 | 3 = 3,
+  sourceSchemaVersion: 1 | 2 | 3 | 4 = 4,
 ): ProductProjectSnapshot {
   let schemaStatus: ProductProjectSnapshot['schemaStatus'];
   if (sourceSchemaVersion === 1) {
     schemaStatus = {
       sourceSchemaVersion: 1,
-      currentSchemaVersion: 3,
+      currentSchemaVersion: 4,
       migrationRequired: true,
-      steps: ['project-schema-1-to-2', 'project-schema-2-to-3'],
+      steps: [
+        'project-schema-1-to-2',
+        'project-schema-2-to-3',
+        'project-schema-3-to-4',
+      ],
     };
   } else if (sourceSchemaVersion === 2) {
     schemaStatus = {
       sourceSchemaVersion: 2,
-      currentSchemaVersion: 3,
+      currentSchemaVersion: 4,
       migrationRequired: true,
-      steps: ['project-schema-2-to-3'],
+      steps: ['project-schema-2-to-3', 'project-schema-3-to-4'],
+    };
+  } else if (sourceSchemaVersion === 3) {
+    schemaStatus = {
+      sourceSchemaVersion: 3,
+      currentSchemaVersion: 4,
+      migrationRequired: true,
+      steps: ['project-schema-3-to-4'],
     };
   } else {
     schemaStatus = {
-      sourceSchemaVersion: 3,
-      currentSchemaVersion: 3,
+      sourceSchemaVersion: 4,
+      currentSchemaVersion: 4,
       migrationRequired: false,
       steps: [],
     };
@@ -56,7 +67,7 @@ function snapshot(
     revision,
     schemaStatus,
     document: {
-      schemaVersion: 3,
+      schemaVersion: 4,
       productId: PRODUCT_ID,
       vendor: DRAFT.vendor,
       name: DRAFT.name,
@@ -225,13 +236,13 @@ test('legacy open remains read-only when migration is declined', async () => {
   const opened = await productService.openProduct();
   assert.equal(opened.status, 'ok');
   if (opened.status !== 'ok') return;
-  assert.equal(opened.value.schemaVersion, 3);
+  assert.equal(opened.value.schemaVersion, 4);
   assert.deepEqual(opened.value.template, { id: 'garak.gain', version: 1 });
   assert.deepEqual(opened.value.schemaStatus, {
     sourceSchemaVersion: 2,
-    currentSchemaVersion: 3,
+    currentSchemaVersion: 4,
     migrationRequired: true,
-    steps: ['project-schema-2-to-3'],
+    steps: ['project-schema-2-to-3', 'project-schema-3-to-4'],
   });
 
   const saved = await productService.saveProduct({
@@ -287,7 +298,7 @@ test('legacy open upgrades only after native confirmation and reports the verifi
   });
   if (opened.status === 'ok') {
     assert.equal(opened.value.schemaStatus.migrationRequired, false);
-    assert.equal(opened.value.schemaStatus.sourceSchemaVersion, 3);
+    assert.equal(opened.value.schemaStatus.sourceSchemaVersion, 4);
   }
 });
 
@@ -300,7 +311,7 @@ test('future-schema open failure creates no session that can overwrite the sourc
         throw new MockCompilerError({
           code: 'GARAK_PROJECT_VERSION_TOO_NEW',
           path: 'product.json.schemaVersion',
-          message: 'schemaVersion 4 is newer than the current version 3.',
+          message: 'schemaVersion 5 is newer than the current version 4.',
         });
       },
       saveProductProject: async () => {
@@ -315,7 +326,7 @@ test('future-schema open failure creates no session that can overwrite the sourc
     diagnostic: {
       code: 'GARAK_PROJECT_VERSION_TOO_NEW',
       path: 'product.json.schemaVersion',
-      message: 'schemaVersion 4 is newer than the current version 3.',
+      message: 'schemaVersion 5 is newer than the current version 4.',
     },
   });
   assert.equal(

@@ -26,7 +26,7 @@ import { ownedCleanupDiagnostic } from "./owned_cleanup.ts";
 import type { OwnedCleanupDiagnostic } from "./owned_cleanup.ts";
 import {
   loadProductProjectSource,
-  validateProjectSchemaV3,
+  validateProjectSchemaV4,
 } from "./validation.ts";
 
 export interface ProductProjectDraft {
@@ -130,7 +130,7 @@ function assertExactDraft(
     projectFailure(
       "GARAK_PROJECT_UNKNOWN_FIELD",
       unknown[0],
-      `Unknown draft field '${unknown[0]}' is not allowed by product schema v3.`,
+      `Unknown draft field '${unknown[0]}' is not allowed by product schema v${PRODUCT_SCHEMA_VERSION}.`,
     );
   }
   for (const key of DRAFT_KEYS) {
@@ -164,7 +164,7 @@ export function validateProductProjectDocument(
   value: unknown,
   sourceDirectory = "document.garak",
 ): ProductProjectDocument {
-  return documentForProject(validateProjectSchemaV3(value, sourceDirectory));
+  return documentForProject(validateProjectSchemaV4(value, sourceDirectory));
 }
 
 function projectForDraft(
@@ -173,7 +173,7 @@ function projectForDraft(
   sourceDirectory: string,
 ): ProductProject {
   assertExactDraft(draft);
-  return validateProjectSchemaV3(
+  return validateProjectSchemaV4(
     {
       schemaVersion: PRODUCT_SCHEMA_VERSION,
       productId,
@@ -212,7 +212,7 @@ export function serializeProductProjectDocument(
 ): string {
   const document = validateProductProjectDocument(value, sourceDirectory);
   return serializeCanonicalProductProject(
-    validateProjectSchemaV3(document, sourceDirectory),
+    validateProjectSchemaV4(document, sourceDirectory),
   );
 }
 

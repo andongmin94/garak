@@ -1,0 +1,28 @@
+name: phase-3d1-schema-verify
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm product:format:check
+      - run: pnpm product:lint
+      - run: pnpm product:typecheck
+      - run: pnpm product:test
+      - run: pnpm studio:format:check
+      - run: pnpm studio:lint
+      - run: pnpm studio:typecheck
+      - run: pnpm studio:test
+      - run: pnpm studio:build

@@ -1,6 +1,7 @@
 import { fail } from "./errors.ts";
 import {
   canonicalProductGraphSource,
+  PRODUCT_GRAPH_NODE_TYPE,
   validateProductGraphSource,
 } from "./graph_source.ts";
 import type { ProductGraphSource } from "./graph_source.ts";
@@ -49,10 +50,15 @@ function graphFailure(code: string, field: string, message: string): never {
   );
 }
 
-export function compileProductGraph(
-  source: ProductGraphSource,
-): CompiledGraphPlan {
-  validateProductGraphSource(source);
+export function compileProductGraph(source: ProductGraphSource): CompiledGraphPlan {
+  const graph = validateProductGraphSource(source);
+  if (graph.nodes.some((node) => node.type === PRODUCT_GRAPH_NODE_TYPE.polarity)) {
+    graphFailure(
+      "GARAK_COMPILED_GRAPH_SOURCE_UNSUPPORTED",
+      "source",
+      "GARAKGRF 1.0 cannot encode a Polarity node; Phase 3D1 Runtime integration is required before export.",
+    );
+  }
   return {
     operations: [
       {
