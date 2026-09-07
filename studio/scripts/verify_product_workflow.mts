@@ -232,6 +232,51 @@ async function main(): Promise<void> {
     );
   }
 
+  const invertedProjectDirectory = path.join(
+    repositoryRoot,
+    'examples',
+    'products',
+    'artist-gain-inverted.garak',
+  );
+  const invertedOutputDirectory = path.join(
+    repositoryRoot,
+    'out',
+    'exports',
+    'phase-1c2',
+    `studio-service-inverted-${configuration.toLowerCase()}`,
+  );
+  const invertedService = new ProductService({
+    repositoryRoot,
+    dialogs: {
+      chooseProjectToOpen: () => Promise.resolve(invertedProjectDirectory),
+      chooseProjectToCreate: () => Promise.resolve(null),
+      chooseExportDirectory: () => Promise.resolve(invertedOutputDirectory),
+      confirmExportReplacement: () => Promise.resolve(true),
+      confirmOwnedCleanup: () => Promise.resolve(false),
+    },
+  });
+  const invertedOpened = await invertedService.openProduct();
+  if (
+    invertedOpened.status !== 'ok' ||
+    !invertedOpened.value.graph.nodes.some((node) => node.type === 'garak.polarity')
+  ) {
+    throw new Error(`Studio Inverted open failed: ${JSON.stringify(invertedOpened)}`);
+  }
+  const invertedExported = await invertedService.exportProduct({
+    documentId: invertedOpened.value.documentId,
+    configuration,
+  });
+  if (
+    invertedExported.status !== 'ok' ||
+    !isProductExportOperationResult(invertedExported) ||
+    invertedExported.value.inventory.length !== 4 ||
+    invertedExported.value.childProcesses.length !== 5 ||
+    invertedExported.value.childProcesses.some((child) => child.exitCode !== 0) ||
+    invertedExported.value.cleanupWarnings.length !== 0
+  ) {
+    throw new Error(`Studio Inverted export failed: ${JSON.stringify(invertedExported)}`);
+  }
+
   process.stdout.write(
     `${JSON.stringify(
       {
@@ -247,6 +292,17 @@ async function main(): Promise<void> {
         moduleInfoSha256: exported.value.moduleInfoSha256,
         inventory: exported.value.inventory,
         childProcesses: exported.value.childProcesses,
+        inverted: {
+          project: invertedOpened.value.locationLabel,
+          bundlePath: invertedExported.value.bundlePath,
+          processorFuid: invertedExported.value.processorFuid,
+          controllerFuid: invertedExported.value.controllerFuid,
+          runtimeSha256: invertedExported.value.runtimeSha256,
+          compiledSha256: invertedExported.value.compiledSha256,
+          moduleInfoSha256: invertedExported.value.moduleInfoSha256,
+          inventory: invertedExported.value.inventory,
+          childProcesses: invertedExported.value.childProcesses,
+        },
       },
       undefined,
       2,
