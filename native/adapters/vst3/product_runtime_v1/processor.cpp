@@ -50,9 +50,9 @@ struct ParameterQueues final {
   bool duplicate_bypass{};
 };
 
-[[nodiscard]] ParameterQueues
-find_parameter_queues(Steinberg::Vst::IParameterChanges* const changes,
-                      const garak::runtime::static_graph::StaticExecutionBinding& execution_binding) {
+[[nodiscard]] ParameterQueues find_parameter_queues(
+    Steinberg::Vst::IParameterChanges* const changes,
+    const garak::runtime::static_graph::StaticExecutionBinding& execution_binding) {
   ParameterQueues result{};
   if (changes == nullptr) {
     return result;

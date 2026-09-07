@@ -34,13 +34,16 @@ template <typename Sample>
 
 template <typename Sample> void test_scalar_contract(TestContext& test) {
   using garak::dsp::polarity::processed_sample;
-  constexpr std::array inputs{static_cast<Sample>(0), -static_cast<Sample>(0),
-                               static_cast<Sample>(1), static_cast<Sample>(-1),
-                               static_cast<Sample>(0.25), static_cast<Sample>(-0.75),
-                               std::numeric_limits<Sample>::denorm_min(),
-                               std::numeric_limits<Sample>::min(),
-                               std::numeric_limits<Sample>::max(),
-                               std::numeric_limits<Sample>::lowest()};
+  constexpr std::array inputs{static_cast<Sample>(0),
+                              -static_cast<Sample>(0),
+                              static_cast<Sample>(1),
+                              static_cast<Sample>(-1),
+                              static_cast<Sample>(0.25),
+                              static_cast<Sample>(-0.75),
+                              std::numeric_limits<Sample>::denorm_min(),
+                              std::numeric_limits<Sample>::min(),
+                              std::numeric_limits<Sample>::max(),
+                              std::numeric_limits<Sample>::lowest()};
   for (const auto input : inputs) {
     const auto output = processed_sample(input);
     test.expect(same_value_and_sign(output, -input), "Polarity v1 exactly negates finite samples");
@@ -57,14 +60,14 @@ template <typename Sample> void test_scalar_contract(TestContext& test) {
 template <typename Sample> void test_channel_blocks(TestContext& test) {
   using garak::dsp::polarity::process_block;
   constexpr std::size_t sample_count = 7;
-  const std::array<Sample, sample_count> left{static_cast<Sample>(0), static_cast<Sample>(1),
-                                            static_cast<Sample>(-1), static_cast<Sample>(0.5),
-                                            static_cast<Sample>(-0.25), static_cast<Sample>(0.75),
-                                            -static_cast<Sample>(0)};
-  const std::array<Sample, sample_count> right{static_cast<Sample>(-0.5), static_cast<Sample>(0.25),
-                                             static_cast<Sample>(0), static_cast<Sample>(-0.75),
-                                             static_cast<Sample>(1), static_cast<Sample>(-1),
-                                             static_cast<Sample>(0.125)};
+  const std::array<Sample, sample_count> left{static_cast<Sample>(0),     static_cast<Sample>(1),
+                                              static_cast<Sample>(-1),    static_cast<Sample>(0.5),
+                                              static_cast<Sample>(-0.25), static_cast<Sample>(0.75),
+                                              -static_cast<Sample>(0)};
+  const std::array<Sample, sample_count> right{
+      static_cast<Sample>(-0.5),  static_cast<Sample>(0.25), static_cast<Sample>(0),
+      static_cast<Sample>(-0.75), static_cast<Sample>(1),    static_cast<Sample>(-1),
+      static_cast<Sample>(0.125)};
   const std::array inputs{left, right};
   for (const std::size_t channel_count : {std::size_t{1}, std::size_t{2}}) {
     auto outputs = inputs;
@@ -97,7 +100,7 @@ template <typename Sample> void test_span_boundaries(TestContext& test) {
               "a zero-sample block accepts empty storage");
   const std::array<Sample, 2> input{static_cast<Sample>(0.25), static_cast<Sample>(-0.5)};
   std::array<Sample, 4> output{static_cast<Sample>(3), static_cast<Sample>(4),
-                              static_cast<Sample>(5), static_cast<Sample>(6)};
+                               static_cast<Sample>(5), static_cast<Sample>(6)};
   const auto original = output;
   test.expect(!process_block(std::span<const Sample>{input}, std::span<Sample>{output}),
               "unequal span lengths are rejected");
@@ -107,8 +110,9 @@ template <typename Sample> void test_span_boundaries(TestContext& test) {
   test.expect(!process_block(std::span<const Sample>{}, std::span<Sample>{output}),
               "empty input with nonempty output is rejected");
   test.expect(output == original, "empty-input rejection leaves output unchanged");
-  test.expect(process_block(std::span<const Sample>{input}, std::span<Sample>{output}.subspan(1, 2)),
-              "an exact subspan processes only its declared samples");
+  test.expect(
+      process_block(std::span<const Sample>{input}, std::span<Sample>{output}.subspan(1, 2)),
+      "an exact subspan processes only its declared samples");
   test.expect(output[0] == original[0] && output[3] == original[3],
               "block inversion does not write outside the output span");
   test.expect(output[1] == -input[0] && output[2] == -input[1],

@@ -55,46 +55,46 @@ private:
 
   auto invalid_parameter = gain;
   invalid_parameter.operations[1].primary_parameter_id = 9999;
-  if (garak::runtime::static_graph::bind_static_execution_plan(
-          invalid_parameter, kGainParameterId, kBypassParameterId)) {
+  if (garak::runtime::static_graph::bind_static_execution_plan(invalid_parameter, kGainParameterId,
+                                                               kBypassParameterId)) {
     return false;
   }
   auto invalid_buffer = gain;
   invalid_buffer.operations[1].output_buffer = 0;
-  if (garak::runtime::static_graph::bind_static_execution_plan(
-          invalid_buffer, kGainParameterId, kBypassParameterId)) {
+  if (garak::runtime::static_graph::bind_static_execution_plan(invalid_buffer, kGainParameterId,
+                                                               kBypassParameterId)) {
     return false;
   }
   auto invalid_endpoint = gain;
   invalid_endpoint.operations[0].input_buffer = 0;
-  if (garak::runtime::static_graph::bind_static_execution_plan(
-          invalid_endpoint, kGainParameterId, kBypassParameterId)) {
+  if (garak::runtime::static_graph::bind_static_execution_plan(invalid_endpoint, kGainParameterId,
+                                                               kBypassParameterId)) {
     return false;
   }
   auto invalid_instance = polarity;
   invalid_instance.operations[3].instance_id = invalid_instance.operations[2].instance_id;
-  if (garak::runtime::static_graph::bind_static_execution_plan(
-          invalid_instance, kGainParameterId, kBypassParameterId)) {
+  if (garak::runtime::static_graph::bind_static_execution_plan(invalid_instance, kGainParameterId,
+                                                               kBypassParameterId)) {
     return false;
   }
   auto invalid_order = gain;
   const auto first = invalid_order.operations[0];
   invalid_order.operations[0] = invalid_order.operations[1];
   invalid_order.operations[1] = first;
-  if (garak::runtime::static_graph::bind_static_execution_plan(
-          invalid_order, kGainParameterId, kBypassParameterId)) {
+  if (garak::runtime::static_graph::bind_static_execution_plan(invalid_order, kGainParameterId,
+                                                               kBypassParameterId)) {
     return false;
   }
   auto invalid_latency = gain;
   invalid_latency.latency_samples = 1;
-  if (garak::runtime::static_graph::bind_static_execution_plan(
-          invalid_latency, kGainParameterId, kBypassParameterId)) {
+  if (garak::runtime::static_graph::bind_static_execution_plan(invalid_latency, kGainParameterId,
+                                                               kBypassParameterId)) {
     return false;
   }
   auto invalid_count = gain;
   invalid_count.operation_count = 4;
-  if (garak::runtime::static_graph::bind_static_execution_plan(
-          invalid_count, kGainParameterId, kBypassParameterId)) {
+  if (garak::runtime::static_graph::bind_static_execution_plan(invalid_count, kGainParameterId,
+                                                               kBypassParameterId)) {
     return false;
   }
   auto invalid_buffer_count = polarity;
@@ -106,16 +106,16 @@ private:
   auto invalid_type = polarity;
   invalid_type.operations[2].type =
       static_cast<garak::runtime::static_graph::OperationType>(0x0101U);
-  return !garak::runtime::static_graph::bind_static_execution_plan(
-      invalid_type, kGainParameterId, kBypassParameterId);
+  return !garak::runtime::static_graph::bind_static_execution_plan(invalid_type, kGainParameterId,
+                                                                   kBypassParameterId);
 }
 
 [[nodiscard]] bool test_compiled_graph_fixtures() {
   using garak::runtime::static_graph::parse_compiled_static_graph;
-  const auto gain = parse_compiled_static_graph(
-      garak::test::kCompiledGainGraphFixture, kGainParameterId, kBypassParameterId);
-  const auto polarity = parse_compiled_static_graph(
-      garak::test::kCompiledPolarityGraphFixture, kGainParameterId, kBypassParameterId);
+  const auto gain = parse_compiled_static_graph(garak::test::kCompiledGainGraphFixture,
+                                                kGainParameterId, kBypassParameterId);
+  const auto polarity = parse_compiled_static_graph(garak::test::kCompiledPolarityGraphFixture,
+                                                    kGainParameterId, kBypassParameterId);
   if (!gain || gain->has_polarity() || !polarity || !polarity->has_polarity()) {
     return false;
   }
@@ -194,8 +194,7 @@ private:
   auto corrupt = garak::test::kCompiledGainGraphFixture;
   corrupt[28] = 1;
   const auto corrupt_report = classify_compiled_graph_compatibility(
-      std::optional<std::span<const std::uint8_t>>(corrupt), kGainParameterId,
-      kBypassParameterId);
+      std::optional<std::span<const std::uint8_t>>(corrupt), kGainParameterId, kBypassParameterId);
   if (corrupt_report.disposition != CompiledGraphDisposition::reject_invalid ||
       corrupt_report.diagnostic != CompiledGraphDiagnostic::invalid_current ||
       corrupt_report.binding) {
@@ -204,21 +203,19 @@ private:
 
   auto bad_magic = garak::test::kCompiledGainGraphFixture;
   bad_magic[0] = 0;
-  const auto bad_magic_report = classify_compiled_graph_compatibility(
-      std::optional<std::span<const std::uint8_t>>(bad_magic), kGainParameterId,
-      kBypassParameterId);
+  const auto bad_magic_report =
+      classify_compiled_graph_compatibility(std::optional<std::span<const std::uint8_t>>(bad_magic),
+                                            kGainParameterId, kBypassParameterId);
   return bad_magic_report.disposition == CompiledGraphDisposition::reject_invalid &&
          bad_magic_report.diagnostic == CompiledGraphDiagnostic::invalid_magic &&
          !bad_magic_report.version.available && !bad_magic_report.binding;
 }
 
-template <bool Polarity>
-[[nodiscard]] bool test_execution() {
-  constexpr auto plan = Polarity
-                            ? garak::runtime::static_graph::make_gain_polarity_execution_plan(
-                                  kGainParameterId, kBypassParameterId)
-                            : garak::runtime::static_graph::make_gain_only_execution_plan(
-                                  kGainParameterId, kBypassParameterId);
+template <bool Polarity> [[nodiscard]] bool test_execution() {
+  constexpr auto plan = Polarity ? garak::runtime::static_graph::make_gain_polarity_execution_plan(
+                                       kGainParameterId, kBypassParameterId)
+                                 : garak::runtime::static_graph::make_gain_only_execution_plan(
+                                       kGainParameterId, kBypassParameterId);
   constexpr auto binding = garak::runtime::static_graph::bind_static_execution_plan(
       plan, kGainParameterId, kBypassParameterId);
   static_assert(binding.has_value());

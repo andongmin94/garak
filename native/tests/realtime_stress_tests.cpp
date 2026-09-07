@@ -20,17 +20,22 @@ thread_local bool enabled = false;
 thread_local std::uint64_t allocations = 0;
 thread_local std::uint64_t deallocations = 0;
 void allocation() noexcept {
-  if (enabled) ++allocations;
+  if (enabled)
+    ++allocations;
 }
 void deallocation(void* pointer) noexcept {
-  if (enabled && pointer != nullptr) ++deallocations;
+  if (enabled && pointer != nullptr)
+    ++deallocations;
 }
 void begin() noexcept {
   allocations = 0;
   deallocations = 0;
   enabled = true;
 }
-struct Counts final { std::uint64_t allocations{}; std::uint64_t deallocations{}; };
+struct Counts final {
+  std::uint64_t allocations{};
+  std::uint64_t deallocations{};
+};
 [[nodiscard]] Counts end() noexcept {
   enabled = false;
   return {allocations, deallocations};
@@ -40,7 +45,8 @@ struct Counts final { std::uint64_t allocations{}; std::uint64_t deallocations{}
   return _aligned_malloc(size == 0 ? 1 : size, alignment);
 #else
   const auto actual = size == 0 ? alignment : size;
-  if (actual > std::numeric_limits<std::size_t>::max() - (alignment - 1)) return nullptr;
+  if (actual > std::numeric_limits<std::size_t>::max() - (alignment - 1))
+    return nullptr;
   const auto rounded = ((actual + alignment - 1) / alignment) * alignment;
   return std::aligned_alloc(alignment, rounded);
 #endif
@@ -56,32 +62,55 @@ void aligned_free(void* pointer) noexcept {
 
 void* operator new(const std::size_t size) {
   allocation_tracking::allocation();
-  if (auto* pointer = std::malloc(size == 0 ? 1 : size)) return pointer;
+  if (auto* pointer = std::malloc(size == 0 ? 1 : size))
+    return pointer;
   throw std::bad_alloc{};
 }
 void* operator new[](const std::size_t size) { return ::operator new(size); }
-void operator delete(void* pointer) noexcept { allocation_tracking::deallocation(pointer); std::free(pointer); }
+void operator delete(void* pointer) noexcept {
+  allocation_tracking::deallocation(pointer);
+  std::free(pointer);
+}
 void operator delete[](void* pointer) noexcept { ::operator delete(pointer); }
 void operator delete(void* pointer, std::size_t) noexcept { ::operator delete(pointer); }
 void operator delete[](void* pointer, std::size_t) noexcept { ::operator delete(pointer); }
 void* operator new(const std::size_t size, const std::nothrow_t&) noexcept {
-  try { return ::operator new(size); } catch (...) { return nullptr; }
+  try {
+    return ::operator new(size);
+  } catch (...) {
+    return nullptr;
+  }
 }
 void* operator new[](const std::size_t size, const std::nothrow_t&) noexcept {
   return ::operator new(size, std::nothrow);
 }
 void operator delete(void* pointer, const std::nothrow_t&) noexcept { ::operator delete(pointer); }
-void operator delete[](void* pointer, const std::nothrow_t&) noexcept { ::operator delete(pointer); }
+void operator delete[](void* pointer, const std::nothrow_t&) noexcept {
+  ::operator delete(pointer);
+}
 void* operator new(const std::size_t size, const std::align_val_t alignment) {
   allocation_tracking::allocation();
-  if (auto* pointer = allocation_tracking::aligned_allocate(size, static_cast<std::size_t>(alignment))) return pointer;
+  if (auto* pointer =
+          allocation_tracking::aligned_allocate(size, static_cast<std::size_t>(alignment)))
+    return pointer;
   throw std::bad_alloc{};
 }
-void* operator new[](const std::size_t size, const std::align_val_t alignment) { return ::operator new(size, alignment); }
-void operator delete(void* pointer, std::align_val_t) noexcept { allocation_tracking::deallocation(pointer); allocation_tracking::aligned_free(pointer); }
-void operator delete[](void* pointer, const std::align_val_t alignment) noexcept { ::operator delete(pointer, alignment); }
-void operator delete(void* pointer, std::size_t, const std::align_val_t alignment) noexcept { ::operator delete(pointer, alignment); }
-void operator delete[](void* pointer, std::size_t, const std::align_val_t alignment) noexcept { ::operator delete(pointer, alignment); }
+void* operator new[](const std::size_t size, const std::align_val_t alignment) {
+  return ::operator new(size, alignment);
+}
+void operator delete(void* pointer, std::align_val_t) noexcept {
+  allocation_tracking::deallocation(pointer);
+  allocation_tracking::aligned_free(pointer);
+}
+void operator delete[](void* pointer, const std::align_val_t alignment) noexcept {
+  ::operator delete(pointer, alignment);
+}
+void operator delete(void* pointer, std::size_t, const std::align_val_t alignment) noexcept {
+  ::operator delete(pointer, alignment);
+}
+void operator delete[](void* pointer, std::size_t, const std::align_val_t alignment) noexcept {
+  ::operator delete(pointer, alignment);
+}
 
 namespace {
 constexpr std::int32_t kMaximumSamples = 128;
@@ -93,11 +122,14 @@ class PointSource final {
 public:
   void set(const double value) noexcept { point_ = {0, value}; }
   [[nodiscard]] std::int32_t point_count() const noexcept { return 1; }
-  [[nodiscard]] bool point(const std::int32_t index, garak::dsp::gain::AutomationPoint& point) const noexcept {
-    if (index != 0) return false;
+  [[nodiscard]] bool point(const std::int32_t index,
+                           garak::dsp::gain::AutomationPoint& point) const noexcept {
+    if (index != 0)
+      return false;
     point = point_;
     return true;
   }
+
 private:
   garak::dsp::gain::AutomationPoint point_{};
 };
@@ -111,16 +143,18 @@ struct StressResult final {
 
 template <typename Sample>
 [[nodiscard]] bool near(const Sample actual, const Sample expected) noexcept {
-  if constexpr (std::is_same_v<Sample, float>) return std::abs(actual - expected) <= 1.0e-5F;
+  if constexpr (std::is_same_v<Sample, float>)
+    return std::abs(actual - expected) <= 1.0e-5F;
   return std::abs(actual - expected) <= 1.0e-12;
 }
 
-template <typename Sample, bool Polarity>
-[[nodiscard]] StressResult run() noexcept {
-  constexpr auto plan = Polarity
-      ? garak::runtime::static_graph::make_gain_polarity_execution_plan(kGainParameterId, kBypassParameterId)
-      : garak::runtime::static_graph::make_gain_only_execution_plan(kGainParameterId, kBypassParameterId);
-  constexpr auto binding = garak::runtime::static_graph::bind_static_execution_plan(plan, kGainParameterId, kBypassParameterId);
+template <typename Sample, bool Polarity> [[nodiscard]] StressResult run() noexcept {
+  constexpr auto plan = Polarity ? garak::runtime::static_graph::make_gain_polarity_execution_plan(
+                                       kGainParameterId, kBypassParameterId)
+                                 : garak::runtime::static_graph::make_gain_only_execution_plan(
+                                       kGainParameterId, kBypassParameterId);
+  constexpr auto binding = garak::runtime::static_graph::bind_static_execution_plan(
+      plan, kGainParameterId, kBypassParameterId);
   static_assert(binding.has_value());
 
   std::array<std::array<Sample, kMaximumSamples>, 2> input{};
@@ -149,18 +183,19 @@ template <typename Sample, bool Polarity>
     }
     std::uint64_t output_silence = 0;
     garak::runtime::static_graph::execute_static_binding(
-        *binding,
-        garak::dsp::gain::ProcessBlockContext<Sample, PointSource, PointSource>{
-            inputs.data(), outputs.data(), channel_count, sample_count, 0, output_silence,
-            gain_source, bypass_source, current_gain, current_bypass});
+        *binding, garak::dsp::gain::ProcessBlockContext<Sample, PointSource, PointSource>{
+                      inputs.data(), outputs.data(), channel_count, sample_count, 0, output_silence,
+                      gain_source, bypass_source, current_gain, current_bypass});
     const auto linear = garak::dsp::gain::decibels_to_linear(
         garak::dsp::gain::normalized_to_decibels(gain_normalized));
     for (std::int32_t channel = 0; channel < channel_count && result.ok; ++channel) {
       for (std::int32_t sample = 0; sample < sample_count; ++sample) {
-        const auto source = input[static_cast<std::size_t>(channel)][static_cast<std::size_t>(sample)];
+        const auto source =
+            input[static_cast<std::size_t>(channel)][static_cast<std::size_t>(sample)];
         const auto active = static_cast<Sample>(source * static_cast<Sample>(linear));
         const auto expected = bypass ? source : (Polarity ? static_cast<Sample>(-active) : active);
-        if (!near(output[static_cast<std::size_t>(channel)][static_cast<std::size_t>(sample)], expected)) {
+        if (!near(output[static_cast<std::size_t>(channel)][static_cast<std::size_t>(sample)],
+                  expected)) {
           result.ok = false;
           break;
         }
@@ -168,7 +203,8 @@ template <typename Sample, bool Polarity>
     }
     result.ok = result.ok && current_gain == gain_normalized && current_bypass == bypass;
     ++result.blocks;
-    result.samples += static_cast<std::uint64_t>(sample_count) * static_cast<std::uint64_t>(channel_count);
+    result.samples +=
+        static_cast<std::uint64_t>(sample_count) * static_cast<std::uint64_t>(channel_count);
   }
   result.counts = allocation_tracking::end();
   return result;

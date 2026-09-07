@@ -13,10 +13,8 @@ namespace garak::dsp::polarity {
 // Spans must have equal lengths and must either be disjoint or refer to the same
 // buffer. Partial overlap returns false without writing output. A length mismatch
 // also returns false without writing output. Empty spans succeed without dereferencing storage.
-[[nodiscard]] bool process_block(std::span<const float> input,
-                                 std::span<float> output) noexcept;
-[[nodiscard]] bool process_block(std::span<const double> input,
-                                 std::span<double> output) noexcept;
+[[nodiscard]] bool process_block(std::span<const float> input, std::span<float> output) noexcept;
+[[nodiscard]] bool process_block(std::span<const double> input, std::span<double> output) noexcept;
 
 } // namespace garak::dsp::polarity
 

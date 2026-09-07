@@ -90,8 +90,8 @@ void process_block(const ProcessBlockContext<Sample, GainSource, BypassSource>& 
           context.outputs[channel][sample] = context.inputs[channel][sample];
         }
       } else {
-        context.outputs[channel][sample] = active_transform(
-            processed_sample(context.inputs[channel][sample], linear_gain));
+        context.outputs[channel][sample] =
+            active_transform(processed_sample(context.inputs[channel][sample], linear_gain));
       }
     }
   }

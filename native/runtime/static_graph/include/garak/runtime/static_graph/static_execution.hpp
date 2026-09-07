@@ -76,8 +76,8 @@ make_gain_only_execution_plan(const std::uint32_t gain_parameter_id,
                               const std::uint32_t bypass_parameter_id) noexcept {
   StaticExecutionPlan plan{};
   plan.operations[0] = {1, operation_type_code(OperationKind::audio_input), kNoBuffer, 0, 0, 0};
-  plan.operations[1] = {2, operation_type_code(OperationKind::gain), 0, 1, gain_parameter_id,
-                        bypass_parameter_id};
+  plan.operations[1] = {
+      2, operation_type_code(OperationKind::gain), 0, 1, gain_parameter_id, bypass_parameter_id};
   plan.operations[2] = {3, operation_type_code(OperationKind::audio_output), 1, kNoBuffer, 0, 0};
   plan.operation_count = 3;
   plan.buffer_count = 2;
@@ -89,8 +89,8 @@ make_gain_polarity_execution_plan(const std::uint32_t gain_parameter_id,
                                   const std::uint32_t bypass_parameter_id) noexcept {
   StaticExecutionPlan plan{};
   plan.operations[0] = {1, operation_type_code(OperationKind::audio_input), kNoBuffer, 0, 0, 0};
-  plan.operations[1] = {2, operation_type_code(OperationKind::gain), 0, 1, gain_parameter_id,
-                        bypass_parameter_id};
+  plan.operations[1] = {
+      2, operation_type_code(OperationKind::gain), 0, 1, gain_parameter_id, bypass_parameter_id};
   plan.operations[2] = {3, operation_type_code(OperationKind::polarity), 1, 2, 0, 0};
   plan.operations[3] = {4, operation_type_code(OperationKind::audio_output), 2, kNoBuffer, 0, 0};
   plan.operation_count = 4;
@@ -98,7 +98,8 @@ make_gain_polarity_execution_plan(const std::uint32_t gain_parameter_id,
   return plan;
 }
 
-[[nodiscard]] constexpr bool operation_equal(const Operation& left, const Operation& right) noexcept {
+[[nodiscard]] constexpr bool operation_equal(const Operation& left,
+                                             const Operation& right) noexcept {
   return left.instance_id == right.instance_id && left.type == right.type &&
          left.input_buffer == right.input_buffer && left.output_buffer == right.output_buffer &&
          left.primary_parameter_id == right.primary_parameter_id &&
@@ -120,8 +121,7 @@ make_gain_polarity_execution_plan(const std::uint32_t gain_parameter_id,
 }
 
 [[nodiscard]] constexpr std::optional<StaticExecutionBinding>
-bind_static_execution_plan(const StaticExecutionPlan& plan,
-                           const std::uint32_t gain_parameter_id,
+bind_static_execution_plan(const StaticExecutionPlan& plan, const std::uint32_t gain_parameter_id,
                            const std::uint32_t bypass_parameter_id) noexcept {
   if (plan.latency_samples != 0) {
     return std::nullopt;
@@ -129,8 +129,7 @@ bind_static_execution_plan(const StaticExecutionPlan& plan,
   if (plan_equal(plan, make_gain_only_execution_plan(gain_parameter_id, bypass_parameter_id))) {
     return StaticExecutionBinding{gain_parameter_id, bypass_parameter_id, false};
   }
-  if (plan_equal(plan,
-                 make_gain_polarity_execution_plan(gain_parameter_id, bypass_parameter_id))) {
+  if (plan_equal(plan, make_gain_polarity_execution_plan(gain_parameter_id, bypass_parameter_id))) {
     return StaticExecutionBinding{gain_parameter_id, bypass_parameter_id, true};
   }
   return std::nullopt;
