@@ -8,7 +8,7 @@ permissions:
   contents: read
 
 jobs:
-  verify:
+  linux:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -38,3 +38,44 @@ jobs:
       - run: ctest --test-dir out/build/debug-warnings-as-errors --no-tests=error
       - run: cmake --preset debug-clang-tidy --fresh -DCMAKE_CXX_COMPILER=clang++
       - run: cmake --build --preset clang-tidy-build --clean-first
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm product:format:check
+      - run: pnpm product:lint
+      - run: pnpm product:typecheck
+      - run: pnpm product:test
+      - run: pnpm studio:format:check
+      - run: pnpm studio:lint
+      - run: pnpm studio:typecheck
+      - run: pnpm studio:test
+      - run: pnpm studio:build
+      - run: cmake --preset product-runtime-debug --fresh
+      - run: cmake --build --preset product-runtime-debug-build --clean-first
+      - shell: pwsh
+        run: ./tools/product-compiler/scripts/verify_headless_export_no_build.ps1 -Configuration Debug
+      - run: ctest --preset product-runtime-debug-test --no-tests=error
+      - run: node studio/scripts/verify_product_workflow.mts --configuration Debug
+      - run: cmake --preset product-runtime-release --fresh
+      - run: cmake --build --preset product-runtime-release-build --clean-first
+      - shell: pwsh
+        run: ./tools/product-compiler/scripts/verify_headless_export_no_build.ps1 -Configuration Release
+      - run: ctest --preset product-runtime-release-test --no-tests=error
+      - run: node studio/scripts/verify_product_workflow.mts --configuration Release
+      - run: cmake --preset product-runtime-werror --fresh
+      - run: cmake --build --preset product-runtime-werror-build --clean-first
+      - run: cmake --preset product-runtime-clang-tidy --fresh
+      - run: cmake --build --preset product-runtime-clang-tidy-build --clean-first
+      - run: git diff --exit-code
