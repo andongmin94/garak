@@ -21,6 +21,28 @@ jobs:
       - run: pnpm product:lint
       - run: pnpm product:typecheck
       - run: pnpm product:test
+      - name: Capture canonical native formatting
+        run: |
+          set -euo pipefail
+          files=(
+            native/tests/polarity_dsp_tests.cpp
+            native/tests/static_graph_tests.cpp
+            native/tests/compiled_graph_test_fixture.hpp
+            native/tests/realtime_stress_tests.cpp
+            native/dsp/gain/include/garak/dsp/gain/gain.hpp
+            native/dsp/polarity/include/garak/dsp/polarity/polarity.hpp
+            native/runtime/static_graph/include/garak/runtime/static_graph/static_execution.hpp
+            native/adapters/vst3/product_runtime_v1/processor.cpp
+          )
+          for file in "${files[@]}"; do
+            mkdir -p "/tmp/formatted/$(dirname "$file")"
+            clang-format --style=file "$file" > "/tmp/formatted/$file"
+          done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: phase-3d1-canonical-format
+          path: /tmp/formatted
+          if-no-files-found: error
       - run: find native -type f \( -name '*.c' -o -name '*.cc' -o -name '*.cpp' -o -name '*.h' -o -name '*.hpp' \) -print0 | xargs -0 clang-format --dry-run --Werror --style=file
       - run: cmake --preset debug --fresh
       - run: cmake --build --preset debug-build --clean-first
