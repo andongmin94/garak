@@ -235,10 +235,10 @@ template <bool Polarity> [[nodiscard]] bool test_execution() {
   bool current_bypass = false;
 
   garak::runtime::static_graph::execute_static_binding(
-      execution_binding, garak::dsp::gain::ProcessBlockContext<float, PointSource, PointSource>{
-                             input_channels.data(), output_channels.data(), 1, 3, 0,
-                             output_silence_flags, gain_source, bypass_source, current_gain,
-                             current_bypass});
+      execution_binding,
+      garak::dsp::gain::ProcessBlockContext<float, PointSource, PointSource>{
+          input_channels.data(), output_channels.data(), 1, 3, 0, output_silence_flags, gain_source,
+          bypass_source, current_gain, current_bypass});
   const auto linear = static_cast<float>(garak::dsp::gain::decibels_to_linear(-6.0));
   const auto sign = Polarity ? -1.0F : 1.0F;
   if (!almost_equal(output[0], input[0] * linear * sign) ||
@@ -249,10 +249,10 @@ template <bool Polarity> [[nodiscard]] bool test_execution() {
   PointSource bypass_on(1.0);
   current_bypass = false;
   garak::runtime::static_graph::execute_static_binding(
-      execution_binding, garak::dsp::gain::ProcessBlockContext<float, PointSource, PointSource>{
-                             input_channels.data(), output_channels.data(), 1, 3, 0,
-                             output_silence_flags, gain_source, bypass_on, current_gain,
-                             current_bypass});
+      execution_binding,
+      garak::dsp::gain::ProcessBlockContext<float, PointSource, PointSource>{
+          input_channels.data(), output_channels.data(), 1, 3, 0, output_silence_flags, gain_source,
+          bypass_on, current_gain, current_bypass});
   return output == input && current_bypass;
 }
 
