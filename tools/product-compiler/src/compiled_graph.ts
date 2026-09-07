@@ -78,7 +78,12 @@ export function compileProductGraph(
   if (!hasPolarity) {
     return {
       operations: [
-        operation(1, COMPILED_GRAPH_OPERATION_TYPE.audioInput, COMPILED_GRAPH_NO_BUFFER, 0),
+        operation(
+          1,
+          COMPILED_GRAPH_OPERATION_TYPE.audioInput,
+          COMPILED_GRAPH_NO_BUFFER,
+          0,
+        ),
         operation(
           2,
           COMPILED_GRAPH_OPERATION_TYPE.gain,
@@ -87,7 +92,12 @@ export function compileProductGraph(
           GAIN_PARAMETER_ID,
           BYPASS_PARAMETER_ID,
         ),
-        operation(3, COMPILED_GRAPH_OPERATION_TYPE.audioOutput, 1, COMPILED_GRAPH_NO_BUFFER),
+        operation(
+          3,
+          COMPILED_GRAPH_OPERATION_TYPE.audioOutput,
+          1,
+          COMPILED_GRAPH_NO_BUFFER,
+        ),
       ],
       bufferCount: 2,
       latencySamples: 0,
@@ -95,7 +105,12 @@ export function compileProductGraph(
   }
   return {
     operations: [
-      operation(1, COMPILED_GRAPH_OPERATION_TYPE.audioInput, COMPILED_GRAPH_NO_BUFFER, 0),
+      operation(
+        1,
+        COMPILED_GRAPH_OPERATION_TYPE.audioInput,
+        COMPILED_GRAPH_NO_BUFFER,
+        0,
+      ),
       operation(
         2,
         COMPILED_GRAPH_OPERATION_TYPE.gain,
@@ -105,7 +120,12 @@ export function compileProductGraph(
         BYPASS_PARAMETER_ID,
       ),
       operation(3, COMPILED_GRAPH_OPERATION_TYPE.polarity, 1, 2),
-      operation(4, COMPILED_GRAPH_OPERATION_TYPE.audioOutput, 2, COMPILED_GRAPH_NO_BUFFER),
+      operation(
+        4,
+        COMPILED_GRAPH_OPERATION_TYPE.audioOutput,
+        2,
+        COMPILED_GRAPH_NO_BUFFER,
+      ),
     ],
     bufferCount: 3,
     latencySamples: 0,
@@ -141,7 +161,10 @@ function plansEqual(left: CompiledGraphPlan, right: CompiledGraphPlan): boolean 
 }
 
 function assertSupportedPlan(plan: CompiledGraphPlan): void {
-  if (!plansEqual(plan, canonicalGainGraphPlan()) && !plansEqual(plan, canonicalPolarityGraphPlan())) {
+  if (
+    !plansEqual(plan, canonicalGainGraphPlan()) &&
+    !plansEqual(plan, canonicalPolarityGraphPlan())
+  ) {
     graphFailure(
       "GARAK_COMPILED_GRAPH_NONCANONICAL",
       "",
@@ -151,7 +174,10 @@ function assertSupportedPlan(plan: CompiledGraphPlan): void {
 }
 
 function totalBytes(operationCount: number): number {
-  return COMPILED_GRAPH_HEADER_BYTES + COMPILED_GRAPH_OPERATION_BYTES * operationCount;
+  return (
+    COMPILED_GRAPH_HEADER_BYTES +
+    COMPILED_GRAPH_OPERATION_BYTES * operationCount
+  );
 }
 
 export function encodeCompiledGraph(plan: CompiledGraphPlan): Buffer {
@@ -184,10 +210,18 @@ export function encodeCompiledGraph(plan: CompiledGraphPlan): Buffer {
 export function decodeCompiledGraph(input: Uint8Array): CompiledGraphPlan {
   const bytes = Buffer.from(input);
   if (bytes.length < COMPILED_GRAPH_HEADER_BYTES) {
-    graphFailure("GARAK_COMPILED_GRAPH_SIZE", "", "Compiled graph is shorter than its header.");
+    graphFailure(
+      "GARAK_COMPILED_GRAPH_SIZE",
+      "",
+      "Compiled graph is shorter than its header.",
+    );
   }
   if (!bytes.subarray(0, 8).equals(COMPILED_GRAPH_MAGIC)) {
-    graphFailure("GARAK_COMPILED_GRAPH_MAGIC", "magic", "Magic must be exactly 'GARAKGRF'.");
+    graphFailure(
+      "GARAK_COMPILED_GRAPH_MAGIC",
+      "magic",
+      "Magic must be exactly 'GARAKGRF'.",
+    );
   }
   if (
     bytes.readUInt16LE(8) !== COMPILED_GRAPH_MAJOR_VERSION ||

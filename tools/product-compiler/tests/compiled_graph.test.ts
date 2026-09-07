@@ -50,7 +50,10 @@ test("rejects truncated, trailing, old/current-mismatch, reserved and noncanonic
 
   const old = Buffer.from(canonical);
   old.writeUInt16LE(0, 10);
-  await expectProductError(() => decodeCompiledGraph(old), "GARAK_COMPILED_GRAPH_VERSION");
+  await expectProductError(
+    () => decodeCompiledGraph(old),
+    "GARAK_COMPILED_GRAPH_VERSION",
+  );
 
   const reserved = Buffer.from(canonical);
   reserved.writeUInt32LE(1, 28);
