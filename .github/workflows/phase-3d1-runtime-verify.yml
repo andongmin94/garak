@@ -1,0 +1,32 @@
+name: phase-3d1-runtime-verify
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm product:format:check
+      - run: pnpm product:lint
+      - run: pnpm product:typecheck
+      - run: pnpm product:test
+      - run: cmake --preset debug --fresh
+      - run: cmake --build --preset debug-build --clean-first
+      - run: ctest --preset debug-test --no-tests=error
+      - run: cmake --preset release --fresh
+      - run: cmake --build --preset release-build --clean-first
+      - run: ctest --preset release-test --no-tests=error
+      - run: cmake --preset debug-warnings-as-errors --fresh -DCMAKE_CXX_COMPILER=clang++
+      - run: cmake --build --preset warnings-as-errors-build --clean-first
+      - run: ctest --test-dir out/build/debug-warnings-as-errors --no-tests=error
