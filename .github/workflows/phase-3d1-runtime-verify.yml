@@ -17,11 +17,11 @@ jobs:
           node-version: '24'
       - run: corepack enable
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --dir tools/product-compiler exec prettier tests/api.test.ts
       - run: pnpm product:format:check
       - run: pnpm product:lint
       - run: pnpm product:typecheck
       - run: pnpm product:test
+      - run: clang-format --style=file native/tests/product_runtime_v1_inverted_tests.cpp
       - run: find native -type f \( -name '*.c' -o -name '*.cc' -o -name '*.cpp' -o -name '*.h' -o -name '*.hpp' \) -print0 | xargs -0 clang-format --dry-run --Werror --style=file
       - run: cmake --preset debug --fresh
       - run: cmake --build --preset debug-build --clean-first
