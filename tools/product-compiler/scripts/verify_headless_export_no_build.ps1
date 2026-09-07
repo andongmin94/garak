@@ -26,6 +26,8 @@ $warmProject = Join-Path $repositoryRoot `
     'examples\products\artist-gain-warm.garak'
 $brightProject = Join-Path $repositoryRoot `
     'examples\products\artist-gain-bright.garak'
+$invertedProject = Join-Path $repositoryRoot `
+    'examples\products\artist-gain-inverted.garak'
 
 if ([string]::IsNullOrWhiteSpace($OutputDirectory)) {
     $OutputDirectory = Join-Path $repositoryRoot `
@@ -191,42 +193,45 @@ $templateHashBefore = (Get-FileHash -LiteralPath $templateInner -Algorithm SHA25
 
 $warmFirstRun = Invoke-ProductExport -ProjectPath $warmProject
 $brightFirstRun = Invoke-ProductExport -ProjectPath $brightProject
-foreach ($run in @($warmFirstRun, $brightFirstRun)) {
+$invertedFirstRun = Invoke-ProductExport -ProjectPath $invertedProject
+foreach ($run in @($warmFirstRun, $brightFirstRun, $invertedFirstRun)) {
     Write-Output "NODE_PROCESS $($run.nodeProcess)"
     foreach ($line in $run.transcript) {
         Write-Output $line
     }
 }
 $firstChildLog = [System.Collections.Generic.List[object]]::new()
-foreach ($entry in $warmFirstRun.childProcesses) {
-    $firstChildLog.Add($entry)
-}
-foreach ($entry in $brightFirstRun.childProcesses) {
-    $firstChildLog.Add($entry)
+foreach ($run in @($warmFirstRun, $brightFirstRun, $invertedFirstRun)) {
+    foreach ($entry in $run.childProcesses) {
+        $firstChildLog.Add($entry)
+    }
 }
 
 $warmBundle = Join-Path $OutputDirectory 'Artist Gain Warm.vst3'
 $brightBundle = Join-Path $OutputDirectory 'Artist Gain Bright.vst3'
+$invertedBundle = Join-Path $OutputDirectory 'Artist Gain Inverted.vst3'
 $warmFirst = Get-BundleEvidence -BundlePath $warmBundle
 $brightFirst = Get-BundleEvidence -BundlePath $brightBundle
+$invertedFirst = Get-BundleEvidence -BundlePath $invertedBundle
 
 $warmSecondRun = Invoke-ProductExport -ProjectPath $warmProject
 $brightSecondRun = Invoke-ProductExport -ProjectPath $brightProject
-foreach ($run in @($warmSecondRun, $brightSecondRun)) {
+$invertedSecondRun = Invoke-ProductExport -ProjectPath $invertedProject
+foreach ($run in @($warmSecondRun, $brightSecondRun, $invertedSecondRun)) {
     Write-Output "NODE_PROCESS $($run.nodeProcess)"
     foreach ($line in $run.transcript) {
         Write-Output $line
     }
 }
 $secondChildLog = [System.Collections.Generic.List[object]]::new()
-foreach ($entry in $warmSecondRun.childProcesses) {
-    $secondChildLog.Add($entry)
-}
-foreach ($entry in $brightSecondRun.childProcesses) {
-    $secondChildLog.Add($entry)
+foreach ($run in @($warmSecondRun, $brightSecondRun, $invertedSecondRun)) {
+    foreach ($entry in $run.childProcesses) {
+        $secondChildLog.Add($entry)
+    }
 }
 $warmSecond = Get-BundleEvidence -BundlePath $warmBundle
 $brightSecond = Get-BundleEvidence -BundlePath $brightBundle
+$invertedSecond = Get-BundleEvidence -BundlePath $invertedBundle
 
 foreach ($field in @('runtimeSha256', 'graphSha256', 'compiledSha256', 'moduleInfoSha256')) {
     if ($warmFirst.$field -cne $warmSecond.$field) {
@@ -235,19 +240,30 @@ foreach ($field in @('runtimeSha256', 'graphSha256', 'compiledSha256', 'moduleIn
     if ($brightFirst.$field -cne $brightSecond.$field) {
         throw "Bright repeated export changed $field."
     }
+    if ($invertedFirst.$field -cne $invertedSecond.$field) {
+        throw "Inverted repeated export changed $field."
+    }
 }
 if ($warmSecond.runtimeSha256 -cne $templateHashBefore -or
-    $brightSecond.runtimeSha256 -cne $templateHashBefore) {
+    $brightSecond.runtimeSha256 -cne $templateHashBefore -or
+    $invertedSecond.runtimeSha256 -cne $templateHashBefore) {
     throw 'Exported Runtime hashes do not match the immutable prebuilt template.'
 }
 if ($warmSecond.graphSha256 -cne $brightSecond.graphSha256) {
     throw 'Warm and Bright compiled graph data must be identical.'
 }
-if ($warmSecond.compiledSha256 -ceq $brightSecond.compiledSha256) {
-    throw 'Warm and Bright compiled product data must differ.'
+if ($invertedSecond.graphSha256 -ceq $warmSecond.graphSha256) {
+    throw 'Inverted compiled graph data must differ from the Gain-only graph.'
 }
-if ($warmSecond.moduleInfoSha256 -ceq $brightSecond.moduleInfoSha256) {
-    throw 'Warm and Bright moduleinfo must differ.'
+if ($warmSecond.compiledSha256 -ceq $brightSecond.compiledSha256 -or
+    $warmSecond.compiledSha256 -ceq $invertedSecond.compiledSha256 -or
+    $brightSecond.compiledSha256 -ceq $invertedSecond.compiledSha256) {
+    throw 'Each reference product must have distinct compiled product data.'
+}
+if ($warmSecond.moduleInfoSha256 -ceq $brightSecond.moduleInfoSha256 -or
+    $warmSecond.moduleInfoSha256 -ceq $invertedSecond.moduleInfoSha256 -or
+    $brightSecond.moduleInfoSha256 -ceq $invertedSecond.moduleInfoSha256) {
+    throw 'Each reference product must have distinct moduleinfo data.'
 }
 
 $afterManifest = @(Get-TreeManifest -RootPath $artifactRoot)
@@ -274,6 +290,7 @@ $report = [ordered]@{
     secondExportChildProcesses = $secondChildLog.ToArray()
     warm = $warmSecond
     bright = $brightSecond
+    inverted = $invertedSecond
 }
 
 $reportParent = [IO.Path]::GetDirectoryName($ReportPath)
@@ -283,3 +300,4 @@ Write-Output "No-native-build evidence: $ReportPath"
 Write-Output "Template Runtime SHA-256: $templateHashAfter"
 Write-Output "Warm compiled SHA-256: $($warmSecond.compiledSha256)"
 Write-Output "Bright compiled SHA-256: $($brightSecond.compiledSha256)"
+Write-Output "Inverted compiled SHA-256: $($invertedSecond.compiledSha256)"
