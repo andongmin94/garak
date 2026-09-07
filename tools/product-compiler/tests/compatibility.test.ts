@@ -11,6 +11,7 @@ import {
 } from "../src/compatibility.ts";
 import {
   canonicalGainGraphPlan,
+  canonicalPolarityGraphPlan,
   encodeCompiledGraph,
 } from "../src/compiled_graph.ts";
 import { encodeCompiledProduct } from "../src/compiled_product.ts";
@@ -42,7 +43,7 @@ function currentGraph(): Buffer {
   return encodeCompiledGraph(canonicalGainGraphPlan());
 }
 
-test("current compiled product, graph, and same-product state are loadable together", async () => {
+test("current compiled product, graphs, and same-product state are loadable together", async () => {
   await withTemporaryDirectory(async (temporary) => {
     const project = await loadTemporaryWarmProject(temporary);
     const compiled = encodeCompiledProduct(project);
@@ -54,13 +55,18 @@ test("current compiled product, graph, and same-product state are loadable toget
       diagnosticCode: null,
       action: "Load the compiled product with the current Runtime v1 contract.",
     });
-    assert.deepEqual(classifyCompiledGraph(currentGraph()), {
-      artifact: "compiled-graph",
-      disposition: "load-current",
-      version: { major: 1, minor: 0 },
-      diagnosticCode: null,
-      action: "Load the exact current GARAKGRF v1 execution plan.",
-    });
+    for (const graph of [
+      encodeCompiledGraph(canonicalGainGraphPlan()),
+      encodeCompiledGraph(canonicalPolarityGraphPlan()),
+    ]) {
+      assert.deepEqual(classifyCompiledGraph(graph), {
+        artifact: "compiled-graph",
+        disposition: "load-current",
+        version: { major: 1, minor: 1 },
+        diagnosticCode: null,
+        action: "Load the exact current GARAKGRF v1 execution plan.",
+      });
+    }
     assert.deepEqual(
       classifyProductState(WARM_DEFAULT_STATE, WARM_PRODUCT_ID),
       {
@@ -105,22 +111,27 @@ test("compiled graph compatibility distinguishes missing, old, future, and corru
   assert.equal(missing.version, null);
   assert.equal(missing.diagnosticCode, "GARAK_COMPILED_GRAPH_MISSING");
 
-  const old = classifyCompiledGraph(copyWithU16(current, 8, 0));
-  assert.equal(old.disposition, "rebuild-from-project");
-  assert.deepEqual(old.version, { major: 0, minor: 0 });
-  assert.equal(old.diagnosticCode, "GARAK_COMPILED_GRAPH_VERSION_OLD");
+  const oldMajor = classifyCompiledGraph(copyWithU16(current, 8, 0));
+  assert.equal(oldMajor.disposition, "rebuild-from-project");
+  assert.deepEqual(oldMajor.version, { major: 0, minor: 1 });
+  assert.equal(oldMajor.diagnosticCode, "GARAK_COMPILED_GRAPH_VERSION_OLD");
+
+  const oldMinor = classifyCompiledGraph(copyWithU16(current, 10, 0));
+  assert.equal(oldMinor.disposition, "rebuild-from-project");
+  assert.deepEqual(oldMinor.version, { major: 1, minor: 0 });
+  assert.equal(oldMinor.diagnosticCode, "GARAK_COMPILED_GRAPH_VERSION_OLD");
 
   const futureMajor = classifyCompiledGraph(copyWithU16(current, 8, 2));
   assert.equal(futureMajor.disposition, "reject-too-new");
   assert.equal(futureMajor.diagnosticCode, "GARAK_COMPILED_GRAPH_VERSION_NEW");
-  const futureMinor = classifyCompiledGraph(copyWithU16(current, 10, 1));
+  const futureMinor = classifyCompiledGraph(copyWithU16(current, 10, 2));
   assert.equal(futureMinor.disposition, "reject-too-new");
 
   const corrupt = Buffer.from(current);
   corrupt.writeUInt32LE(1, 28);
   const invalid = classifyCompiledGraph(corrupt);
   assert.equal(invalid.disposition, "reject-invalid");
-  assert.deepEqual(invalid.version, { major: 1, minor: 0 });
+  assert.deepEqual(invalid.version, { major: 1, minor: 1 });
   assert.equal(invalid.diagnosticCode, "GARAK_COMPILED_GRAPH_RESERVED");
 
   const badMagic = Buffer.from(current);

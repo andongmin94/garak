@@ -38,7 +38,7 @@ struct CompiledGraphCompatibilityReport final {
   CompiledGraphDisposition disposition{CompiledGraphDisposition::reject_invalid};
   CompiledGraphDiagnostic diagnostic{CompiledGraphDiagnostic::invalid_header};
   CompiledGraphVersion version{};
-  std::optional<GainExecutionBinding> binding{};
+  std::optional<StaticExecutionBinding> binding{};
 };
 
 [[nodiscard]] constexpr const char*
@@ -101,7 +101,7 @@ classify_compiled_graph_compatibility(const std::optional<std::span<const std::u
             std::nullopt};
   }
 
-  const auto binding = parse_compiled_gain_graph(*bytes, gain_parameter_id, bypass_parameter_id);
+  const auto binding = parse_compiled_static_graph(*bytes, gain_parameter_id, bypass_parameter_id);
   if (!binding) {
     return {CompiledGraphDisposition::reject_invalid, CompiledGraphDiagnostic::invalid_current,
             version, std::nullopt};

@@ -250,10 +250,10 @@ test("graph cloning preserves authoring identity without sharing nested objects"
   assert.notStrictEqual(cloned.nodes[0], graph.nodes[0]);
 });
 
-test("Polarity source is valid v2 authoring data but GARAKGRF 1.0 rejects it fail-closed", () => {
-  assert.throws(
-    () => compileProductGraph(canonicalPolarityProductGraphSource()),
-    (error: unknown) =>
-      diagnosticFor(error).code === "GARAK_COMPILED_GRAPH_SOURCE_UNSUPPORTED",
-  );
+test("Polarity source compiles to the current four-operation GARAKGRF plan", () => {
+  const plan = compileProductGraph(canonicalPolarityProductGraphSource());
+  assert.equal(plan.operations.length, 4);
+  assert.equal(plan.bufferCount, 3);
+  assert.equal(plan.latencySamples, 0);
+  assert.equal(plan.operations[2]?.type, 4);
 });

@@ -1,7 +1,7 @@
 #ifndef GARAK_RUNTIME_STATIC_GRAPH_COMPILED_GRAPH_HPP_INCLUDED
 #define GARAK_RUNTIME_STATIC_GRAPH_COMPILED_GRAPH_HPP_INCLUDED
 
-#include "garak/runtime/static_graph/gain_plan.hpp"
+#include "garak/runtime/static_graph/static_execution.hpp"
 
 #include <algorithm>
 #include <array>
@@ -13,12 +13,11 @@
 namespace garak::runtime::static_graph {
 
 inline constexpr std::uint16_t kCompiledGraphMajorVersion = 1;
-inline constexpr std::uint16_t kCompiledGraphMinorVersion = 0;
+inline constexpr std::uint16_t kCompiledGraphMinorVersion = 1;
 inline constexpr std::size_t kCompiledGraphHeaderBytes = 32;
 inline constexpr std::size_t kCompiledGraphOperationBytes = 20;
-inline constexpr std::size_t kCompiledGraphOperationCount = 3;
-inline constexpr std::size_t kCompiledGraphTotalBytes =
-    kCompiledGraphHeaderBytes + (kCompiledGraphOperationBytes * kCompiledGraphOperationCount);
+inline constexpr std::size_t kCompiledGraphMinimumOperationCount = 3;
+inline constexpr std::size_t kCompiledGraphMaximumOperationCount = 4;
 inline constexpr std::array<std::uint8_t, 8> kCompiledGraphMagic{'G', 'A', 'R', 'A',
                                                                  'K', 'G', 'R', 'F'};
 
@@ -39,28 +38,38 @@ namespace detail {
   return value;
 }
 
+[[nodiscard]] constexpr std::size_t compiled_graph_total_bytes(const std::size_t operation_count) {
+  return kCompiledGraphHeaderBytes + (kCompiledGraphOperationBytes * operation_count);
+}
+
 } // namespace detail
 
-[[nodiscard]] inline std::optional<GainExecutionBinding>
-parse_compiled_gain_graph(const std::span<const std::uint8_t> bytes,
-                          const std::uint32_t gain_parameter_id,
-                          const std::uint32_t bypass_parameter_id) noexcept {
-  if (bytes.size() != kCompiledGraphTotalBytes ||
+[[nodiscard]] inline std::optional<StaticExecutionBinding>
+parse_compiled_static_graph(const std::span<const std::uint8_t> bytes,
+                            const std::uint32_t gain_parameter_id,
+                            const std::uint32_t bypass_parameter_id) noexcept {
+  if (bytes.size() < kCompiledGraphHeaderBytes ||
       !std::equal(kCompiledGraphMagic.begin(), kCompiledGraphMagic.end(), bytes.begin()) ||
       detail::read_graph_u16(bytes, 8) != kCompiledGraphMajorVersion ||
       detail::read_graph_u16(bytes, 10) != kCompiledGraphMinorVersion ||
       detail::read_graph_u32(bytes, 12) != kCompiledGraphHeaderBytes ||
-      detail::read_graph_u32(bytes, 16) != bytes.size() ||
-      detail::read_graph_u16(bytes, 20) != kCompiledGraphOperationCount ||
-      detail::read_graph_u32(bytes, 28) != 0) {
+      detail::read_graph_u32(bytes, 16) != bytes.size() || detail::read_graph_u32(bytes, 28) != 0) {
     return std::nullopt;
   }
 
-  GainExecutionPlan plan{};
+  const auto operation_count = detail::read_graph_u16(bytes, 20);
+  if (operation_count < kCompiledGraphMinimumOperationCount ||
+      operation_count > kCompiledGraphMaximumOperationCount ||
+      bytes.size() != detail::compiled_graph_total_bytes(operation_count)) {
+    return std::nullopt;
+  }
+
+  StaticExecutionPlan plan{};
+  plan.operation_count = operation_count;
   plan.buffer_count = detail::read_graph_u16(bytes, 22);
   plan.latency_samples = detail::read_graph_u32(bytes, 24);
   auto offset = kCompiledGraphHeaderBytes;
-  for (std::size_t index = 0; index < kCompiledGraphOperationCount; ++index) {
+  for (std::size_t index = 0; index < operation_count; ++index) {
     if (detail::read_graph_u16(bytes, offset + 6) != 0) {
       return std::nullopt;
     }
@@ -70,7 +79,7 @@ parse_compiled_gain_graph(const std::span<const std::uint8_t> bytes,
         detail::read_graph_u32(bytes, offset + 12), detail::read_graph_u32(bytes, offset + 16)};
     offset += kCompiledGraphOperationBytes;
   }
-  return bind_gain_execution_plan(plan, gain_parameter_id, bypass_parameter_id);
+  return bind_static_execution_plan(plan, gain_parameter_id, bypass_parameter_id);
 }
 
 } // namespace garak::runtime::static_graph

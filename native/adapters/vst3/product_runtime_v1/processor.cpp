@@ -52,7 +52,7 @@ struct ParameterQueues final {
 
 [[nodiscard]] ParameterQueues
 find_parameter_queues(Steinberg::Vst::IParameterChanges* const changes,
-                      const garak::runtime::static_graph::GainExecutionBinding& execution_binding) {
+                      const garak::runtime::static_graph::StaticExecutionBinding& execution_binding) {
   ParameterQueues result{};
   if (changes == nullptr) {
     return result;
@@ -94,7 +94,7 @@ find_parameter_queues(Steinberg::Vst::IParameterChanges* const changes,
 
 template <typename Sample>
 [[nodiscard]] Steinberg::tresult
-process_audio(const garak::runtime::static_graph::GainExecutionBinding& execution_binding,
+process_audio(const garak::runtime::static_graph::StaticExecutionBinding& execution_binding,
               Steinberg::Vst::ProcessData& data, QueuePointSource& gain_source,
               QueuePointSource& bypass_source, double& current_gain, bool& current_bypass) {
   auto& input = data.inputs[0];
@@ -123,7 +123,7 @@ process_audio(const garak::runtime::static_graph::GainExecutionBinding& executio
   }
 
   std::uint64_t output_silence = 0;
-  garak::runtime::static_graph::execute_gain_binding(
+  garak::runtime::static_graph::execute_static_binding(
       execution_binding,
       garak::dsp::gain::ProcessBlockContext<Sample, QueuePointSource, QueuePointSource>{
           input_channels.data(), output_channels.data(), channel_count, data.numSamples,
@@ -138,7 +138,7 @@ process_audio(const garak::runtime::static_graph::GainExecutionBinding& executio
 GainProcessor::GainProcessor(
     garak::runtime::product_v1::Identifier product_id, const double default_gain_normalized,
     const garak::runtime::product_v1::Identifier& controller_class_id,
-    garak::runtime::static_graph::GainExecutionBinding execution_binding) noexcept
+    garak::runtime::static_graph::StaticExecutionBinding execution_binding) noexcept
     : product_id_(product_id), execution_binding_(execution_binding) {
   setControllerClass(class_id(controller_class_id));
   const garak::runtime::product_v1::ProductState defaults{default_gain_normalized, false};
@@ -269,7 +269,7 @@ Steinberg::tresult PLUGIN_API GainProcessor::process(Steinberg::Vst::ProcessData
       std::uint64_t unused_silence = 0;
       std::array<Steinberg::Vst::Sample32*, 1> unused_input{};
       std::array<Steinberg::Vst::Sample32*, 1> unused_output{};
-      garak::runtime::static_graph::execute_gain_binding(
+      garak::runtime::static_graph::execute_static_binding(
           execution_binding_,
           garak::dsp::gain::ProcessBlockContext<Steinberg::Vst::Sample32, QueuePointSource,
                                                 QueuePointSource>{

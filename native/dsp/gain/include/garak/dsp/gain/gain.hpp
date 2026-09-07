@@ -34,6 +34,10 @@ template <typename Sample>
   return output;
 }
 
+template <typename Sample> struct IdentityActiveTransform final {
+  [[nodiscard]] constexpr Sample operator()(const Sample sample) const noexcept { return sample; }
+};
+
 template <typename Sample, typename GainSource, typename BypassSource>
 struct ProcessBlockContext final {
   Sample* const* inputs;
@@ -48,8 +52,9 @@ struct ProcessBlockContext final {
   bool& current_bypass;
 };
 
-template <typename Sample, typename GainSource, typename BypassSource>
-void process_block(const ProcessBlockContext<Sample, GainSource, BypassSource>& context) {
+template <typename Sample, typename GainSource, typename BypassSource, typename ActiveTransform>
+void process_block(const ProcessBlockContext<Sample, GainSource, BypassSource>& context,
+                   const ActiveTransform& active_transform) {
   AutomationTimeline gain_timeline(
       context.gain_source, AutomationBlock{context.sample_count, context.current_gain_normalized});
   AutomationTimeline bypass_timeline(
@@ -85,14 +90,19 @@ void process_block(const ProcessBlockContext<Sample, GainSource, BypassSource>& 
           context.outputs[channel][sample] = context.inputs[channel][sample];
         }
       } else {
-        context.outputs[channel][sample] =
-            processed_sample(context.inputs[channel][sample], linear_gain);
+        context.outputs[channel][sample] = active_transform(
+            processed_sample(context.inputs[channel][sample], linear_gain));
       }
     }
   }
 
   context.current_gain_normalized = gain_timeline.current_value();
   context.current_bypass = bypass_timeline.current_value() >= 0.5;
+}
+
+template <typename Sample, typename GainSource, typename BypassSource>
+void process_block(const ProcessBlockContext<Sample, GainSource, BypassSource>& context) {
+  process_block(context, IdentityActiveTransform<Sample>{});
 }
 
 } // namespace garak::dsp::gain
