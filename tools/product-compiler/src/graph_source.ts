@@ -122,7 +122,8 @@ function requireNodeId(value: unknown, field: string): string {
 
 function requireNodeType(
   value: unknown,
-  schemaVersion: typeof PRODUCT_GRAPH_SCHEMA_V1 | typeof PRODUCT_GRAPH_SCHEMA_VERSION,
+  schemaVersion:
+    typeof PRODUCT_GRAPH_SCHEMA_V1 | typeof PRODUCT_GRAPH_SCHEMA_VERSION,
   field: string,
 ): ProductGraphNodeType {
   if (
@@ -132,7 +133,10 @@ function requireNodeType(
   ) {
     return value;
   }
-  if (schemaVersion === PRODUCT_GRAPH_SCHEMA_VERSION && value === PRODUCT_GRAPH_NODE_TYPE.polarity) {
+  if (
+    schemaVersion === PRODUCT_GRAPH_SCHEMA_VERSION &&
+    value === PRODUCT_GRAPH_NODE_TYPE.polarity
+  ) {
     return value;
   }
   graphFailure(
@@ -145,7 +149,8 @@ function requireNodeType(
 function validateNode(
   value: unknown,
   index: number,
-  schemaVersion: typeof PRODUCT_GRAPH_SCHEMA_V1 | typeof PRODUCT_GRAPH_SCHEMA_VERSION,
+  schemaVersion:
+    typeof PRODUCT_GRAPH_SCHEMA_V1 | typeof PRODUCT_GRAPH_SCHEMA_VERSION,
 ): ProductGraphNode {
   const field = `nodes.${index}`;
   const node = requireObject(value, field);
@@ -159,7 +164,11 @@ function validateNode(
       `Node implementationVersion must be exactly ${PRODUCT_GRAPH_IMPLEMENTATION_VERSION}.`,
     );
   }
-  return { id, type, implementationVersion: PRODUCT_GRAPH_IMPLEMENTATION_VERSION };
+  return {
+    id,
+    type,
+    implementationVersion: PRODUCT_GRAPH_IMPLEMENTATION_VERSION,
+  };
 }
 
 function validateEndpoint(
@@ -198,7 +207,10 @@ function connectionKey(connection: ProductGraphConnection): string {
   return `${connection.from.nodeId}.${connection.from.port}->${connection.to.nodeId}.${connection.to.port}`;
 }
 
-function copyConnection(fromNodeId: string, toNodeId: string): ProductGraphConnection {
+function copyConnection(
+  fromNodeId: string,
+  toNodeId: string,
+): ProductGraphConnection {
   return {
     from: { nodeId: fromNodeId, port: PRODUCT_GRAPH_AUDIO_PORT },
     to: { nodeId: toNodeId, port: PRODUCT_GRAPH_AUDIO_PORT },
@@ -252,10 +264,15 @@ function assertAcyclic(
     outgoing.set(nodeId, []);
   }
   for (const connection of connections) {
-    indegree.set(connection.to.nodeId, (indegree.get(connection.to.nodeId) ?? 0) + 1);
+    indegree.set(
+      connection.to.nodeId,
+      (indegree.get(connection.to.nodeId) ?? 0) + 1,
+    );
     outgoing.get(connection.from.nodeId)?.push(connection.to.nodeId);
   }
-  const queue = [...nodesById.keys()].filter((nodeId) => indegree.get(nodeId) === 0);
+  const queue = [...nodesById.keys()].filter(
+    (nodeId) => indegree.get(nodeId) === 0,
+  );
   let visited = 0;
   while (queue.length > 0) {
     const nodeId = queue.shift();
@@ -282,7 +299,8 @@ function assertAcyclic(
 
 function validateGraphCommon(
   value: unknown,
-  schemaVersion: typeof PRODUCT_GRAPH_SCHEMA_V1 | typeof PRODUCT_GRAPH_SCHEMA_VERSION,
+  schemaVersion:
+    typeof PRODUCT_GRAPH_SCHEMA_V1 | typeof PRODUCT_GRAPH_SCHEMA_VERSION,
 ): ValidatedGraphCommon {
   const graph = requireObject(value, "");
   assertExactKeys(graph, GRAPH_KEYS, "", schemaVersion);
@@ -294,7 +312,11 @@ function validateGraphCommon(
     );
   }
   if (!Array.isArray(graph.nodes)) {
-    graphFailure("GARAK_PROJECT_GRAPH_WRONG_TYPE", "nodes", "graph.nodes must be an array.");
+    graphFailure(
+      "GARAK_PROJECT_GRAPH_WRONG_TYPE",
+      "nodes",
+      "graph.nodes must be an array.",
+    );
   }
   if (!Array.isArray(graph.connections)) {
     graphFailure(
@@ -322,7 +344,9 @@ function validateGraphCommon(
     );
   }
 
-  const nodes = graph.nodes.map((node, index) => validateNode(node, index, schemaVersion));
+  const nodes = graph.nodes.map((node, index) =>
+    validateNode(node, index, schemaVersion),
+  );
   const nodesById = new Map<string, ProductGraphNode>();
   const nodesByType = new Map<ProductGraphNodeType, ProductGraphNode>();
   for (const node of nodes) {
@@ -347,8 +371,15 @@ function validateGraphCommon(
   const connections: ProductGraphConnection[] = [];
   const connectionKeys = new Set<string>();
   for (let index = 0; index < graph.connections.length; index += 1) {
-    const connection = validateConnection(graph.connections[index], index, schemaVersion);
-    if (!nodesById.has(connection.from.nodeId) || !nodesById.has(connection.to.nodeId)) {
+    const connection = validateConnection(
+      graph.connections[index],
+      index,
+      schemaVersion,
+    );
+    if (
+      !nodesById.has(connection.from.nodeId) ||
+      !nodesById.has(connection.to.nodeId)
+    ) {
       graphFailure(
         "GARAK_PROJECT_GRAPH_MISSING_ENDPOINT",
         `connections.${index}`,
@@ -419,11 +450,26 @@ export function canonicalProductGraphSourceV1(): ProductGraphSourceV1 {
   return {
     schemaVersion: PRODUCT_GRAPH_SCHEMA_V1,
     nodes: [
-      { id: "input", type: PRODUCT_GRAPH_NODE_TYPE.audioInput, implementationVersion: 1 },
-      { id: "gain", type: PRODUCT_GRAPH_NODE_TYPE.gain, implementationVersion: 1 },
-      { id: "output", type: PRODUCT_GRAPH_NODE_TYPE.audioOutput, implementationVersion: 1 },
+      {
+        id: "input",
+        type: PRODUCT_GRAPH_NODE_TYPE.audioInput,
+        implementationVersion: 1,
+      },
+      {
+        id: "gain",
+        type: PRODUCT_GRAPH_NODE_TYPE.gain,
+        implementationVersion: 1,
+      },
+      {
+        id: "output",
+        type: PRODUCT_GRAPH_NODE_TYPE.audioOutput,
+        implementationVersion: 1,
+      },
     ],
-    connections: [copyConnection("input", "gain"), copyConnection("gain", "output")],
+    connections: [
+      copyConnection("input", "gain"),
+      copyConnection("gain", "output"),
+    ],
   };
 }
 
@@ -435,10 +481,26 @@ export function canonicalPolarityProductGraphSource(): ProductGraphSource {
   return {
     schemaVersion: PRODUCT_GRAPH_SCHEMA_VERSION,
     nodes: [
-      { id: "input", type: PRODUCT_GRAPH_NODE_TYPE.audioInput, implementationVersion: 1 },
-      { id: "gain", type: PRODUCT_GRAPH_NODE_TYPE.gain, implementationVersion: 1 },
-      { id: "polarity", type: PRODUCT_GRAPH_NODE_TYPE.polarity, implementationVersion: 1 },
-      { id: "output", type: PRODUCT_GRAPH_NODE_TYPE.audioOutput, implementationVersion: 1 },
+      {
+        id: "input",
+        type: PRODUCT_GRAPH_NODE_TYPE.audioInput,
+        implementationVersion: 1,
+      },
+      {
+        id: "gain",
+        type: PRODUCT_GRAPH_NODE_TYPE.gain,
+        implementationVersion: 1,
+      },
+      {
+        id: "polarity",
+        type: PRODUCT_GRAPH_NODE_TYPE.polarity,
+        implementationVersion: 1,
+      },
+      {
+        id: "output",
+        type: PRODUCT_GRAPH_NODE_TYPE.audioOutput,
+        implementationVersion: 1,
+      },
     ],
     connections: [
       copyConnection("input", "gain"),
@@ -448,11 +510,22 @@ export function canonicalPolarityProductGraphSource(): ProductGraphSource {
   };
 }
 
-export function validateProductGraphSourceV1(value: unknown): ProductGraphSourceV1 {
+export function validateProductGraphSourceV1(
+  value: unknown,
+): ProductGraphSourceV1 {
   const validated = validateGraphCommon(value, PRODUCT_GRAPH_SCHEMA_V1);
-  const input = requiredNode(validated.nodesByType, PRODUCT_GRAPH_NODE_TYPE.audioInput);
-  const gain = requiredNode(validated.nodesByType, PRODUCT_GRAPH_NODE_TYPE.gain);
-  const output = requiredNode(validated.nodesByType, PRODUCT_GRAPH_NODE_TYPE.audioOutput);
+  const input = requiredNode(
+    validated.nodesByType,
+    PRODUCT_GRAPH_NODE_TYPE.audioInput,
+  );
+  const gain = requiredNode(
+    validated.nodesByType,
+    PRODUCT_GRAPH_NODE_TYPE.gain,
+  );
+  const output = requiredNode(
+    validated.nodesByType,
+    PRODUCT_GRAPH_NODE_TYPE.audioOutput,
+  );
   const ordered: readonly ProductGraphNodeV1[] = [input, gain, output];
   if (validated.nodes.length !== ordered.length) {
     graphFailure(
@@ -461,19 +534,35 @@ export function validateProductGraphSourceV1(value: unknown): ProductGraphSource
       "Graph source v1 must contain exactly Audio Input, Gain, and Audio Output.",
     );
   }
-  assertExactLinearTopology(validated.connectionKeys, ordered, PRODUCT_GRAPH_SCHEMA_V1);
+  assertExactLinearTopology(
+    validated.connectionKeys,
+    ordered,
+    PRODUCT_GRAPH_SCHEMA_V1,
+  );
   return {
     schemaVersion: PRODUCT_GRAPH_SCHEMA_V1,
     nodes: ordered.map((node) => ({ ...node })),
-    connections: [copyConnection(input.id, gain.id), copyConnection(gain.id, output.id)],
+    connections: [
+      copyConnection(input.id, gain.id),
+      copyConnection(gain.id, output.id),
+    ],
   };
 }
 
 export function validateProductGraphSource(value: unknown): ProductGraphSource {
   const validated = validateGraphCommon(value, PRODUCT_GRAPH_SCHEMA_VERSION);
-  const input = requiredNode(validated.nodesByType, PRODUCT_GRAPH_NODE_TYPE.audioInput);
-  const gain = requiredNode(validated.nodesByType, PRODUCT_GRAPH_NODE_TYPE.gain);
-  const output = requiredNode(validated.nodesByType, PRODUCT_GRAPH_NODE_TYPE.audioOutput);
+  const input = requiredNode(
+    validated.nodesByType,
+    PRODUCT_GRAPH_NODE_TYPE.audioInput,
+  );
+  const gain = requiredNode(
+    validated.nodesByType,
+    PRODUCT_GRAPH_NODE_TYPE.gain,
+  );
+  const output = requiredNode(
+    validated.nodesByType,
+    PRODUCT_GRAPH_NODE_TYPE.audioOutput,
+  );
   const polarity = validated.nodesByType.get(PRODUCT_GRAPH_NODE_TYPE.polarity);
   const ordered =
     polarity === undefined
@@ -491,7 +580,11 @@ export function validateProductGraphSource(value: unknown): ProductGraphSource {
       "Graph source v2 contains an unsupported node set.",
     );
   }
-  assertExactLinearTopology(validated.connectionKeys, ordered, PRODUCT_GRAPH_SCHEMA_VERSION);
+  assertExactLinearTopology(
+    validated.connectionKeys,
+    ordered,
+    PRODUCT_GRAPH_SCHEMA_VERSION,
+  );
   return {
     schemaVersion: PRODUCT_GRAPH_SCHEMA_VERSION,
     nodes: ordered.map((node) => ({ ...node })),
@@ -509,7 +602,9 @@ export function validateProductGraphSource(value: unknown): ProductGraphSource {
   };
 }
 
-export function migrateProductGraphV1ToV2(source: ProductGraphSourceV1): ProductGraphSource {
+export function migrateProductGraphV1ToV2(
+  source: ProductGraphSourceV1,
+): ProductGraphSource {
   const validated = validateProductGraphSourceV1(source);
   return validateProductGraphSource({
     schemaVersion: PRODUCT_GRAPH_SCHEMA_VERSION,
@@ -521,10 +616,14 @@ export function migrateProductGraphV1ToV2(source: ProductGraphSourceV1): Product
   });
 }
 
-export function cloneProductGraphSource(source: ProductGraphSource): ProductGraphSource {
+export function cloneProductGraphSource(
+  source: ProductGraphSource,
+): ProductGraphSource {
   return validateProductGraphSource(source);
 }
 
-export function cloneProductGraphSourceV1(source: ProductGraphSourceV1): ProductGraphSourceV1 {
+export function cloneProductGraphSourceV1(
+  source: ProductGraphSourceV1,
+): ProductGraphSourceV1 {
   return validateProductGraphSourceV1(source);
 }

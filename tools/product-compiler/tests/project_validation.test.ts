@@ -298,10 +298,22 @@ test("uses separate exact v1, v2, v3, and v4 validators", async () => {
   const legacyV2 = mutableLegacyV2WarmProduct();
   const legacyV3 = mutableLegacyV3WarmProduct();
   const current = mutableWarmProduct();
-  assert.equal(validateProjectSchemaV1(legacy, "legacy.garak").schemaVersion, 1);
-  assert.equal(validateProjectSchemaV2(legacyV2, "legacy-v2.garak").schemaVersion, 2);
-  assert.equal(validateProjectSchemaV3(legacyV3, "legacy-v3.garak").schemaVersion, 3);
-  assert.equal(validateProjectSchemaV4(current, "current.garak").schemaVersion, 4);
+  assert.equal(
+    validateProjectSchemaV1(legacy, "legacy.garak").schemaVersion,
+    1,
+  );
+  assert.equal(
+    validateProjectSchemaV2(legacyV2, "legacy-v2.garak").schemaVersion,
+    2,
+  );
+  assert.equal(
+    validateProjectSchemaV3(legacyV3, "legacy-v3.garak").schemaVersion,
+    3,
+  );
+  assert.equal(
+    validateProjectSchemaV4(current, "current.garak").schemaVersion,
+    4,
+  );
 
   await expectProductError(
     () => validateProjectSchemaV1(current, "current.garak"),

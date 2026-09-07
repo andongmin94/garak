@@ -64,7 +64,10 @@ function customIdGraph() {
 }
 
 test("pure v1-to-v2 migration preserves product meaning without mutating source", () => {
-  const source = validateProjectSchemaV1(mutableLegacyWarmProduct(), "legacy-warm.garak");
+  const source = validateProjectSchemaV1(
+    mutableLegacyWarmProduct(),
+    "legacy-warm.garak",
+  );
   const before = structuredClone(source);
   const migrated = migrateProjectV1ToV2(source);
   assert.deepEqual(source, before);
@@ -75,7 +78,10 @@ test("pure v1-to-v2 migration preserves product meaning without mutating source"
 });
 
 test("pure v2-to-v3 and v3-to-v4 migrations preserve the exact Gain-only graph meaning", () => {
-  const v2 = validateProjectSchemaV2(mutableLegacyV2WarmProduct(), "legacy-v2-warm.garak");
+  const v2 = validateProjectSchemaV2(
+    mutableLegacyV2WarmProduct(),
+    "legacy-v2-warm.garak",
+  );
   const v2Before = structuredClone(v2);
   const v3 = migrateProjectV2ToV3(v2);
   assert.deepEqual(v2, v2Before);
@@ -85,11 +91,17 @@ test("pure v2-to-v3 and v3-to-v4 migrations preserve the exact Gain-only graph m
   const v4 = migrateProjectV3ToV4(v3);
   assert.deepEqual(v3, v3Before);
   assert.deepEqual(v4.graph, canonicalProductGraphSource());
-  assert.equal(assertProjectMigrationInvariants(v2, v4).productSemanticsChanged, false);
+  assert.equal(
+    assertProjectMigrationInvariants(v2, v4).productSemanticsChanged,
+    false,
+  );
 });
 
 test("migration chain reports ordered v1/v2/v3 steps and a v4 no-op", () => {
-  const legacyV1 = validateProjectSchemaV1(mutableLegacyWarmProduct(), "legacy-v1-warm.garak");
+  const legacyV1 = validateProjectSchemaV1(
+    mutableLegacyWarmProduct(),
+    "legacy-v1-warm.garak",
+  );
   assert.deepEqual(migrateValidatedProjectToCurrent(legacyV1).schemaStatus, {
     sourceSchemaVersion: 1,
     currentSchemaVersion: 4,
@@ -101,7 +113,10 @@ test("migration chain reports ordered v1/v2/v3 steps and a v4 no-op", () => {
     ],
   });
 
-  const legacyV2 = validateProjectSchemaV2(mutableLegacyV2WarmProduct(), "legacy-v2-warm.garak");
+  const legacyV2 = validateProjectSchemaV2(
+    mutableLegacyV2WarmProduct(),
+    "legacy-v2-warm.garak",
+  );
   assert.deepEqual(migrateValidatedProjectToCurrent(legacyV2).schemaStatus, {
     sourceSchemaVersion: 2,
     currentSchemaVersion: 4,
@@ -109,7 +124,10 @@ test("migration chain reports ordered v1/v2/v3 steps and a v4 no-op", () => {
     steps: [PROJECT_MIGRATION_STEP_V2_TO_V3, PROJECT_MIGRATION_STEP_V3_TO_V4],
   });
 
-  const legacyV3 = validateProjectSchemaV3(mutableLegacyV3WarmProduct(), "legacy-v3-warm.garak");
+  const legacyV3 = validateProjectSchemaV3(
+    mutableLegacyV3WarmProduct(),
+    "legacy-v3-warm.garak",
+  );
   assert.deepEqual(migrateValidatedProjectToCurrent(legacyV3).schemaStatus, {
     sourceSchemaVersion: 3,
     currentSchemaVersion: 4,
@@ -117,7 +135,10 @@ test("migration chain reports ordered v1/v2/v3 steps and a v4 no-op", () => {
     steps: [PROJECT_MIGRATION_STEP_V3_TO_V4],
   });
 
-  const current = validateProjectSchemaV4(mutableWarmProduct(), "current-warm.garak");
+  const current = validateProjectSchemaV4(
+    mutableWarmProduct(),
+    "current-warm.garak",
+  );
   const currentResult = migrateValidatedProjectToCurrent(current);
   assert.deepEqual(currentResult.project, current);
   assert.deepEqual(currentResult.schemaStatus, {
@@ -129,7 +150,10 @@ test("migration chain reports ordered v1/v2/v3 steps and a v4 no-op", () => {
 });
 
 test("migration invariants reject identity, defaults, metadata, and graph drift", () => {
-  const source = validateProjectSchemaV3(mutableLegacyV3WarmProduct(), "legacy-v3-warm.garak");
+  const source = validateProjectSchemaV3(
+    mutableLegacyV3WarmProduct(),
+    "legacy-v3-warm.garak",
+  );
   const target = migrateProjectV3ToV4(source);
   const disconnectedGraph = {
     ...target.graph,
@@ -150,12 +174,15 @@ test("migration invariants reject identity, defaults, metadata, and graph drift"
   ]) {
     assert.throws(
       () => assertProjectMigrationInvariants(source, changed),
-      (error: unknown) => diagnosticFor(error).code === "GARAK_MIGRATION_INVARIANT",
+      (error: unknown) =>
+        diagnosticFor(error).code === "GARAK_MIGRATION_INVARIANT",
     );
   }
   assert.equal(
-    assertProjectMigrationInvariants(source, { ...target, graph: customIdGraph() })
-      .productSemanticsChanged,
+    assertProjectMigrationInvariants(source, {
+      ...target,
+      graph: customIdGraph(),
+    }).productSemanticsChanged,
     false,
   );
 });
@@ -172,7 +199,10 @@ test("canonical v4 serialization normalizes order and negative zero", () => {
   assert.equal(serialized.endsWith("\n"), true);
   assert.equal(serialized.includes("\r"), false);
 
-  const reparsed = validateProjectSchemaV4(JSON.parse(serialized) as unknown, "reparsed.garak");
+  const reparsed = validateProjectSchemaV4(
+    JSON.parse(serialized) as unknown,
+    "reparsed.garak",
+  );
   assert.equal(Object.is(reparsed.defaults.gainDb, -0), false);
   assert.deepEqual(
     reparsed.graph.nodes.map((node) => node.type),
@@ -196,9 +226,14 @@ test("Warm and Bright tracked v4 fixtures are exact canonical SHA-256 oracles", 
   ] as const) {
     const project = validateProjectSchemaV4(source, `${name}.garak`);
     const canonical = serializeCanonicalProductProject(project);
-    const tracked = await readFile(path.join(repositoryRoot, "examples/products", fixture, "product.json"));
+    const tracked = await readFile(
+      path.join(repositoryRoot, "examples/products", fixture, "product.json"),
+    );
     assert.equal(tracked.toString("utf8"), canonical);
-    const sha = createHash("sha256").update(tracked).digest("hex").toUpperCase();
+    const sha = createHash("sha256")
+      .update(tracked)
+      .digest("hex")
+      .toUpperCase();
     assert.equal(sha, CURRENT_PROJECT_SHA256[name]);
   }
 });
@@ -208,7 +243,8 @@ test("graph cloning preserves authoring identity without sharing nested objects"
   const cloned = cloneProductGraphSource(graph);
   assert.deepEqual(
     cloned,
-    validateProjectSchemaV4({ ...mutableWarmProduct(), graph }, "clone.garak").graph,
+    validateProjectSchemaV4({ ...mutableWarmProduct(), graph }, "clone.garak")
+      .graph,
   );
   assert.notStrictEqual(cloned, graph);
   assert.notStrictEqual(cloned.nodes[0], graph.nodes[0]);
@@ -217,6 +253,7 @@ test("graph cloning preserves authoring identity without sharing nested objects"
 test("Polarity source is valid v2 authoring data but GARAKGRF 1.0 rejects it fail-closed", () => {
   assert.throws(
     () => compileProductGraph(canonicalPolarityProductGraphSource()),
-    (error: unknown) => diagnosticFor(error).code === "GARAK_COMPILED_GRAPH_SOURCE_UNSUPPORTED",
+    (error: unknown) =>
+      diagnosticFor(error).code === "GARAK_COMPILED_GRAPH_SOURCE_UNSUPPORTED",
   );
 });

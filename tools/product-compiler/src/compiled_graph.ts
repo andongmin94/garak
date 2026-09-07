@@ -50,9 +50,13 @@ function graphFailure(code: string, field: string, message: string): never {
   );
 }
 
-export function compileProductGraph(source: ProductGraphSource): CompiledGraphPlan {
+export function compileProductGraph(
+  source: ProductGraphSource,
+): CompiledGraphPlan {
   const graph = validateProductGraphSource(source);
-  if (graph.nodes.some((node) => node.type === PRODUCT_GRAPH_NODE_TYPE.polarity)) {
+  if (
+    graph.nodes.some((node) => node.type === PRODUCT_GRAPH_NODE_TYPE.polarity)
+  ) {
     graphFailure(
       "GARAK_COMPILED_GRAPH_SOURCE_UNSUPPORTED",
       "source",

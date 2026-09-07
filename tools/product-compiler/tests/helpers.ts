@@ -54,39 +54,42 @@ export const WARM_PRODUCT_JSON: Readonly<MutableProductJson> = Object.freeze({
   graph: Object.freeze(canonicalProductGraphSource()),
 });
 
-export const LEGACY_V3_WARM_PRODUCT_JSON: Readonly<MutableProductJson> = Object.freeze({
-  schemaVersion: 3,
-  productId: "6f0e50f1-a2d4-4b37-8c9e-1f2a3b4c5d6e",
-  vendor: "Garak Test Artist",
-  name: "Artist Gain Warm",
-  version: "0.1.0",
-  category: "Fx",
-  template: Object.freeze({ id: "garak.gain", version: 1 }),
-  defaults: Object.freeze({ gainDb: -6 }),
-  graph: Object.freeze(canonicalProductGraphSourceV1()),
-});
+export const LEGACY_V3_WARM_PRODUCT_JSON: Readonly<MutableProductJson> =
+  Object.freeze({
+    schemaVersion: 3,
+    productId: "6f0e50f1-a2d4-4b37-8c9e-1f2a3b4c5d6e",
+    vendor: "Garak Test Artist",
+    name: "Artist Gain Warm",
+    version: "0.1.0",
+    category: "Fx",
+    template: Object.freeze({ id: "garak.gain", version: 1 }),
+    defaults: Object.freeze({ gainDb: -6 }),
+    graph: Object.freeze(canonicalProductGraphSourceV1()),
+  });
 
-export const LEGACY_V2_WARM_PRODUCT_JSON: Readonly<MutableProductJson> = Object.freeze({
-  schemaVersion: 2,
-  productId: "6f0e50f1-a2d4-4b37-8c9e-1f2a3b4c5d6e",
-  vendor: "Garak Test Artist",
-  name: "Artist Gain Warm",
-  version: "0.1.0",
-  category: "Fx",
-  template: Object.freeze({ id: "garak.gain", version: 1 }),
-  defaults: Object.freeze({ gainDb: -6 }),
-});
+export const LEGACY_V2_WARM_PRODUCT_JSON: Readonly<MutableProductJson> =
+  Object.freeze({
+    schemaVersion: 2,
+    productId: "6f0e50f1-a2d4-4b37-8c9e-1f2a3b4c5d6e",
+    vendor: "Garak Test Artist",
+    name: "Artist Gain Warm",
+    version: "0.1.0",
+    category: "Fx",
+    template: Object.freeze({ id: "garak.gain", version: 1 }),
+    defaults: Object.freeze({ gainDb: -6 }),
+  });
 
-export const LEGACY_WARM_PRODUCT_JSON: Readonly<MutableProductJson> = Object.freeze({
-  schemaVersion: 1,
-  productId: "6f0e50f1-a2d4-4b37-8c9e-1f2a3b4c5d6e",
-  vendor: "Garak Test Artist",
-  name: "Artist Gain Warm",
-  version: "0.1.0",
-  category: "Fx",
-  template: "garak.gain-v1",
-  defaults: Object.freeze({ gainDb: -6 }),
-});
+export const LEGACY_WARM_PRODUCT_JSON: Readonly<MutableProductJson> =
+  Object.freeze({
+    schemaVersion: 1,
+    productId: "6f0e50f1-a2d4-4b37-8c9e-1f2a3b4c5d6e",
+    vendor: "Garak Test Artist",
+    name: "Artist Gain Warm",
+    version: "0.1.0",
+    category: "Fx",
+    template: "garak.gain-v1",
+    defaults: Object.freeze({ gainDb: -6 }),
+  });
 
 export function mutableWarmProduct(): MutableProductJson {
   return {
@@ -145,7 +148,9 @@ export function mutableLegacyWarmProduct(): MutableProductJson {
 export async function withTemporaryDirectory<T>(
   operation: (directory: string) => Promise<T>,
 ): Promise<T> {
-  const directory = await mkdtemp(path.join(tmpdir(), "garak-product-compiler-"));
+  const directory = await mkdtemp(
+    path.join(tmpdir(), "garak-product-compiler-"),
+  );
   try {
     return await operation(directory);
   } finally {
@@ -186,7 +191,10 @@ export async function expectProductError(
   try {
     await operation();
   } catch (error) {
-    if (error instanceof ProductCompilerError && error.diagnostic.code === expectedCode) {
+    if (
+      error instanceof ProductCompilerError &&
+      error.diagnostic.code === expectedCode
+    ) {
       return;
     }
     throw error;
@@ -247,7 +255,10 @@ export function fakeProcessRunner(
   return async (request: ProcessRequest): Promise<ProcessResult> => {
     const executable = path.basename(request.executable).toLowerCase();
     let phase: FakeToolFailure["executable"];
-    if (executable === "moduleinfotool.exe" && request.arguments[0] === "-create") {
+    if (
+      executable === "moduleinfotool.exe" &&
+      request.arguments[0] === "-create"
+    ) {
       phase = "moduleinfo-create";
       if (failure?.executable !== phase) {
         const output = valueAfter(request.arguments, "-output");
@@ -268,16 +279,26 @@ export function fakeProcessRunner(
         ["--processor-fuid", identity.processorFuid],
         ["--controller-fuid", identity.controllerFuid],
         ["--gain-id", String(GAIN_PARAMETER_ID)],
-        ["--gain-default-normalized", String(normalizedGainDefault(project.defaults.gainDb))],
+        [
+          "--gain-default-normalized",
+          String(normalizedGainDefault(project.defaults.gainDb)),
+        ],
         ["--bypass-id", String(BYPASS_PARAMETER_ID)],
         ["--bypass-default-normalized", "0"],
       ]);
-      if (request.arguments.length !== 26 || !request.arguments.includes("--bundle")) {
-        throw new Error("Inspector argument inventory does not match its exact CLI contract.");
+      if (
+        request.arguments.length !== 26 ||
+        !request.arguments.includes("--bundle")
+      ) {
+        throw new Error(
+          "Inspector argument inventory does not match its exact CLI contract.",
+        );
       }
       for (const [option, value] of expected) {
         if (valueAfter(request.arguments, option) !== value) {
-          throw new Error(`Inspector argument ${option} did not match the project contract.`);
+          throw new Error(
+            `Inspector argument ${option} did not match the project contract.`,
+          );
         }
       }
     } else if (request.arguments[0] === "-e") {
@@ -291,7 +312,9 @@ export function fakeProcessRunner(
   };
 }
 
-export async function createFakeArtifacts(parent: string): Promise<ProductRuntimeArtifacts> {
+export async function createFakeArtifacts(
+  parent: string,
+): Promise<ProductRuntimeArtifacts> {
   const artifactRoot = path.join(parent, "artifacts");
   const templateBundle = path.join(
     artifactRoot,
@@ -320,10 +343,19 @@ export async function createFakeArtifacts(parent: string): Promise<ProductRuntim
     writeFile(inspector, ""),
     writeFile(validator, ""),
   ]);
-  return { artifactRoot, templateBundle, templateInnerModule, moduleInfoTool, inspector, validator };
+  return {
+    artifactRoot,
+    templateBundle,
+    templateInnerModule,
+    moduleInfoTool,
+    inspector,
+    validator,
+  };
 }
 
-export async function loadTemporaryWarmProject(parent: string): Promise<ProductProject> {
+export async function loadTemporaryWarmProject(
+  parent: string,
+): Promise<ProductProject> {
   return await loadProductProject(await writeProject(parent));
 }
 
@@ -338,7 +370,10 @@ export async function bundleSnapshot(
       if (entry.isDirectory()) {
         await visit(absolute);
       } else if (entry.isFile()) {
-        result.set(path.relative(bundlePath, absolute), (await readFile(absolute)).toString("hex"));
+        result.set(
+          path.relative(bundlePath, absolute),
+          (await readFile(absolute)).toString("hex"),
+        );
       }
     }
   };

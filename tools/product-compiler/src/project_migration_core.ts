@@ -55,7 +55,10 @@ function sourceTemplateName(source: ProductProjectSource): string {
 }
 
 function currentGraphForSource(source: ProductProjectSource) {
-  if (source.schemaVersion === PRODUCT_SCHEMA_V1 || source.schemaVersion === PRODUCT_SCHEMA_V2) {
+  if (
+    source.schemaVersion === PRODUCT_SCHEMA_V1 ||
+    source.schemaVersion === PRODUCT_SCHEMA_V2
+  ) {
     return migrateProductGraphV1ToV2(canonicalProductGraphSourceV1());
   }
   if (source.schemaVersion === PRODUCT_SCHEMA_V3) {
@@ -64,9 +67,14 @@ function currentGraphForSource(source: ProductProjectSource) {
   return source.graph;
 }
 
-function graphSemanticsChanged(source: ProductProjectSource, target: ProductProject): boolean {
+function graphSemanticsChanged(
+  source: ProductProjectSource,
+  target: ProductProject,
+): boolean {
   try {
-    const sourceBytes = encodeCompiledGraph(compileProductGraph(currentGraphForSource(source)));
+    const sourceBytes = encodeCompiledGraph(
+      compileProductGraph(currentGraphForSource(source)),
+    );
     const targetBytes = encodeCompiledGraph(compileProductGraph(target.graph));
     return !sourceBytes.equals(targetBytes);
   } catch {
@@ -103,7 +111,12 @@ export function assertProjectMigrationInvariants(
       "Project migration changed persistent identity or product semantics.",
     );
   }
-  return { sourceIdentity, targetIdentity, identityChanged, productSemanticsChanged };
+  return {
+    sourceIdentity,
+    targetIdentity,
+    identityChanged,
+    productSemanticsChanged,
+  };
 }
 
 export function migrateProjectV1ToV2(
@@ -139,7 +152,9 @@ export function migrateProjectV2ToV3(
   };
 }
 
-export function migrateProjectV3ToV4(source: ProductProjectSourceV3): ProductProject {
+export function migrateProjectV3ToV4(
+  source: ProductProjectSourceV3,
+): ProductProject {
   return {
     schemaVersion: PRODUCT_SCHEMA_V4,
     productId: source.productId,
@@ -212,7 +227,9 @@ export function migrateValidatedProjectToCurrent(
   };
 }
 
-export function serializeCanonicalProductProject(project: ProductProject): string {
+export function serializeCanonicalProductProject(
+  project: ProductProject,
+): string {
   const graph = cloneProductGraphSource(project.graph);
   const document = {
     schemaVersion: PRODUCT_SCHEMA_VERSION,
@@ -222,7 +239,11 @@ export function serializeCanonicalProductProject(project: ProductProject): strin
     version: project.version,
     category: PRODUCT_CATEGORY,
     template: { id: project.template.id, version: project.template.version },
-    defaults: { gainDb: Object.is(project.defaults.gainDb, -0) ? 0 : project.defaults.gainDb },
+    defaults: {
+      gainDb: Object.is(project.defaults.gainDb, -0)
+        ? 0
+        : project.defaults.gainDb,
+    },
     graph: {
       schemaVersion: graph.schemaVersion,
       nodes: graph.nodes.map((node) => ({

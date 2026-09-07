@@ -1,4 +1,7 @@
-import type { ProductGraphSource, ProductGraphSourceV1 } from "./graph_source.ts";
+import type {
+  ProductGraphSource,
+  ProductGraphSourceV1,
+} from "./graph_source.ts";
 
 export const PRODUCT_SCHEMA_V1 = 1 as const;
 export const PRODUCT_SCHEMA_V2 = 2 as const;
@@ -77,9 +80,7 @@ export type ProductProjectSource =
   | ProductProjectSourceV3
   | ProductProjectSourceV4;
 export type ProjectMigrationStepId =
-  | "project-schema-1-to-2"
-  | "project-schema-2-to-3"
-  | "project-schema-3-to-4";
+  "project-schema-1-to-2" | "project-schema-2-to-3" | "project-schema-3-to-4";
 export type SupportedProductSchemaVersion =
   | typeof PRODUCT_SCHEMA_V1
   | typeof PRODUCT_SCHEMA_V2

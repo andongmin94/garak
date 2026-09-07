@@ -8,7 +8,7 @@ permissions:
   contents: read
 
 jobs:
-  format-snapshot:
+  verify:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -17,22 +17,27 @@ jobs:
           node-version: '24'
       - run: corepack enable
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --dir tools/product-compiler format
-      - name: Collect formatted files
+      - name: Run all Product Compiler and Studio gates
+        shell: bash
         run: |
-          mkdir -p formatted
-          cp --parents \
-            tools/product-compiler/src/compiled_graph.ts \
-            tools/product-compiler/src/graph_source.ts \
-            tools/product-compiler/src/project_migration_core.ts \
-            tools/product-compiler/src/project_model.ts \
-            tools/product-compiler/src/validation.ts \
-            tools/product-compiler/tests/helpers.ts \
-            tools/product-compiler/tests/project_migration_core.test.ts \
-            tools/product-compiler/tests/project_validation.test.ts \
-            formatted/
-      - uses: actions/upload-artifact@v4
-        with:
-          name: phase-3d1-prettier
-          path: formatted
-          if-no-files-found: error
+          set +e
+          status=0
+          run_gate() {
+            echo "::group::$*"
+            "$@"
+            code=$?
+            echo "::endgroup::"
+            if [ "$code" -ne 0 ]; then
+              status=1
+            fi
+          }
+          run_gate pnpm product:format:check
+          run_gate pnpm product:lint
+          run_gate pnpm product:typecheck
+          run_gate pnpm product:test
+          run_gate pnpm studio:format:check
+          run_gate pnpm studio:lint
+          run_gate pnpm studio:typecheck
+          run_gate pnpm studio:test
+          run_gate pnpm studio:build
+          exit "$status"
