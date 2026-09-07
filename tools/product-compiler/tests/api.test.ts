@@ -84,12 +84,7 @@ test("callable validation and inspection facade preserves the CLI result contrac
   assert.equal(invertedProject.defaults.gainDb, 0);
   assert.deepEqual(
     invertedProject.graph.nodes.map(({ type }) => type),
-    [
-      "garak.audio-input",
-      "garak.gain",
-      "garak.polarity",
-      "garak.audio-output",
-    ],
+    ["garak.audio-input", "garak.gain", "garak.polarity", "garak.audio-output"],
   );
   assert.equal(
     invertedInspection.processorFuid,
