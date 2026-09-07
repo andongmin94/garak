@@ -17,6 +17,7 @@ jobs:
           node-version: '24'
       - run: corepack enable
       - run: pnpm install --frozen-lockfile
+      - run: pnpm --dir tools/product-compiler exec prettier tests/api.test.ts
       - run: pnpm product:format:check
       - run: pnpm product:lint
       - run: pnpm product:typecheck
