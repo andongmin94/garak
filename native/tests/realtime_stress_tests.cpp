@@ -147,15 +147,18 @@ struct StressResult final {
 template <bool Polarity> [[nodiscard]] constexpr auto make_stress_execution_binding() noexcept {
   if constexpr (Polarity) {
     return StaticExecutionBinding::gain_polarity(kParameterIds);
+  } else {
+    return StaticExecutionBinding::gain_only(kParameterIds);
   }
-  return StaticExecutionBinding::gain_only(kParameterIds);
 }
 
 template <typename Sample>
 [[nodiscard]] bool near(const Sample actual, const Sample expected) noexcept {
-  if constexpr (std::is_same_v<Sample, float>)
+  if constexpr (std::is_same_v<Sample, float>) {
     return std::abs(actual - expected) <= 1.0e-5F;
-  return std::abs(actual - expected) <= 1.0e-12;
+  } else {
+    return std::abs(actual - expected) <= 1.0e-12;
+  }
 }
 
 template <typename Sample, bool Polarity> [[nodiscard]] StressResult run() noexcept {
