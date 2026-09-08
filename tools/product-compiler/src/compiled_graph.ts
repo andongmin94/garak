@@ -78,14 +78,18 @@ function postGainOperationType(source: ProductGraphSource): number | null {
     return COMPILED_GRAPH_OPERATION_TYPE.polarity;
   }
   if (
-    graph.nodes.some((node) => node.type === PRODUCT_GRAPH_NODE_TYPE.saturation)
+    graph.nodes.some(
+      (node) => node.type === PRODUCT_GRAPH_NODE_TYPE.saturation,
+    )
   ) {
     return COMPILED_GRAPH_OPERATION_TYPE.saturation;
   }
   return null;
 }
 
-export function compileProductGraph(source: ProductGraphSource): CompiledGraphPlan {
+export function compileProductGraph(
+  source: ProductGraphSource,
+): CompiledGraphPlan {
   const postGainType = postGainOperationType(source);
   if (postGainType === null) {
     return {
@@ -156,7 +160,10 @@ export function canonicalSaturationGraphPlan(): CompiledGraphPlan {
   return compileProductGraph(canonicalSaturationProductGraphSource());
 }
 
-function plansEqual(left: CompiledGraphPlan, right: CompiledGraphPlan): boolean {
+function plansEqual(
+  left: CompiledGraphPlan,
+  right: CompiledGraphPlan,
+): boolean {
   return (
     left.bufferCount === right.bufferCount &&
     left.latencySamples === right.latencySamples &&
@@ -191,7 +198,10 @@ function assertSupportedPlan(plan: CompiledGraphPlan): void {
 }
 
 function totalBytes(operationCount: number): number {
-  return COMPILED_GRAPH_HEADER_BYTES + COMPILED_GRAPH_OPERATION_BYTES * operationCount;
+  return (
+    COMPILED_GRAPH_HEADER_BYTES +
+    COMPILED_GRAPH_OPERATION_BYTES * operationCount
+  );
 }
 
 export function encodeCompiledGraph(plan: CompiledGraphPlan): Buffer {
