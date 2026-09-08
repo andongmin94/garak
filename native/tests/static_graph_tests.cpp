@@ -19,6 +19,7 @@ constexpr std::uint32_t kGainParameterId = 1001;
 constexpr std::uint32_t kBypassParameterId = 1002;
 using StaticExecutionBinding = garak::runtime::static_graph::StaticExecutionBinding;
 using StaticExecutionParameterIds = garak::runtime::static_graph::StaticExecutionParameterIds;
+using StaticExecutionPlan = garak::runtime::static_graph::StaticExecutionPlan;
 constexpr StaticExecutionParameterIds kParameterIds{kGainParameterId, kBypassParameterId};
 
 class PointSource final {
@@ -42,6 +43,12 @@ private:
   return std::abs(actual - expected) < 1.0e-6F;
 }
 
+[[nodiscard]] constexpr bool plan_binds(const StaticExecutionPlan& plan) noexcept {
+  return garak::runtime::static_graph::bind_static_execution_plan(plan, kGainParameterId,
+                                                                  kBypassParameterId)
+      .has_value();
+}
+
 template <bool Polarity> [[nodiscard]] constexpr auto make_test_execution_binding() noexcept {
   if constexpr (Polarity) {
     return StaticExecutionBinding::gain_polarity(kParameterIds);
@@ -54,12 +61,8 @@ template <bool Polarity> [[nodiscard]] constexpr auto make_test_execution_bindin
       kGainParameterId, kBypassParameterId);
   constexpr auto polarity = garak::runtime::static_graph::make_gain_polarity_execution_plan(
       kGainParameterId, kBypassParameterId);
-  static_assert(garak::runtime::static_graph::bind_static_execution_plan(
-                    gain, kGainParameterId, kBypassParameterId)
-                    .has_value());
-  static_assert(garak::runtime::static_graph::bind_static_execution_plan(
-                    polarity, kGainParameterId, kBypassParameterId)
-                    .has_value());
+  static_assert(plan_binds(gain));
+  static_assert(plan_binds(polarity));
   constexpr auto gain_binding = StaticExecutionBinding::gain_only(kParameterIds);
   constexpr auto polarity_binding = StaticExecutionBinding::gain_polarity(kParameterIds);
   static_assert(!gain_binding.has_polarity());
