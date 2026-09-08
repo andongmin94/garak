@@ -99,8 +99,8 @@ private:
   const auto old_report = read_compiled_graph_resource(graph, kGainParameterId, kBypassParameterId);
   if (old_report.disposition != CompiledGraphDisposition::rebuild_from_project ||
       old_report.diagnostic != CompiledGraphDiagnostic::unsupported_old ||
-      !old_report.version.available || old_report.version.major != 1 || old_report.version.minor != 0 ||
-      old_report.binding) {
+      !old_report.version.available || old_report.version.major != 1 ||
+      old_report.version.minor != 0 || old_report.binding) {
     return false;
   }
 
