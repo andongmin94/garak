@@ -77,5 +77,18 @@ jobs:
       - run: cmake --preset product-runtime-werror --fresh
       - run: cmake --build --preset product-runtime-werror-build --clean-first
       - run: cmake --preset product-runtime-clang-tidy --fresh
-      - run: cmake --build --preset product-runtime-clang-tidy-build --clean-first
+      - shell: pwsh
+        run: |
+          $output = @(& cmake --build --preset product-runtime-clang-tidy-build --clean-first 2>&1)
+          $exitCode = $LASTEXITCODE
+          if ($exitCode -ne 0) {
+            $pattern = 'error:|warning:|FAILED:|clang-tidy|bugprone-|cert-|clang-analyzer-|cppcoreguidelines-|misc-|modernize-|performance-|portability-|readability-'
+            $diagnostics = @($output | Select-String -Pattern $pattern | ForEach-Object { $_.Line })
+            if ($diagnostics.Count -eq 0) {
+              $output | Select-Object -Last 120 | ForEach-Object { $_ }
+            } else {
+              $diagnostics | ForEach-Object { $_ }
+            }
+            exit $exitCode
+          }
       - run: git diff --exit-code
