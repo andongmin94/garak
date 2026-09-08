@@ -156,10 +156,7 @@ template <typename Sample, bool Polarity> [[nodiscard]] StressResult run() noexc
   constexpr auto binding = garak::runtime::static_graph::bind_static_execution_plan(
       plan, kGainParameterId, kBypassParameterId);
   static_assert(binding.has_value());
-  if (!binding) {
-    return {false, 0, 0, {}};
-  }
-  const auto execution_binding = binding.value();
+  constexpr auto execution_binding = *binding;
 
   std::array<std::array<Sample, kMaximumSamples>, 2> input{};
   std::array<std::array<Sample, kMaximumSamples>, 2> output{};
