@@ -45,6 +45,18 @@ struct StaticExecutionPlan final {
 
 class StaticExecutionBinding final {
 public:
+  [[nodiscard]] static constexpr StaticExecutionBinding
+  gain_only(const std::uint32_t gain_parameter_id,
+            const std::uint32_t bypass_parameter_id) noexcept {
+    return StaticExecutionBinding{gain_parameter_id, bypass_parameter_id, false};
+  }
+
+  [[nodiscard]] static constexpr StaticExecutionBinding
+  gain_polarity(const std::uint32_t gain_parameter_id,
+                const std::uint32_t bypass_parameter_id) noexcept {
+    return StaticExecutionBinding{gain_parameter_id, bypass_parameter_id, true};
+  }
+
   [[nodiscard]] constexpr std::uint32_t gain_parameter_id() const noexcept {
     return gain_parameter_id_;
   }
@@ -57,12 +69,11 @@ public:
                                                  const StaticExecutionBinding&) noexcept = default;
 
 private:
-  friend constexpr std::optional<StaticExecutionBinding>
-  bind_static_execution_plan(const StaticExecutionPlan&, std::uint32_t, std::uint32_t) noexcept;
-
-  constexpr StaticExecutionBinding(const Operation& gain, const bool has_polarity) noexcept
-      : gain_parameter_id_(gain.primary_parameter_id),
-        bypass_parameter_id_(gain.secondary_parameter_id), has_polarity_(has_polarity) {}
+  constexpr StaticExecutionBinding(const std::uint32_t gain_parameter_id,
+                                   const std::uint32_t bypass_parameter_id,
+                                   const bool has_polarity) noexcept
+      : gain_parameter_id_(gain_parameter_id), bypass_parameter_id_(bypass_parameter_id),
+        has_polarity_(has_polarity) {}
 
   std::uint32_t gain_parameter_id_{};
   std::uint32_t bypass_parameter_id_{};
@@ -125,10 +136,10 @@ bind_static_execution_plan(const StaticExecutionPlan& plan, const std::uint32_t 
     return std::nullopt;
   }
   if (plan_equal(plan, make_gain_only_execution_plan(gain_parameter_id, bypass_parameter_id))) {
-    return StaticExecutionBinding{plan.operations[1], false};
+    return StaticExecutionBinding::gain_only(gain_parameter_id, bypass_parameter_id);
   }
   if (plan_equal(plan, make_gain_polarity_execution_plan(gain_parameter_id, bypass_parameter_id))) {
-    return StaticExecutionBinding{plan.operations[1], true};
+    return StaticExecutionBinding::gain_polarity(gain_parameter_id, bypass_parameter_id);
   }
   return std::nullopt;
 }
