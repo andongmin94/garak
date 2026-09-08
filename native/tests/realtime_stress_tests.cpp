@@ -9,6 +9,7 @@
 #include <cstdlib>
 #include <limits>
 #include <new>
+#include <optional>
 #include <type_traits>
 
 #ifdef _MSC_VER
@@ -141,6 +142,16 @@ struct StressResult final {
   allocation_tracking::Counts counts{};
 };
 
+[[nodiscard]] std::optional<garak::runtime::static_graph::StaticExecutionBinding>
+make_stress_binding(const bool polarity) noexcept {
+  const auto plan = polarity ? garak::runtime::static_graph::make_gain_polarity_execution_plan(
+                                   kGainParameterId, kBypassParameterId)
+                             : garak::runtime::static_graph::make_gain_only_execution_plan(
+                                   kGainParameterId, kBypassParameterId);
+  return garak::runtime::static_graph::bind_static_execution_plan(plan, kGainParameterId,
+                                                                  kBypassParameterId);
+}
+
 template <typename Sample>
 [[nodiscard]] bool near(const Sample actual, const Sample expected) noexcept {
   if constexpr (std::is_same_v<Sample, float>)
@@ -149,12 +160,7 @@ template <typename Sample>
 }
 
 template <typename Sample, bool Polarity> [[nodiscard]] StressResult run() noexcept {
-  const auto plan = Polarity ? garak::runtime::static_graph::make_gain_polarity_execution_plan(
-                                   kGainParameterId, kBypassParameterId)
-                             : garak::runtime::static_graph::make_gain_only_execution_plan(
-                                   kGainParameterId, kBypassParameterId);
-  const auto binding = garak::runtime::static_graph::bind_static_execution_plan(
-      plan, kGainParameterId, kBypassParameterId);
+  const auto binding = make_stress_binding(Polarity);
   if (!binding) {
     return {false, 0, 0, {}};
   }
