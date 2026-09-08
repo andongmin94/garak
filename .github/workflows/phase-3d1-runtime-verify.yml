@@ -8,32 +8,74 @@ permissions:
   contents: read
 
 jobs:
-  windows-diagnostic:
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm product:format:check
+      - run: pnpm product:lint
+      - run: pnpm product:typecheck
+      - run: pnpm product:test
+      - run: pnpm studio:format:check
+      - run: pnpm studio:lint
+      - run: pnpm studio:typecheck
+      - run: pnpm studio:test
+      - run: pnpm studio:build
+      - run: find native -type f \( -name '*.c' -o -name '*.cc' -o -name '*.cpp' -o -name '*.h' -o -name '*.hpp' \) -print0 | xargs -0 clang-format --dry-run --Werror --style=file
+      - run: cmake --preset debug --fresh
+      - run: cmake --build --preset debug-build --clean-first
+      - run: ctest --preset debug-test --no-tests=error
+      - run: cmake --preset release --fresh
+      - run: cmake --build --preset release-build --clean-first
+      - run: ctest --preset release-test --no-tests=error
+      - run: cmake --preset debug-warnings-as-errors --fresh -DCMAKE_CXX_COMPILER=clang++
+      - run: cmake --build --preset warnings-as-errors-build --clean-first
+      - run: ctest --test-dir out/build/debug-warnings-as-errors --no-tests=error
+      - run: cmake --preset debug-clang-tidy --fresh -DCMAKE_CXX_COMPILER=clang++
+      - run: cmake --build --preset clang-tidy-build --clean-first
+
+  windows:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
       - uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: x64
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm product:format:check
+      - run: pnpm product:lint
+      - run: pnpm product:typecheck
+      - run: pnpm product:test
+      - run: pnpm studio:format:check
+      - run: pnpm studio:lint
+      - run: pnpm studio:typecheck
+      - run: pnpm studio:test
+      - run: pnpm studio:build
       - run: cmake --preset product-runtime-debug --fresh
-      - name: Build full Product Runtime aggregate verbosely
-        id: build
-        shell: pwsh
-        continue-on-error: true
-        run: |
-          New-Item -ItemType Directory -Force -Path out | Out-Null
-          $output = & cmake --build out/build/product-runtime-debug --target garak_product_runtime_v1_all --verbose 2>&1
-          $code = $LASTEXITCODE
-          $output | Tee-Object -FilePath out/product-runtime-msvc-build.log
-          "exit_code=$code" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: product-runtime-msvc-build-log
-          path: out/product-runtime-msvc-build.log
-          if-no-files-found: error
+      - run: cmake --build --preset product-runtime-debug-build --clean-first
       - shell: pwsh
-        run: |
-          if ('${{ steps.build.outputs.exit_code }}' -ne '0') { exit 1 }
+        run: ./tools/product-compiler/scripts/verify_headless_export_no_build.ps1 -Configuration Debug
+      - run: ctest --preset product-runtime-debug-test --no-tests=error
+      - run: node studio/scripts/verify_product_workflow.mts --configuration Debug
+      - run: cmake --preset product-runtime-release --fresh
+      - run: cmake --build --preset product-runtime-release-build --clean-first
+      - shell: pwsh
+        run: ./tools/product-compiler/scripts/verify_headless_export_no_build.ps1 -Configuration Release
+      - run: ctest --preset product-runtime-release-test --no-tests=error
+      - run: node studio/scripts/verify_product_workflow.mts --configuration Release
+      - run: cmake --preset product-runtime-werror --fresh
+      - run: cmake --build --preset product-runtime-werror-build --clean-first
+      - run: cmake --preset product-runtime-clang-tidy --fresh
+      - run: cmake --build --preset product-runtime-clang-tidy-build --clean-first
+      - run: git diff --exit-code
