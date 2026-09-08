@@ -68,9 +68,7 @@ function currentGraphForSource(source: ProductProjectSource) {
     return canonicalProductGraphSource();
   }
   if (source.schemaVersion === PRODUCT_SCHEMA_V3) {
-    return migrateProductGraphV2ToV3(
-      migrateProductGraphV1ToV2(source.graph),
-    );
+    return migrateProductGraphV2ToV3(migrateProductGraphV1ToV2(source.graph));
   }
   if (source.schemaVersion === PRODUCT_SCHEMA_V4) {
     return migrateProductGraphV2ToV3(source.graph);
