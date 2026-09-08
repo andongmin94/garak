@@ -601,10 +601,7 @@ export function validateProductGraphSourceV2(
       : [
           input,
           gain,
-          requiredNode(
-            validated.nodesByType,
-            PRODUCT_GRAPH_NODE_TYPE.polarity,
-          ),
+          requiredNode(validated.nodesByType, PRODUCT_GRAPH_NODE_TYPE.polarity),
           output,
         ];
   if (validated.nodes.length !== ordered.length) {
@@ -653,9 +650,7 @@ export function validateProductGraphSource(
     PRODUCT_GRAPH_NODE_TYPE.audioOutput,
   );
   const polarity = validated.nodesByType.get(PRODUCT_GRAPH_NODE_TYPE.polarity);
-  const saturation = validated.nodesByType.get(
-    PRODUCT_GRAPH_NODE_TYPE.saturation,
-  );
+  const saturation = validated.nodesByType.get(PRODUCT_GRAPH_NODE_TYPE.saturation);
   if (polarity !== undefined && saturation !== undefined) {
     graphFailure(
       "GARAK_PROJECT_GRAPH_NODE_COUNT",
@@ -668,10 +663,7 @@ export function validateProductGraphSource(
       ? [
           input,
           gain,
-          requiredNode(
-            validated.nodesByType,
-            PRODUCT_GRAPH_NODE_TYPE.polarity,
-          ),
+          requiredNode(validated.nodesByType, PRODUCT_GRAPH_NODE_TYPE.polarity),
           output,
         ]
       : saturation !== undefined
