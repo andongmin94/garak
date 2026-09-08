@@ -2,6 +2,7 @@ import { fail } from "./errors.ts";
 import {
   canonicalPolarityProductGraphSource,
   canonicalProductGraphSource,
+  canonicalSaturationProductGraphSource,
   PRODUCT_GRAPH_NODE_TYPE,
   validateProductGraphSource,
 } from "./graph_source.ts";
@@ -11,7 +12,7 @@ import { BYPASS_PARAMETER_ID, GAIN_PARAMETER_ID } from "./project_model.ts";
 export const COMPILED_GRAPH_FILENAME = "graph.garakbin";
 export const COMPILED_GRAPH_MAGIC = Buffer.from("GARAKGRF", "ascii");
 export const COMPILED_GRAPH_MAJOR_VERSION = 1;
-export const COMPILED_GRAPH_MINOR_VERSION = 1;
+export const COMPILED_GRAPH_MINOR_VERSION = 2;
 export const COMPILED_GRAPH_HEADER_BYTES = 32;
 export const COMPILED_GRAPH_OPERATION_BYTES = 20;
 export const COMPILED_GRAPH_MINIMUM_OPERATION_COUNT = 3;
@@ -23,6 +24,7 @@ export const COMPILED_GRAPH_OPERATION_TYPE = Object.freeze({
   gain: 2,
   audioOutput: 3,
   polarity: 4,
+  saturation: 5,
 });
 
 export interface CompiledGraphOperation {
@@ -68,14 +70,24 @@ function operation(
   };
 }
 
-export function compileProductGraph(
-  source: ProductGraphSource,
-): CompiledGraphPlan {
+function postGainOperationType(source: ProductGraphSource): number | null {
   const graph = validateProductGraphSource(source);
-  const hasPolarity = graph.nodes.some(
-    (node) => node.type === PRODUCT_GRAPH_NODE_TYPE.polarity,
-  );
-  if (!hasPolarity) {
+  if (
+    graph.nodes.some((node) => node.type === PRODUCT_GRAPH_NODE_TYPE.polarity)
+  ) {
+    return COMPILED_GRAPH_OPERATION_TYPE.polarity;
+  }
+  if (
+    graph.nodes.some((node) => node.type === PRODUCT_GRAPH_NODE_TYPE.saturation)
+  ) {
+    return COMPILED_GRAPH_OPERATION_TYPE.saturation;
+  }
+  return null;
+}
+
+export function compileProductGraph(source: ProductGraphSource): CompiledGraphPlan {
+  const postGainType = postGainOperationType(source);
+  if (postGainType === null) {
     return {
       operations: [
         operation(
@@ -119,7 +131,7 @@ export function compileProductGraph(
         GAIN_PARAMETER_ID,
         BYPASS_PARAMETER_ID,
       ),
-      operation(3, COMPILED_GRAPH_OPERATION_TYPE.polarity, 1, 2),
+      operation(3, postGainType, 1, 2),
       operation(
         4,
         COMPILED_GRAPH_OPERATION_TYPE.audioOutput,
@@ -140,10 +152,11 @@ export function canonicalPolarityGraphPlan(): CompiledGraphPlan {
   return compileProductGraph(canonicalPolarityProductGraphSource());
 }
 
-function plansEqual(
-  left: CompiledGraphPlan,
-  right: CompiledGraphPlan,
-): boolean {
+export function canonicalSaturationGraphPlan(): CompiledGraphPlan {
+  return compileProductGraph(canonicalSaturationProductGraphSource());
+}
+
+function plansEqual(left: CompiledGraphPlan, right: CompiledGraphPlan): boolean {
   return (
     left.bufferCount === right.bufferCount &&
     left.latencySamples === right.latencySamples &&
@@ -166,21 +179,19 @@ function plansEqual(
 function assertSupportedPlan(plan: CompiledGraphPlan): void {
   if (
     !plansEqual(plan, canonicalGainGraphPlan()) &&
-    !plansEqual(plan, canonicalPolarityGraphPlan())
+    !plansEqual(plan, canonicalPolarityGraphPlan()) &&
+    !plansEqual(plan, canonicalSaturationGraphPlan())
   ) {
     graphFailure(
       "GARAK_COMPILED_GRAPH_NONCANONICAL",
       "",
-      "Compiled graph must match one exact current Gain-only or Gain-to-Polarity execution plan.",
+      "Compiled graph must match one exact current Gain-only, Gain-to-Polarity, or Gain-to-Saturation execution plan.",
     );
   }
 }
 
 function totalBytes(operationCount: number): number {
-  return (
-    COMPILED_GRAPH_HEADER_BYTES +
-    COMPILED_GRAPH_OPERATION_BYTES * operationCount
-  );
+  return COMPILED_GRAPH_HEADER_BYTES + COMPILED_GRAPH_OPERATION_BYTES * operationCount;
 }
 
 export function encodeCompiledGraph(plan: CompiledGraphPlan): Buffer {
@@ -233,7 +244,7 @@ export function decodeCompiledGraph(input: Uint8Array): CompiledGraphPlan {
     graphFailure(
       "GARAK_COMPILED_GRAPH_VERSION",
       "version",
-      "Compiled graph format version must be exactly 1.1.",
+      "Compiled graph format version must be exactly 1.2.",
     );
   }
   const operationCount = bytes.readUInt16LE(20);
@@ -247,7 +258,7 @@ export function decodeCompiledGraph(input: Uint8Array): CompiledGraphPlan {
     graphFailure(
       "GARAK_COMPILED_GRAPH_LAYOUT",
       "header",
-      "Compiled graph header does not match the exact v1.1 variable-operation layout.",
+      "Compiled graph header does not match the exact v1.2 variable-operation layout.",
     );
   }
   if (bytes.readUInt32LE(28) !== 0) {

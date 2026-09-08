@@ -1,9 +1,11 @@
 import { compileProductGraph, encodeCompiledGraph } from "./compiled_graph.ts";
 import { fail } from "./errors.ts";
 import {
+  canonicalProductGraphSource,
   canonicalProductGraphSourceV1,
   cloneProductGraphSource,
   migrateProductGraphV1ToV2,
+  migrateProductGraphV2ToV3,
 } from "./graph_source.ts";
 import { deriveProductIdentity } from "./identity.ts";
 import {
@@ -15,6 +17,7 @@ import {
   PRODUCT_SCHEMA_V2,
   PRODUCT_SCHEMA_V3,
   PRODUCT_SCHEMA_V4,
+  PRODUCT_SCHEMA_V5,
   PRODUCT_SCHEMA_VERSION,
   PRODUCT_TEMPLATE,
 } from "./project_model.ts";
@@ -25,6 +28,7 @@ import type {
   ProductProjectSourceV1,
   ProductProjectSourceV2,
   ProductProjectSourceV3,
+  ProductProjectSourceV4,
   ProjectMigrationStepId,
   ProjectSchemaStatus,
 } from "./project_model.ts";
@@ -35,6 +39,8 @@ export const PROJECT_MIGRATION_STEP_V2_TO_V3 =
   "project-schema-2-to-3" as const satisfies ProjectMigrationStepId;
 export const PROJECT_MIGRATION_STEP_V3_TO_V4 =
   "project-schema-3-to-4" as const satisfies ProjectMigrationStepId;
+export const PROJECT_MIGRATION_STEP_V4_TO_V5 =
+  "project-schema-4-to-5" as const satisfies ProjectMigrationStepId;
 
 export interface MigratedProductProject {
   readonly project: ProductProject;
@@ -59,10 +65,13 @@ function currentGraphForSource(source: ProductProjectSource) {
     source.schemaVersion === PRODUCT_SCHEMA_V1 ||
     source.schemaVersion === PRODUCT_SCHEMA_V2
   ) {
-    return migrateProductGraphV1ToV2(canonicalProductGraphSourceV1());
+    return canonicalProductGraphSource();
   }
   if (source.schemaVersion === PRODUCT_SCHEMA_V3) {
-    return migrateProductGraphV1ToV2(source.graph);
+    return migrateProductGraphV2ToV3(migrateProductGraphV1ToV2(source.graph));
+  }
+  if (source.schemaVersion === PRODUCT_SCHEMA_V4) {
+    return migrateProductGraphV2ToV3(source.graph);
   }
   return source.graph;
 }
@@ -154,7 +163,7 @@ export function migrateProjectV2ToV3(
 
 export function migrateProjectV3ToV4(
   source: ProductProjectSourceV3,
-): ProductProject {
+): ProductProjectSourceV4 {
   return {
     schemaVersion: PRODUCT_SCHEMA_V4,
     productId: source.productId,
@@ -166,6 +175,23 @@ export function migrateProjectV3ToV4(
     template: { ...PRODUCT_TEMPLATE },
     defaults: { gainDb: source.defaults.gainDb },
     graph: migrateProductGraphV1ToV2(source.graph),
+  };
+}
+
+export function migrateProjectV4ToV5(
+  source: ProductProjectSourceV4,
+): ProductProject {
+  return {
+    schemaVersion: PRODUCT_SCHEMA_V5,
+    productId: source.productId,
+    vendor: source.vendor,
+    name: source.name,
+    version: source.version,
+    versionParts: { ...source.versionParts },
+    category: PRODUCT_CATEGORY,
+    template: { ...PRODUCT_TEMPLATE },
+    defaults: { gainDb: source.defaults.gainDb },
+    graph: migrateProductGraphV2ToV3(source.graph),
   };
 }
 
@@ -192,22 +218,33 @@ export function migrateValidatedProjectToCurrent(
   if (source.schemaVersion === PRODUCT_SCHEMA_V1) {
     const v2 = migrateProjectV1ToV2(source);
     const v3 = migrateProjectV2ToV3(v2);
-    return migratedResult(source, migrateProjectV3ToV4(v3), [
+    const v4 = migrateProjectV3ToV4(v3);
+    return migratedResult(source, migrateProjectV4ToV5(v4), [
       PROJECT_MIGRATION_STEP_V1_TO_V2,
       PROJECT_MIGRATION_STEP_V2_TO_V3,
       PROJECT_MIGRATION_STEP_V3_TO_V4,
+      PROJECT_MIGRATION_STEP_V4_TO_V5,
     ]);
   }
   if (source.schemaVersion === PRODUCT_SCHEMA_V2) {
     const v3 = migrateProjectV2ToV3(source);
-    return migratedResult(source, migrateProjectV3ToV4(v3), [
+    const v4 = migrateProjectV3ToV4(v3);
+    return migratedResult(source, migrateProjectV4ToV5(v4), [
       PROJECT_MIGRATION_STEP_V2_TO_V3,
       PROJECT_MIGRATION_STEP_V3_TO_V4,
+      PROJECT_MIGRATION_STEP_V4_TO_V5,
     ]);
   }
   if (source.schemaVersion === PRODUCT_SCHEMA_V3) {
-    return migratedResult(source, migrateProjectV3ToV4(source), [
+    const v4 = migrateProjectV3ToV4(source);
+    return migratedResult(source, migrateProjectV4ToV5(v4), [
       PROJECT_MIGRATION_STEP_V3_TO_V4,
+      PROJECT_MIGRATION_STEP_V4_TO_V5,
+    ]);
+  }
+  if (source.schemaVersion === PRODUCT_SCHEMA_V4) {
+    return migratedResult(source, migrateProjectV4ToV5(source), [
+      PROJECT_MIGRATION_STEP_V4_TO_V5,
     ]);
   }
   return {
@@ -219,7 +256,7 @@ export function migrateValidatedProjectToCurrent(
       graph: cloneProductGraphSource(source.graph),
     },
     schemaStatus: {
-      sourceSchemaVersion: PRODUCT_SCHEMA_V4,
+      sourceSchemaVersion: PRODUCT_SCHEMA_V5,
       currentSchemaVersion: PRODUCT_SCHEMA_VERSION,
       migrationRequired: false,
       steps: [],
@@ -227,9 +264,7 @@ export function migrateValidatedProjectToCurrent(
   };
 }
 
-export function serializeCanonicalProductProject(
-  project: ProductProject,
-): string {
+export function serializeCanonicalProductProject(project: ProductProject): string {
   const graph = cloneProductGraphSource(project.graph);
   const document = {
     schemaVersion: PRODUCT_SCHEMA_VERSION,
@@ -240,9 +275,7 @@ export function serializeCanonicalProductProject(
     category: PRODUCT_CATEGORY,
     template: { id: project.template.id, version: project.template.version },
     defaults: {
-      gainDb: Object.is(project.defaults.gainDb, -0)
-        ? 0
-        : project.defaults.gainDb,
+      gainDb: Object.is(project.defaults.gainDb, -0) ? 0 : project.defaults.gainDb,
     },
     graph: {
       schemaVersion: graph.schemaVersion,

@@ -8,6 +8,7 @@ import {
   cloneProductGraphSource,
   validateProductGraphSource,
   validateProductGraphSourceV1,
+  validateProductGraphSourceV2,
 } from "./graph_source.ts";
 import { deriveProductIdentity } from "./identity.ts";
 import {
@@ -22,6 +23,7 @@ import {
   PRODUCT_SCHEMA_V2,
   PRODUCT_SCHEMA_V3,
   PRODUCT_SCHEMA_V4,
+  PRODUCT_SCHEMA_V5,
   PRODUCT_SCHEMA_VERSION,
   PRODUCT_TEMPLATE,
   PRODUCT_TEMPLATE_ID,
@@ -39,6 +41,7 @@ import type {
   ProductProjectSourceV1,
   ProductProjectSourceV2,
   ProductProjectSourceV3,
+  ProductProjectSourceV4,
   ProductVersion,
   ProjectSchemaDetection,
   ProjectSchemaStatus,
@@ -274,7 +277,8 @@ export function detectProjectSchemaVersion(
   if (
     schemaVersion === PRODUCT_SCHEMA_V1 ||
     schemaVersion === PRODUCT_SCHEMA_V2 ||
-    schemaVersion === PRODUCT_SCHEMA_V3
+    schemaVersion === PRODUCT_SCHEMA_V3 ||
+    schemaVersion === PRODUCT_SCHEMA_V4
   ) {
     return {
       kind: "supported-legacy",
@@ -282,10 +286,10 @@ export function detectProjectSchemaVersion(
       currentSchemaVersion: PRODUCT_SCHEMA_VERSION,
     };
   }
-  if (schemaVersion === PRODUCT_SCHEMA_V4) {
+  if (schemaVersion === PRODUCT_SCHEMA_V5) {
     return {
       kind: "current",
-      schemaVersion: PRODUCT_SCHEMA_V4,
+      schemaVersion: PRODUCT_SCHEMA_V5,
       currentSchemaVersion: PRODUCT_SCHEMA_VERSION,
     };
   }
@@ -424,7 +428,8 @@ function validateStructuredTemplate(
   schemaVersion:
     | typeof PRODUCT_SCHEMA_V2
     | typeof PRODUCT_SCHEMA_V3
-    | typeof PRODUCT_SCHEMA_V4,
+    | typeof PRODUCT_SCHEMA_V4
+    | typeof PRODUCT_SCHEMA_V5,
 ): void {
   if (!isJsonObject(value)) {
     projectFailure(
@@ -552,7 +557,7 @@ export function validateProjectSchemaV3(
 export function validateProjectSchemaV4(
   value: unknown,
   sourceDirectory: string,
-): ProductProject {
+): ProductProjectSourceV4 {
   void sourceDirectory;
   const detectedVersion = requireSupportedProjectSchemaVersion(value);
   if (detectedVersion !== PRODUCT_SCHEMA_V4 || !isJsonObject(value)) {
@@ -570,6 +575,39 @@ export function validateProjectSchemaV4(
   validateStructuredTemplate(value.template, PRODUCT_SCHEMA_V4);
   return {
     schemaVersion: PRODUCT_SCHEMA_V4,
+    productId: common.productId,
+    vendor: common.vendor,
+    name: common.name,
+    version: common.version,
+    versionParts: common.versionParts,
+    category: PRODUCT_CATEGORY,
+    template: { ...PRODUCT_TEMPLATE },
+    defaults: { gainDb: common.gainDb },
+    graph: validateProductGraphSourceV2(value.graph),
+  };
+}
+
+export function validateProjectSchemaV5(
+  value: unknown,
+  sourceDirectory: string,
+): ProductProject {
+  void sourceDirectory;
+  const detectedVersion = requireSupportedProjectSchemaVersion(value);
+  if (detectedVersion !== PRODUCT_SCHEMA_V5 || !isJsonObject(value)) {
+    projectFailure(
+      "GARAK_PROJECT_SCHEMA_VERSION",
+      "schemaVersion",
+      "Expected product schema v5.",
+    );
+  }
+  const common = validateCommonFields(
+    value,
+    PRODUCT_SCHEMA_V5,
+    TOP_LEVEL_KEYS_WITH_GRAPH,
+  );
+  validateStructuredTemplate(value.template, PRODUCT_SCHEMA_V5);
+  return {
+    schemaVersion: PRODUCT_SCHEMA_V5,
     productId: common.productId,
     vendor: common.vendor,
     name: common.name,
@@ -616,11 +654,13 @@ export function validateVersionedProjectValue(
     source = validateProjectSchemaV2(value, sourceDirectory);
   } else if (schemaVersion === PRODUCT_SCHEMA_V3) {
     source = validateProjectSchemaV3(value, sourceDirectory);
-  } else {
+  } else if (schemaVersion === PRODUCT_SCHEMA_V4) {
     source = validateProjectSchemaV4(value, sourceDirectory);
+  } else {
+    source = validateProjectSchemaV5(value, sourceDirectory);
   }
   const migrated = migrateValidatedProjectToCurrent(source);
-  const project = validateProjectSchemaV4(
+  const project = validateProjectSchemaV5(
     sourceValueForCurrentProject(migrated.project),
     sourceDirectory,
   );

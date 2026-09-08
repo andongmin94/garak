@@ -1,13 +1,15 @@
 import type {
   ProductGraphSource,
   ProductGraphSourceV1,
+  ProductGraphSourceV2,
 } from "./graph_source.ts";
 
 export const PRODUCT_SCHEMA_V1 = 1 as const;
 export const PRODUCT_SCHEMA_V2 = 2 as const;
 export const PRODUCT_SCHEMA_V3 = 3 as const;
 export const PRODUCT_SCHEMA_V4 = 4 as const;
-export const PRODUCT_SCHEMA_VERSION = PRODUCT_SCHEMA_V4;
+export const PRODUCT_SCHEMA_V5 = 5 as const;
+export const PRODUCT_SCHEMA_VERSION = PRODUCT_SCHEMA_V5;
 export const PRODUCT_CATEGORY = "Fx" as const;
 export const PRODUCT_TEMPLATE_ID = "garak.gain" as const;
 export const PRODUCT_TEMPLATE_VERSION = 1 as const;
@@ -70,22 +72,33 @@ export interface ProductProjectSourceV3 extends ProductProjectSourceCommon {
 export interface ProductProjectSourceV4 extends ProductProjectSourceCommon {
   readonly schemaVersion: typeof PRODUCT_SCHEMA_V4;
   readonly template: ProductTemplate;
+  readonly graph: ProductGraphSourceV2;
+}
+
+export interface ProductProjectSourceV5 extends ProductProjectSourceCommon {
+  readonly schemaVersion: typeof PRODUCT_SCHEMA_V5;
+  readonly template: ProductTemplate;
   readonly graph: ProductGraphSource;
 }
 
-export type ProductProject = ProductProjectSourceV4;
+export type ProductProject = ProductProjectSourceV5;
 export type ProductProjectSource =
   | ProductProjectSourceV1
   | ProductProjectSourceV2
   | ProductProjectSourceV3
-  | ProductProjectSourceV4;
+  | ProductProjectSourceV4
+  | ProductProjectSourceV5;
 export type ProjectMigrationStepId =
-  "project-schema-1-to-2" | "project-schema-2-to-3" | "project-schema-3-to-4";
+  | "project-schema-1-to-2"
+  | "project-schema-2-to-3"
+  | "project-schema-3-to-4"
+  | "project-schema-4-to-5";
 export type SupportedProductSchemaVersion =
   | typeof PRODUCT_SCHEMA_V1
   | typeof PRODUCT_SCHEMA_V2
   | typeof PRODUCT_SCHEMA_V3
-  | typeof PRODUCT_SCHEMA_V4;
+  | typeof PRODUCT_SCHEMA_V4
+  | typeof PRODUCT_SCHEMA_V5;
 
 export type ProjectSchemaDetection =
   | {
@@ -93,12 +106,13 @@ export type ProjectSchemaDetection =
       readonly schemaVersion:
         | typeof PRODUCT_SCHEMA_V1
         | typeof PRODUCT_SCHEMA_V2
-        | typeof PRODUCT_SCHEMA_V3;
+        | typeof PRODUCT_SCHEMA_V3
+        | typeof PRODUCT_SCHEMA_V4;
       readonly currentSchemaVersion: typeof PRODUCT_SCHEMA_VERSION;
     }
   | {
       readonly kind: "current";
-      readonly schemaVersion: typeof PRODUCT_SCHEMA_V4;
+      readonly schemaVersion: typeof PRODUCT_SCHEMA_V5;
       readonly currentSchemaVersion: typeof PRODUCT_SCHEMA_VERSION;
     }
   | {
