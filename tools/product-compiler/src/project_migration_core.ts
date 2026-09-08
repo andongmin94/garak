@@ -68,7 +68,9 @@ function currentGraphForSource(source: ProductProjectSource) {
     return canonicalProductGraphSource();
   }
   if (source.schemaVersion === PRODUCT_SCHEMA_V3) {
-    return migrateProductGraphV2ToV3(migrateProductGraphV1ToV2(source.graph));
+    return migrateProductGraphV2ToV3(
+      migrateProductGraphV1ToV2(source.graph),
+    );
   }
   if (source.schemaVersion === PRODUCT_SCHEMA_V4) {
     return migrateProductGraphV2ToV3(source.graph);
@@ -264,7 +266,9 @@ export function migrateValidatedProjectToCurrent(
   };
 }
 
-export function serializeCanonicalProductProject(project: ProductProject): string {
+export function serializeCanonicalProductProject(
+  project: ProductProject,
+): string {
   const graph = cloneProductGraphSource(project.graph);
   const document = {
     schemaVersion: PRODUCT_SCHEMA_VERSION,
@@ -275,7 +279,9 @@ export function serializeCanonicalProductProject(project: ProductProject): strin
     category: PRODUCT_CATEGORY,
     template: { id: project.template.id, version: project.template.version },
     defaults: {
-      gainDb: Object.is(project.defaults.gainDb, -0) ? 0 : project.defaults.gainDb,
+      gainDb: Object.is(project.defaults.gainDb, -0)
+        ? 0
+        : project.defaults.gainDb,
     },
     graph: {
       schemaVersion: graph.schemaVersion,
