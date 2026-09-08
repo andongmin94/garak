@@ -17,6 +17,9 @@ namespace {
 
 constexpr std::uint32_t kGainParameterId = 1001;
 constexpr std::uint32_t kBypassParameterId = 1002;
+using StaticExecutionBinding = garak::runtime::static_graph::StaticExecutionBinding;
+using StaticExecutionParameterIds = garak::runtime::static_graph::StaticExecutionParameterIds;
+constexpr StaticExecutionParameterIds kParameterIds{kGainParameterId, kBypassParameterId};
 
 class PointSource final {
 public:
@@ -39,19 +42,30 @@ private:
   return std::abs(actual - expected) < 1.0e-6F;
 }
 
+template <bool Polarity> [[nodiscard]] constexpr auto make_test_execution_binding() noexcept {
+  if constexpr (Polarity) {
+    return StaticExecutionBinding::gain_polarity(kParameterIds);
+  }
+  return StaticExecutionBinding::gain_only(kParameterIds);
+}
+
 [[nodiscard]] bool test_plan_binding() {
   constexpr auto gain = garak::runtime::static_graph::make_gain_only_execution_plan(
       kGainParameterId, kBypassParameterId);
   constexpr auto polarity = garak::runtime::static_graph::make_gain_polarity_execution_plan(
       kGainParameterId, kBypassParameterId);
-  constexpr auto gain_binding = garak::runtime::static_graph::bind_static_execution_plan(
-      gain, kGainParameterId, kBypassParameterId);
-  constexpr auto polarity_binding = garak::runtime::static_graph::bind_static_execution_plan(
-      polarity, kGainParameterId, kBypassParameterId);
-  static_assert(gain_binding.has_value() && !gain_binding->has_polarity());
-  static_assert(polarity_binding.has_value() && polarity_binding->has_polarity());
-  static_assert(gain_binding->gain_parameter_id() == kGainParameterId);
-  static_assert(gain_binding->bypass_parameter_id() == kBypassParameterId);
+  static_assert(garak::runtime::static_graph::bind_static_execution_plan(
+                    gain, kGainParameterId, kBypassParameterId)
+                    .has_value());
+  static_assert(garak::runtime::static_graph::bind_static_execution_plan(
+                    polarity, kGainParameterId, kBypassParameterId)
+                    .has_value());
+  constexpr auto gain_binding = StaticExecutionBinding::gain_only(kParameterIds);
+  constexpr auto polarity_binding = StaticExecutionBinding::gain_polarity(kParameterIds);
+  static_assert(!gain_binding.has_polarity());
+  static_assert(polarity_binding.has_polarity());
+  static_assert(gain_binding.gain_parameter_id() == kGainParameterId);
+  static_assert(gain_binding.bypass_parameter_id() == kBypassParameterId);
 
   auto invalid_parameter = gain;
   invalid_parameter.operations[1].primary_parameter_id = 9999;
@@ -212,17 +226,7 @@ private:
 }
 
 template <bool Polarity> [[nodiscard]] bool test_execution() {
-  constexpr auto plan = Polarity ? garak::runtime::static_graph::make_gain_polarity_execution_plan(
-                                       kGainParameterId, kBypassParameterId)
-                                 : garak::runtime::static_graph::make_gain_only_execution_plan(
-                                       kGainParameterId, kBypassParameterId);
-  constexpr auto binding = garak::runtime::static_graph::bind_static_execution_plan(
-      plan, kGainParameterId, kBypassParameterId);
-  static_assert(binding.has_value());
-  if (!binding) {
-    return false;
-  }
-  const auto execution_binding = binding.value();
+  constexpr auto execution_binding = make_test_execution_binding<Polarity>();
 
   std::array<float, 3> input{1.0F, -0.5F, 0.25F};
   std::array<float, 3> output{};
