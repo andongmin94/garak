@@ -8,7 +8,7 @@ permissions:
   contents: read
 
 jobs:
-  format-diagnostic:
+  linux:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -17,15 +17,11 @@ jobs:
           node-version: '24'
       - run: corepack enable
       - run: pnpm install --frozen-lockfile
-      - shell: bash
-        run: |
-          pnpm --dir tools/product-compiler exec prettier --write \
-            src/compiled_graph.ts \
-            src/graph_source.ts \
-            src/project_migration_core.ts
-          git diff --unified=0 -- \
-            tools/product-compiler/src/compiled_graph.ts \
-            tools/product-compiler/src/graph_source.ts \
-            tools/product-compiler/src/project_migration_core.ts \
-            | grep '^@@' || true
-          exit 1
+      - run: pnpm product:format:check
+      - run: pnpm product:lint
+      - run: pnpm product:typecheck
+      - run: pnpm product:test
+      - run: find native -type f \( -name '*.c' -o -name '*.cc' -o -name '*.cpp' -o -name '*.h' -o -name '*.hpp' \) -print0 | xargs -0 clang-format --dry-run --Werror --style=file
+      - run: cmake --preset debug --fresh
+      - run: cmake --build --preset debug-build --clean-first
+      - run: ctest --preset debug-test --no-tests=error
