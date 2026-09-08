@@ -150,10 +150,11 @@ template <typename Sample>
 
 template <typename Sample, bool Polarity> [[nodiscard]] StressResult run() noexcept {
   constexpr auto execution_binding =
-      Polarity ? garak::runtime::static_graph::StaticExecutionBinding::gain_polarity(
-                     kGainParameterId, kBypassParameterId)
-               : garak::runtime::static_graph::StaticExecutionBinding::gain_only(kGainParameterId,
-                                                                                 kBypassParameterId);
+      Polarity
+          ? garak::runtime::static_graph::StaticExecutionBinding::gain_polarity(
+                kGainParameterId, kBypassParameterId)
+          : garak::runtime::static_graph::StaticExecutionBinding::gain_only(kGainParameterId,
+                                                                            kBypassParameterId);
 
   std::array<std::array<Sample, kMaximumSamples>, 2> input{};
   std::array<std::array<Sample, kMaximumSamples>, 2> output{};
