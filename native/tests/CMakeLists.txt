@@ -29,6 +29,12 @@ garak_apply_warnings(garak_polarity_dsp_tests)
 garak_apply_clang_tidy(garak_polarity_dsp_tests)
 add_test(NAME garak_polarity_dsp_tests COMMAND garak_polarity_dsp_tests)
 
+add_executable(garak_saturation_dsp_tests saturation_dsp_tests.cpp)
+target_link_libraries(garak_saturation_dsp_tests PRIVATE garak::dsp_saturation)
+garak_apply_warnings(garak_saturation_dsp_tests)
+garak_apply_clang_tidy(garak_saturation_dsp_tests)
+add_test(NAME garak_saturation_dsp_tests COMMAND garak_saturation_dsp_tests)
+
 add_executable(garak_realtime_stress_tests realtime_stress_tests.cpp)
 target_link_libraries(garak_realtime_stress_tests PRIVATE garak::static_graph garak::dsp_polarity)
 garak_apply_warnings(garak_realtime_stress_tests)
