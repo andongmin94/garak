@@ -17,7 +17,9 @@ inline constexpr std::uint16_t kCompiledGraphMinorVersion = 1;
 inline constexpr std::size_t kCompiledGraphHeaderBytes = 32;
 inline constexpr std::size_t kCompiledGraphOperationBytes = 20;
 inline constexpr std::size_t kCompiledGraphMinimumOperationCount = 3;
-inline constexpr std::size_t kCompiledGraphMaximumOperationCount = 4;
+inline constexpr std::size_t kCompiledGraphMaximumOperationCount = kMaximumOperationCount;
+inline constexpr std::size_t kMaximumCompiledGraphBytes =
+    kCompiledGraphHeaderBytes + (kCompiledGraphOperationBytes * kCompiledGraphMaximumOperationCount);
 inline constexpr std::array<std::uint8_t, 8> kCompiledGraphMagic{'G', 'A', 'R', 'A',
                                                                  'K', 'G', 'R', 'F'};
 

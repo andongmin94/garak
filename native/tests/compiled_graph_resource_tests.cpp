@@ -2,6 +2,7 @@
 
 #include "compiled_graph_test_fixture.hpp"
 
+#include <algorithm>
 #include <array>
 #include <chrono>
 #include <cstdint>
@@ -19,6 +20,9 @@ using garak::runtime::static_graph::CompiledGraphDisposition;
 
 constexpr std::uint32_t kGainParameterId = 1001;
 constexpr std::uint32_t kBypassParameterId = 1002;
+
+static_assert(garak::test::kCompiledPolarityGraphFixture.size() ==
+              garak::runtime::static_graph::kMaximumCompiledGraphBytes);
 
 class TemporaryDirectory final {
 public:
@@ -54,12 +58,14 @@ private:
   return output.good();
 }
 
-[[nodiscard]] bool current_report_is_valid(const std::filesystem::path& path) {
+[[nodiscard]] bool current_report_is_valid(const std::filesystem::path& path,
+                                           const bool expected_polarity) {
   const auto report = read_compiled_graph_resource(path, kGainParameterId, kBypassParameterId);
   return report.disposition == CompiledGraphDisposition::current &&
          report.diagnostic == CompiledGraphDiagnostic::none && report.version.available &&
-         report.version.major == 1 && report.version.minor == 0 && report.binding &&
-         report.binding->input_buffer() == 0 && report.binding->output_buffer() == 1 &&
+         report.version.major == garak::runtime::static_graph::kCompiledGraphMajorVersion &&
+         report.version.minor == garak::runtime::static_graph::kCompiledGraphMinorVersion &&
+         report.binding && report.binding->has_polarity() == expected_polarity &&
          report.binding->gain_parameter_id() == kGainParameterId &&
          report.binding->bypass_parameter_id() == kBypassParameterId;
 }
@@ -75,25 +81,32 @@ private:
     return false;
   }
 
-  if (!write_bytes(graph, garak::test::kCompiledGraphFixture) || !current_report_is_valid(graph)) {
+  if (!write_bytes(graph, garak::test::kCompiledGainGraphFixture) ||
+      !current_report_is_valid(graph, false)) {
+    return false;
+  }
+  if (!write_bytes(graph, garak::test::kCompiledPolarityGraphFixture) ||
+      !current_report_is_valid(graph, true)) {
     return false;
   }
 
-  auto old = garak::test::kCompiledGraphFixture;
-  old[8] = 0;
-  old[9] = 0;
+  auto old = garak::test::kCompiledGainGraphFixture;
+  old[10] = 0;
+  old[11] = 0;
   if (!write_bytes(graph, old)) {
     return false;
   }
   const auto old_report = read_compiled_graph_resource(graph, kGainParameterId, kBypassParameterId);
   if (old_report.disposition != CompiledGraphDisposition::rebuild_from_project ||
       old_report.diagnostic != CompiledGraphDiagnostic::unsupported_old ||
-      !old_report.version.available || old_report.version.major != 0 || old_report.binding) {
+      !old_report.version.available || old_report.version.major != 1 || old_report.version.minor != 0 ||
+      old_report.binding) {
     return false;
   }
 
-  auto future = garak::test::kCompiledGraphFixture;
-  future[10] = 1;
+  auto future = garak::test::kCompiledGainGraphFixture;
+  future[10] = 2;
+  future[11] = 0;
   if (!write_bytes(graph, future)) {
     return false;
   }
@@ -101,12 +114,12 @@ private:
       read_compiled_graph_resource(graph, kGainParameterId, kBypassParameterId);
   if (future_report.disposition != CompiledGraphDisposition::reject_too_new ||
       future_report.diagnostic != CompiledGraphDiagnostic::too_new ||
-      future_report.version.major != 1 || future_report.version.minor != 1 ||
+      future_report.version.major != 1 || future_report.version.minor != 2 ||
       future_report.binding) {
     return false;
   }
 
-  auto corrupt = garak::test::kCompiledGraphFixture;
+  auto corrupt = garak::test::kCompiledGainGraphFixture;
   corrupt[28] = 1;
   if (!write_bytes(graph, corrupt)) {
     return false;
@@ -116,6 +129,20 @@ private:
   if (corrupt_report.disposition != CompiledGraphDisposition::reject_invalid ||
       corrupt_report.diagnostic != CompiledGraphDiagnostic::invalid_current ||
       !corrupt_report.version.available || corrupt_report.binding) {
+    return false;
+  }
+
+  std::array<std::uint8_t, garak::test::kCompiledPolarityGraphFixture.size() + 1> oversized{};
+  std::copy(garak::test::kCompiledPolarityGraphFixture.begin(),
+            garak::test::kCompiledPolarityGraphFixture.end(), oversized.begin());
+  if (!write_bytes(graph, oversized)) {
+    return false;
+  }
+  const auto oversized_report =
+      read_compiled_graph_resource(graph, kGainParameterId, kBypassParameterId);
+  if (oversized_report.disposition != CompiledGraphDisposition::reject_invalid ||
+      oversized_report.diagnostic != CompiledGraphDiagnostic::invalid_current ||
+      !oversized_report.version.available || oversized_report.binding) {
     return false;
   }
 

@@ -40,7 +40,7 @@ read_compiled_graph_resource(const std::filesystem::path& path,
   if (!input.is_open()) {
     return invalid_resource();
   }
-  std::array<std::uint8_t, runtime::static_graph::kCompiledGraphTotalBytes + 1> bytes{};
+  std::array<std::uint8_t, runtime::static_graph::kMaximumCompiledGraphBytes + 1> bytes{};
   input.read(reinterpret_cast<char*>(bytes.data()), static_cast<std::streamsize>(bytes.size()));
   const auto count = input.gcount();
   if (input.bad() || (input.fail() && !input.eof()) || count < 0) {
