@@ -78,9 +78,7 @@ function postGainOperationType(source: ProductGraphSource): number | null {
     return COMPILED_GRAPH_OPERATION_TYPE.polarity;
   }
   if (
-    graph.nodes.some(
-      (node) => node.type === PRODUCT_GRAPH_NODE_TYPE.saturation,
-    )
+    graph.nodes.some((node) => node.type === PRODUCT_GRAPH_NODE_TYPE.saturation)
   ) {
     return COMPILED_GRAPH_OPERATION_TYPE.saturation;
   }
