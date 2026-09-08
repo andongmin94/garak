@@ -59,6 +59,7 @@ public:
     return Steinberg::kResultFalse;
   }
 
+  // NOLINTNEXTLINE(bugprone-easily-swappable-parameters): fixed SDK IBStream ABI.
   Steinberg::tresult PLUGIN_API seek(const Steinberg::int64 position, const Steinberg::int32 mode,
                                      Steinberg::int64* const result) override {
     Steinberg::int64 base = 0;
@@ -69,11 +70,10 @@ public:
     } else if (mode != Steinberg::IBStream::kIBSeekSet) {
       return Steinberg::kInvalidArgument;
     }
-    const auto next = base + position;
-    if (next < 0 || next > size_) {
+    if (position < -base || position > size_ - base) {
       return Steinberg::kResultFalse;
     }
-    cursor_ = static_cast<Steinberg::int32>(next);
+    cursor_ = static_cast<Steinberg::int32>(base + position);
     if (result != nullptr) {
       *result = cursor_;
     }
