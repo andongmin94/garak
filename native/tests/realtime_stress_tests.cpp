@@ -118,6 +118,8 @@ constexpr std::uint32_t kBlockCount = 20'000;
 constexpr std::uint32_t kGainParameterId = 1001;
 constexpr std::uint32_t kBypassParameterId = 1002;
 using StaticExecutionBinding = garak::runtime::static_graph::StaticExecutionBinding;
+using StaticExecutionParameterIds = garak::runtime::static_graph::StaticExecutionParameterIds;
+constexpr StaticExecutionParameterIds kParameterIds{kGainParameterId, kBypassParameterId};
 
 class PointSource final {
 public:
@@ -144,9 +146,9 @@ struct StressResult final {
 
 template <bool Polarity> [[nodiscard]] constexpr auto make_stress_execution_binding() noexcept {
   if constexpr (Polarity) {
-    return StaticExecutionBinding::gain_polarity(kGainParameterId, kBypassParameterId);
+    return StaticExecutionBinding::gain_polarity(kParameterIds);
   }
-  return StaticExecutionBinding::gain_only(kGainParameterId, kBypassParameterId);
+  return StaticExecutionBinding::gain_only(kParameterIds);
 }
 
 template <typename Sample>
