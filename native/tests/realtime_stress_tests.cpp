@@ -141,6 +141,15 @@ struct StressResult final {
   allocation_tracking::Counts counts{};
 };
 
+template <bool Polarity> [[nodiscard]] constexpr auto make_stress_execution_binding() noexcept {
+  if constexpr (Polarity) {
+    return garak::runtime::static_graph::StaticExecutionBinding::gain_polarity(kGainParameterId,
+                                                                               kBypassParameterId);
+  }
+  return garak::runtime::static_graph::StaticExecutionBinding::gain_only(kGainParameterId,
+                                                                         kBypassParameterId);
+}
+
 template <typename Sample>
 [[nodiscard]] bool near(const Sample actual, const Sample expected) noexcept {
   if constexpr (std::is_same_v<Sample, float>)
@@ -149,12 +158,7 @@ template <typename Sample>
 }
 
 template <typename Sample, bool Polarity> [[nodiscard]] StressResult run() noexcept {
-  constexpr auto execution_binding =
-      Polarity
-          ? garak::runtime::static_graph::StaticExecutionBinding::gain_polarity(
-                kGainParameterId, kBypassParameterId)
-          : garak::runtime::static_graph::StaticExecutionBinding::gain_only(kGainParameterId,
-                                                                            kBypassParameterId);
+  constexpr auto execution_binding = make_stress_execution_binding<Polarity>();
 
   std::array<std::array<Sample, kMaximumSamples>, 2> input{};
   std::array<std::array<Sample, kMaximumSamples>, 2> output{};
