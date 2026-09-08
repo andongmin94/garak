@@ -48,13 +48,20 @@ public:
   [[nodiscard]] static constexpr StaticExecutionBinding
   gain_only(const std::uint32_t gain_parameter_id,
             const std::uint32_t bypass_parameter_id) noexcept {
-    return StaticExecutionBinding{gain_parameter_id, bypass_parameter_id, false};
+    StaticExecutionBinding binding{};
+    binding.gain_parameter_id_ = gain_parameter_id;
+    binding.bypass_parameter_id_ = bypass_parameter_id;
+    return binding;
   }
 
   [[nodiscard]] static constexpr StaticExecutionBinding
   gain_polarity(const std::uint32_t gain_parameter_id,
                 const std::uint32_t bypass_parameter_id) noexcept {
-    return StaticExecutionBinding{gain_parameter_id, bypass_parameter_id, true};
+    StaticExecutionBinding binding{};
+    binding.gain_parameter_id_ = gain_parameter_id;
+    binding.bypass_parameter_id_ = bypass_parameter_id;
+    binding.has_polarity_ = true;
+    return binding;
   }
 
   [[nodiscard]] constexpr std::uint32_t gain_parameter_id() const noexcept {
@@ -69,11 +76,7 @@ public:
                                                  const StaticExecutionBinding&) noexcept = default;
 
 private:
-  constexpr StaticExecutionBinding(const std::uint32_t gain_parameter_id,
-                                   const std::uint32_t bypass_parameter_id,
-                                   const bool has_polarity) noexcept
-      : gain_parameter_id_(gain_parameter_id), bypass_parameter_id_(bypass_parameter_id),
-        has_polarity_(has_polarity) {}
+  constexpr StaticExecutionBinding() noexcept = default;
 
   std::uint32_t gain_parameter_id_{};
   std::uint32_t bypass_parameter_id_{};
