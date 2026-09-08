@@ -43,23 +43,26 @@ struct StaticExecutionPlan final {
   std::uint32_t latency_samples{};
 };
 
+struct StaticExecutionParameterIds final {
+  std::uint32_t gain_parameter_id{};
+  std::uint32_t bypass_parameter_id{};
+};
+
 class StaticExecutionBinding final {
 public:
   [[nodiscard]] static constexpr StaticExecutionBinding
-  gain_only(const std::uint32_t gain_parameter_id,
-            const std::uint32_t bypass_parameter_id) noexcept {
+  gain_only(const StaticExecutionParameterIds parameter_ids) noexcept {
     StaticExecutionBinding binding{};
-    binding.gain_parameter_id_ = gain_parameter_id;
-    binding.bypass_parameter_id_ = bypass_parameter_id;
+    binding.gain_parameter_id_ = parameter_ids.gain_parameter_id;
+    binding.bypass_parameter_id_ = parameter_ids.bypass_parameter_id;
     return binding;
   }
 
   [[nodiscard]] static constexpr StaticExecutionBinding
-  gain_polarity(const std::uint32_t gain_parameter_id,
-                const std::uint32_t bypass_parameter_id) noexcept {
+  gain_polarity(const StaticExecutionParameterIds parameter_ids) noexcept {
     StaticExecutionBinding binding{};
-    binding.gain_parameter_id_ = gain_parameter_id;
-    binding.bypass_parameter_id_ = bypass_parameter_id;
+    binding.gain_parameter_id_ = parameter_ids.gain_parameter_id;
+    binding.bypass_parameter_id_ = parameter_ids.bypass_parameter_id;
     binding.has_polarity_ = true;
     return binding;
   }
@@ -138,11 +141,12 @@ bind_static_execution_plan(const StaticExecutionPlan& plan, const std::uint32_t 
   if (plan.latency_samples != 0) {
     return std::nullopt;
   }
+  const StaticExecutionParameterIds parameter_ids{gain_parameter_id, bypass_parameter_id};
   if (plan_equal(plan, make_gain_only_execution_plan(gain_parameter_id, bypass_parameter_id))) {
-    return StaticExecutionBinding::gain_only(gain_parameter_id, bypass_parameter_id);
+    return StaticExecutionBinding::gain_only(parameter_ids);
   }
   if (plan_equal(plan, make_gain_polarity_execution_plan(gain_parameter_id, bypass_parameter_id))) {
-    return StaticExecutionBinding::gain_polarity(gain_parameter_id, bypass_parameter_id);
+    return StaticExecutionBinding::gain_polarity(parameter_ids);
   }
   return std::nullopt;
 }
