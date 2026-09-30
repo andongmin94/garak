@@ -934,7 +934,8 @@ $expectedChildTools = @(
     $validator,
     $validator
 )
-$nodeCommand = Get-Command node.exe -CommandType Application -ErrorAction Stop
+$nodeCommand = Get-Command node.exe -CommandType Application -ErrorAction Stop |
+    Select-Object -First 1
 $nodePath = [IO.Path]::GetFullPath($nodeCommand.Source)
 if (-not (Test-Path -LiteralPath $nodePath -PathType Leaf)) {
     throw "Node.js executable does not exist as a file: $nodePath"
