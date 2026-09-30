@@ -154,19 +154,50 @@ jobs:
       - run: ctest --preset product-runtime-release-test --no-tests=error
       - run: pnpm --dir studio verify:product-workflow --configuration Release
       - run: cmake --preset product-runtime-werror --fresh
-      - run: cmake --build --preset product-runtime-werror-build --clean-first
+      - name: Build with MSVC warnings as errors
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $false
+          $global:LASTEXITCODE = $null
+          $output = @(& cmake --build --preset product-runtime-werror-build --clean-first 2>&1)
+          $exitCode = $LASTEXITCODE
+          $lines = [string[]]@($output | ForEach-Object { [string]$_ })
+          $null = New-Item -ItemType Directory -Force -Path out/reports/native
+          [IO.File]::WriteAllLines('out/reports/native/msvc-werror.log', $lines, [Text.UTF8Encoding]::new($false))
+          $lines | ForEach-Object { Write-Output $_ }
+          if ($null -eq $exitCode) { throw 'MSVC build returned no native exit code.' }
+          if ($exitCode -ne 0) {
+            $pattern = '(?i)(?:fatal\s+)?error\s+(?:C\d{4}|LNK\d+)|warning\s+C\d{4}|:\s*(?:fatal\s+)?error:|:\s*warning:.*\['
+            $diagnostics = @($lines | Where-Object { $_ -match $pattern } | Select-Object -First 20)
+            if ($diagnostics.Count -eq 0) { $diagnostics = @($lines | Select-Object -Last 20) }
+            if ($diagnostics.Count -eq 0) { $diagnostics = @("MSVC build exited $exitCode without diagnostic output.") }
+            foreach ($diagnostic in $diagnostics) {
+              $message = if ($diagnostic.Length -gt 4000) { $diagnostic.Substring(0, 4000) } else { $diagnostic }
+              $escaped = $message.Replace('%', '%25').Replace("`r", '%0D').Replace("`n", '%0A')
+              Write-Output "::error title=MSVC warnings as errors::$escaped"
+            }
+            exit $exitCode
+          }
       - run: cmake --preset product-runtime-clang-tidy --fresh
       - name: Build with Windows clang-tidy
         run: |
+          $PSNativeCommandUseErrorActionPreference = $false
+          $global:LASTEXITCODE = $null
           $output = @(& cmake --build --preset product-runtime-clang-tidy-build --clean-first 2>&1)
           $exitCode = $LASTEXITCODE
+          $lines = [string[]]@($output | ForEach-Object { [string]$_ })
+          $null = New-Item -ItemType Directory -Force -Path out/reports/native
+          [IO.File]::WriteAllLines('out/reports/native/clang-tidy.log', $lines, [Text.UTF8Encoding]::new($false))
+          $lines | ForEach-Object { Write-Output $_ }
+          if ($null -eq $exitCode) { throw 'clang-tidy build returned no native exit code.' }
           if ($exitCode -ne 0) {
-            $pattern = 'error:|warning:|FAILED:|clang-tidy|bugprone-|cert-|clang-analyzer-|cppcoreguidelines-|misc-|modernize-|performance-|portability-|readability-'
-            $diagnostics = @($output | Select-String -Pattern $pattern | ForEach-Object { $_.Line })
-            if ($diagnostics.Count -eq 0) {
-              $output | Select-Object -Last 120 | ForEach-Object { $_ }
-            } else {
-              $diagnostics | ForEach-Object { $_ }
+            $pattern = '(?i)(?:fatal\s+)?error\s+(?:C\d{4}|LNK\d+)|warning\s+C\d{4}|:\s*(?:fatal\s+)?error:|:\s*warning:.*\['
+            $diagnostics = @($lines | Where-Object { $_ -match $pattern } | Select-Object -First 20)
+            if ($diagnostics.Count -eq 0) { $diagnostics = @($lines | Select-Object -Last 20) }
+            if ($diagnostics.Count -eq 0) { $diagnostics = @("clang-tidy build exited $exitCode without diagnostic output.") }
+            foreach ($diagnostic in $diagnostics) {
+              $message = if ($diagnostic.Length -gt 4000) { $diagnostic.Substring(0, 4000) } else { $diagnostic }
+              $escaped = $message.Replace('%', '%25').Replace("`r", '%0D').Replace("`n", '%0A')
+              Write-Output "::error title=Windows clang-tidy::$escaped"
             }
             exit $exitCode
           }
@@ -186,13 +217,3 @@ jobs:
             $changes | Write-Output
             throw 'Verification left modified or untracked source.'
           }
-      - name: Retain Windows acceptance evidence
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: windows-acceptance-${{ github.sha }}
-          path: |
-            out/reports/**/*.json
-            out/build/**/Testing/Temporary/LastTest.log
-          if-no-files-found: warn
-          retention-days: 14
