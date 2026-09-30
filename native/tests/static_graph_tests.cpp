@@ -292,8 +292,9 @@ template <PostGainTransform Transform> [[nodiscard]] bool test_execution() {
   const auto expected = [](const float sample) {
     if constexpr (Transform == PostGainTransform::saturation) {
       return std::tanh(sample);
+    } else {
+      return Transform == PostGainTransform::polarity ? -sample : sample;
     }
-    return Transform == PostGainTransform::polarity ? -sample : sample;
   };
   if (!almost_equal(output[0], expected(input[0] * linear)) ||
       !almost_equal(output[1], expected(input[1] * linear))) {
