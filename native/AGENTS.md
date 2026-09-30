@@ -17,7 +17,7 @@ the native build and source tree. `adapters/vst3/AGENTS.md` adds a third layer b
 - Keep tests deterministic and standalone. Report failed comparisons to stderr and return a
   non-zero exit code; do not use `assert` as the test contract.
 - Realtime code follows `docs/architecture/realtime-and-quality.md`. The current callback path is
-  the production Gain DSP module plus `runtime/product_v1` and
+  the production Gain DSP module, fixed Saturation DSP and exact static graph binding plus `runtime/product_v1` and
   `adapters/vst3/product_runtime_v1`. It must not allocate, free, lock, wait, perform I/O, log,
   format strings, mutate graph structure, or propagate exceptions.
 - Do not add a third-party native dependency without the repository-level dependency and license
@@ -35,6 +35,8 @@ cmake --build --preset release-build --clean-first
 ctest --preset release-test --no-tests=error
 ```
 
+The generic Native presets also run on Linux without a VST3 SDK build. Their current test set includes Gain/Saturation DSP, compiled graph/static binding, SDK-independent product/state contracts, compatibility and realtime stress. Actual VST3 module loading and package validation remain Windows Product Runtime gates.
+
 Run the current Windows Product Runtime path after initializing the exact recursive SDK checkout:
 
 ```text
@@ -43,17 +45,25 @@ git submodule update --init --recursive third_party/vst3sdk
 cmake --preset product-runtime-debug --fresh
 cmake --build --preset product-runtime-debug-build --clean-first
 pnpm product:export --project examples/products/artist-gain-warm.garak `
-  --configuration Debug --output out/exports/phase-1c1/debug --force --validate
+  --configuration Debug --output out/exports/phase-3d2/debug --force --validate
 pnpm product:export --project examples/products/artist-gain-bright.garak `
-  --configuration Debug --output out/exports/phase-1c1/debug --force --validate
+  --configuration Debug --output out/exports/phase-3d2/debug --force --validate
+pnpm product:export --project examples/products/artist-gain-inverted.garak `
+  --configuration Debug --output out/exports/phase-3d2/debug --force --validate
+pnpm product:export --project examples/products/artist-gain-saturated.garak `
+  --configuration Debug --output out/exports/phase-3d2/debug --force --validate
 ctest --preset product-runtime-debug-test --no-tests=error
 
 cmake --preset product-runtime-release --fresh
 cmake --build --preset product-runtime-release-build --clean-first
 pnpm product:export --project examples/products/artist-gain-warm.garak `
-  --configuration Release --output out/exports/phase-1c1/release --force --validate
+  --configuration Release --output out/exports/phase-3d2/release --force --validate
 pnpm product:export --project examples/products/artist-gain-bright.garak `
-  --configuration Release --output out/exports/phase-1c1/release --force --validate
+  --configuration Release --output out/exports/phase-3d2/release --force --validate
+pnpm product:export --project examples/products/artist-gain-inverted.garak `
+  --configuration Release --output out/exports/phase-3d2/release --force --validate
+pnpm product:export --project examples/products/artist-gain-saturated.garak `
+  --configuration Release --output out/exports/phase-3d2/release --force --validate
 ctest --preset product-runtime-release-test --no-tests=error
 ```
 

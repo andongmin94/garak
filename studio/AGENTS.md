@@ -36,10 +36,10 @@
 - Product Compiler의 project schema, identity, validation, serialization과 atomic export를 renderer나
   Electron main에 복제하지 않는다. Main은 callable compiler workflow, dialog, opaque document/cleanup
   capability와 fixed IPC orchestration만 소유한다.
-- Current schema v3와 legacy v1/v2 open/memory migration status를 typed boundary로 전달한다. Legacy source의
+- Current schema v5와 legacy v1/v2/v3/v4 open/memory migration status를 typed boundary로 전달한다. Legacy source의
   ordinary Save는 shared compiler의 migration-required diagnostic을 보존하고, explicit user approval 뒤에만
-  main-owned verified backup/recovery transaction으로 v3 in-place publication을 수행한다.
-- Schema v3 graph는 Electron main session이 소유하며 renderer에는 read-only status만 전달한다. Renderer
+  main-owned verified backup/recovery transaction으로 v5 in-place publication을 수행한다.
+- Schema v5 / graph source v3 graph는 Electron main session이 소유하며 renderer에는 read-only status만 전달한다. Renderer
   validate/save request에 graph, Product ID 또는 path authority를 추가하지 않는다. Graph canvas와 mutation은
   별도 phase 이전에 암시하거나 구현하지 않는다.
 - Phase 1C.2/2A 범위 밖 DSP control, audition, general native IPC, routing과 speculative persistence framework를
@@ -81,6 +81,6 @@ pnpm --dir studio verify:product-workflow --configuration Release
 `pnpm format:check`, `pnpm test`, `pnpm typecheck`, `pnpm build`를 사용한다. Product workflow smoke는
 `pnpm verify:product-workflow --configuration Debug` 또는 `Release`로 실행하며 temp physical project의
 new→validate→save→reopen parity와 legacy v2 explicit migration/backup/reopen 뒤 reference export를 검증한다.
-해당 configuration의 prebuilt Product Runtime과 도구가 있는 repository-local 환경이 필요하다. Legacy v1/v2
+해당 configuration의 prebuilt Product Runtime과 도구가 있는 repository-local 환경이 필요하다. Legacy v1/v2/v3/v4
 open/no-rewrite/save-refusal과 approved migration도 Studio test contract에 포함한다. 오류를 통과시키기 위해 strict option, lint rule
 또는 Electron security option을 무차별로 완화하지 않는다.

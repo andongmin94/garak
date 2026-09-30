@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 
 import { ProductService } from '../electron/product_service.mts';
 import {
+  isProductDocumentResult,
   isProductExportOperationResult,
   isProductGraphSource,
   type ProductConfiguration,
@@ -42,8 +43,8 @@ async function main(): Promise<void> {
     readonly productId: string;
     readonly processorFuid: string;
     readonly controllerFuid: string;
-    readonly schemaVersion: 4;
-    readonly graphSchemaVersion: 2;
+    readonly schemaVersion: 5;
+    readonly graphSchemaVersion: 3;
     readonly saved: true;
     readonly reopened: true;
   };
@@ -80,8 +81,8 @@ async function main(): Promise<void> {
     if (
       reopened.status !== 'ok' ||
       !reopened.value.saved ||
-      reopened.value.schemaVersion !== 4 ||
-      reopened.value.schemaStatus.sourceSchemaVersion !== 4 ||
+      reopened.value.schemaVersion !== 5 ||
+      reopened.value.schemaStatus.sourceSchemaVersion !== 5 ||
       reopened.value.schemaStatus.migrationRequired ||
       !isProductGraphSource(reopened.value.graph) ||
       reopened.value.productId !== created.value.productId ||
@@ -94,7 +95,7 @@ async function main(): Promise<void> {
       productId: reopened.value.productId,
       processorFuid: validated.value.processorFuid,
       controllerFuid: validated.value.controllerFuid,
-      schemaVersion: 4,
+      schemaVersion: 5,
       graphSchemaVersion: reopened.value.graph.schemaVersion,
       saved: true,
       reopened: true,
@@ -103,210 +104,202 @@ async function main(): Promise<void> {
     await rm(lifecycleRoot, { recursive: true, force: false });
   }
 
-  const migrationRoot = await mkdtemp(
-    path.join(lifecycleParent, `${configuration.toLowerCase()}-migration-`),
-  );
-  const migrationProject = path.join(migrationRoot, 'Legacy Gain Warm.garak');
-  const legacyV2Fixture = path.join(
-    repositoryRoot,
-    'examples',
-    'products',
-    'legacy',
-    'v2',
-    'artist-gain-warm.garak',
-  );
-  let migrationEvidence: {
-    readonly sourceSchemaVersion: 2;
-    readonly targetSchemaVersion: 4;
+  const migrations: {
+    readonly sourceSchemaVersion: 1 | 2 | 3 | 4;
+    readonly targetSchemaVersion: 5;
     readonly backupFingerprint: string;
     readonly graphPreserved: true;
     readonly reopened: true;
-  };
-  try {
-    await cp(legacyV2Fixture, migrationProject, { recursive: true, errorOnExist: true });
-    let backupNotice:
-      { readonly projectDirectory: string; readonly fingerprint: string } | undefined;
-    const migrationService = new ProductService({
+  }[] = [];
+  for (const sourceSchemaVersion of [1, 2, 3, 4] as const) {
+    const migrationRoot = await mkdtemp(
+      path.join(
+        lifecycleParent,
+        `${configuration.toLowerCase()}-migration-v${sourceSchemaVersion}-`,
+      ),
+    );
+    const migrationProject = path.join(migrationRoot, 'Legacy Gain.garak');
+    const legacyFixture = path.join(
+      repositoryRoot,
+      'examples',
+      'products',
+      'legacy',
+      `v${sourceSchemaVersion}`,
+      sourceSchemaVersion === 4 ? 'artist-gain-inverted.garak' : 'artist-gain-warm.garak',
+    );
+    try {
+      await cp(legacyFixture, migrationProject, { recursive: true, errorOnExist: true });
+      const originalSource = await readFile(path.join(migrationProject, 'product.json'), 'utf8');
+      let approveMigration = false;
+      let backupNotice:
+        { readonly projectDirectory: string; readonly fingerprint: string } | undefined;
+      const migrationService = new ProductService({
+        repositoryRoot,
+        dialogs: {
+          chooseProjectToOpen: () => Promise.resolve(migrationProject),
+          chooseProjectToCreate: () => Promise.resolve(null),
+          chooseExportDirectory: () => Promise.resolve(null),
+          confirmExportReplacement: () => Promise.resolve(false),
+          confirmOwnedCleanup: () => Promise.resolve(false),
+          confirmProjectMigration: () => Promise.resolve(approveMigration),
+          notifyProjectMigrationComplete: (notice) => {
+            backupNotice = notice;
+            return Promise.resolve();
+          },
+        },
+      });
+      const legacy = await migrationService.openProduct();
+      if (
+        legacy.status !== 'ok' ||
+        legacy.value.schemaVersion !== 5 ||
+        legacy.value.schemaStatus.sourceSchemaVersion !== sourceSchemaVersion ||
+        !legacy.value.schemaStatus.migrationRequired ||
+        !isProductGraphSource(legacy.value.graph) ||
+        (await readFile(path.join(migrationProject, 'product.json'), 'utf8')) !== originalSource
+      ) {
+        throw new Error(
+          `Studio v${sourceSchemaVersion} read-only open failed: ${JSON.stringify(legacy)}`,
+        );
+      }
+      const refused = await migrationService.saveProduct({
+        documentId: legacy.value.documentId,
+        draft: legacy.value.draft,
+      });
+      if (
+        refused.status !== 'error' ||
+        refused.diagnostic.code !== 'GARAK_PROJECT_MIGRATION_REQUIRED' ||
+        (await readFile(path.join(migrationProject, 'product.json'), 'utf8')) !== originalSource
+      ) {
+        throw new Error(`Studio legacy save changed its source: ${JSON.stringify(refused)}`);
+      }
+      approveMigration = true;
+      const migrated = await migrationService.openProduct();
+      if (
+        migrated.status !== 'ok' ||
+        migrated.value.schemaVersion !== 5 ||
+        migrated.value.schemaStatus.sourceSchemaVersion !== 5 ||
+        migrated.value.schemaStatus.migrationRequired ||
+        JSON.stringify(migrated.value.graph) !== JSON.stringify(legacy.value.graph) ||
+        migrated.value.productId !== legacy.value.productId ||
+        backupNotice === undefined
+      ) {
+        throw new Error(
+          `Studio v${sourceSchemaVersion}-to-v5 migration failed: ${JSON.stringify(migrated)}`,
+        );
+      }
+      if (
+        (await readFile(path.join(backupNotice.projectDirectory, 'product.json'), 'utf8')) !==
+        originalSource
+      ) {
+        throw new Error('Studio migration backup did not preserve the exact legacy source.');
+      }
+      const reopened = await migrationService.openProduct();
+      if (
+        reopened.status !== 'ok' ||
+        reopened.value.productId !== migrated.value.productId ||
+        JSON.stringify(reopened.value.graph) !== JSON.stringify(migrated.value.graph)
+      ) {
+        throw new Error(`Studio migrated project reopen failed: ${JSON.stringify(reopened)}`);
+      }
+      migrations.push({
+        sourceSchemaVersion,
+        targetSchemaVersion: 5,
+        backupFingerprint: backupNotice.fingerprint,
+        graphPreserved: true,
+        reopened: true,
+      });
+    } finally {
+      await rm(migrationRoot, { recursive: true, force: false });
+    }
+  }
+
+  const products = [];
+  const productIds = new Set<string>();
+  const classIds = new Set<string>();
+  for (const [product, postGain] of [
+    ['warm', null],
+    ['bright', null],
+    ['inverted', 'garak.polarity'],
+    ['saturated', 'garak.saturation'],
+  ] as const) {
+    const projectDirectory = path.join(
+      repositoryRoot,
+      'examples',
+      'products',
+      `artist-gain-${product}.garak`,
+    );
+    const outputDirectory = path.join(
+      repositoryRoot,
+      'out',
+      'exports',
+      'phase-3d2',
+      `studio-service-${product}-${configuration.toLowerCase()}`,
+    );
+    const service = new ProductService({
       repositoryRoot,
       dialogs: {
-        chooseProjectToOpen: () => Promise.resolve(migrationProject),
+        chooseProjectToOpen: () => Promise.resolve(projectDirectory),
         chooseProjectToCreate: () => Promise.resolve(null),
-        chooseExportDirectory: () => Promise.resolve(null),
-        confirmExportReplacement: () => Promise.resolve(false),
+        chooseExportDirectory: () => Promise.resolve(outputDirectory),
+        confirmExportReplacement: () => Promise.resolve(true),
         confirmOwnedCleanup: () => Promise.resolve(false),
-        confirmProjectMigration: () => Promise.resolve(true),
-        notifyProjectMigrationComplete: (notice) => {
-          backupNotice = notice;
-          return Promise.resolve();
-        },
       },
     });
-    const migrated = await migrationService.openProduct();
+    const opened = await service.openProduct();
     if (
-      migrated.status !== 'ok' ||
-      migrated.value.schemaVersion !== 4 ||
-      migrated.value.schemaStatus.sourceSchemaVersion !== 4 ||
-      migrated.value.schemaStatus.migrationRequired ||
-      !isProductGraphSource(migrated.value.graph) ||
-      backupNotice === undefined
+      opened.status !== 'ok' ||
+      !isProductDocumentResult(opened) ||
+      opened.value.schemaStatus.migrationRequired ||
+      opened.value.graph.nodes.length !== (postGain === null ? 3 : 4) ||
+      (postGain !== null && !opened.value.graph.nodes.some((node) => node.type === postGain))
     ) {
-      throw new Error(`Studio v2-to-v4 migration failed: ${JSON.stringify(migrated)}`);
+      throw new Error(`Studio ${product} open failed: ${JSON.stringify(opened)}`);
     }
-    const backupSource = JSON.parse(
-      await readFile(path.join(backupNotice.projectDirectory, 'product.json'), 'utf8'),
-    ) as unknown;
+    const inspected = await service.validateProduct({
+      documentId: opened.value.documentId,
+      draft: opened.value.draft,
+    });
+    if (inspected.status !== 'ok') {
+      throw new Error(`Studio ${product} validation failed: ${JSON.stringify(inspected)}`);
+    }
+    const exported = await service.exportProduct({
+      documentId: opened.value.documentId,
+      configuration,
+    });
     if (
-      typeof backupSource !== 'object' ||
-      backupSource === null ||
-      !('schemaVersion' in backupSource) ||
-      backupSource.schemaVersion !== 2
+      exported.status !== 'ok' ||
+      !isProductExportOperationResult(exported) ||
+      exported.value.inventory.length !== 4 ||
+      exported.value.childProcesses.length !== 5 ||
+      exported.value.childProcesses.some((child) => child.exitCode !== 0) ||
+      exported.value.cleanupWarnings.length !== 0 ||
+      exported.value.processorFuid !== inspected.value.processorFuid ||
+      exported.value.controllerFuid !== inspected.value.controllerFuid ||
+      productIds.has(opened.value.productId) ||
+      classIds.has(exported.value.processorFuid) ||
+      classIds.has(exported.value.controllerFuid)
     ) {
-      throw new Error('Studio migration backup did not preserve the exact schema v2 source.');
+      throw new Error(`Studio ${product} export failed: ${JSON.stringify(exported)}`);
     }
-    const reopened = await migrationService.openProduct();
-    if (
-      reopened.status !== 'ok' ||
-      reopened.value.productId !== migrated.value.productId ||
-      JSON.stringify(reopened.value.graph) !== JSON.stringify(migrated.value.graph)
-    ) {
-      throw new Error(`Studio migrated project reopen failed: ${JSON.stringify(reopened)}`);
-    }
-    migrationEvidence = {
-      sourceSchemaVersion: 2,
-      targetSchemaVersion: 4,
-      backupFingerprint: backupNotice.fingerprint,
-      graphPreserved: true,
-      reopened: true,
-    };
-  } finally {
-    await rm(migrationRoot, { recursive: true, force: false });
+    productIds.add(opened.value.productId);
+    classIds.add(exported.value.processorFuid);
+    classIds.add(exported.value.controllerFuid);
+    products.push({
+      product,
+      productId: opened.value.productId,
+      project: opened.value.locationLabel,
+      bundlePath: exported.value.bundlePath,
+      processorFuid: exported.value.processorFuid,
+      controllerFuid: exported.value.controllerFuid,
+      runtimeSha256: exported.value.runtimeSha256,
+      compiledSha256: exported.value.compiledSha256,
+      moduleInfoSha256: exported.value.moduleInfoSha256,
+      inventory: exported.value.inventory,
+      childProcesses: exported.value.childProcesses,
+    });
   }
-
-  const projectDirectory = path.join(
-    repositoryRoot,
-    'examples',
-    'products',
-    'artist-gain-warm.garak',
-  );
-  const outputDirectory = path.join(
-    repositoryRoot,
-    'out',
-    'exports',
-    'phase-1c2',
-    `studio-service-${configuration.toLowerCase()}`,
-  );
-
-  const service = new ProductService({
-    repositoryRoot,
-    dialogs: {
-      chooseProjectToOpen: () => Promise.resolve(projectDirectory),
-      chooseProjectToCreate: () => Promise.resolve(null),
-      chooseExportDirectory: () => Promise.resolve(outputDirectory),
-      confirmExportReplacement: () => Promise.resolve(true),
-      confirmOwnedCleanup: () => Promise.resolve(false),
-    },
-  });
-
-  const opened = await service.openProduct();
-  if (opened.status !== 'ok') {
-    throw new Error(`Studio Product open failed: ${JSON.stringify(opened)}`);
-  }
-  const exported = await service.exportProduct({
-    documentId: opened.value.documentId,
-    configuration,
-  });
-  if (exported.status !== 'ok') {
-    throw new Error(`Studio Product export failed: ${JSON.stringify(exported)}`);
-  }
-  if (!isProductExportOperationResult(exported)) {
-    throw new Error('Studio preload response guard rejected the real Product export result.');
-  }
-  if (
-    exported.value.inventory.length !== 4 ||
-    exported.value.childProcesses.length !== 5 ||
-    exported.value.childProcesses.some((child) => child.exitCode !== 0) ||
-    exported.value.cleanupWarnings.length !== 0
-  ) {
-    throw new Error(
-      `Studio Product export returned unexpected evidence: ${JSON.stringify(exported.value)}`,
-    );
-  }
-
-  const invertedProjectDirectory = path.join(
-    repositoryRoot,
-    'examples',
-    'products',
-    'artist-gain-inverted.garak',
-  );
-  const invertedOutputDirectory = path.join(
-    repositoryRoot,
-    'out',
-    'exports',
-    'phase-1c2',
-    `studio-service-inverted-${configuration.toLowerCase()}`,
-  );
-  const invertedService = new ProductService({
-    repositoryRoot,
-    dialogs: {
-      chooseProjectToOpen: () => Promise.resolve(invertedProjectDirectory),
-      chooseProjectToCreate: () => Promise.resolve(null),
-      chooseExportDirectory: () => Promise.resolve(invertedOutputDirectory),
-      confirmExportReplacement: () => Promise.resolve(true),
-      confirmOwnedCleanup: () => Promise.resolve(false),
-    },
-  });
-  const invertedOpened = await invertedService.openProduct();
-  if (
-    invertedOpened.status !== 'ok' ||
-    !invertedOpened.value.graph.nodes.some((node) => node.type === 'garak.polarity')
-  ) {
-    throw new Error(`Studio Inverted open failed: ${JSON.stringify(invertedOpened)}`);
-  }
-  const invertedExported = await invertedService.exportProduct({
-    documentId: invertedOpened.value.documentId,
-    configuration,
-  });
-  if (
-    invertedExported.status !== 'ok' ||
-    !isProductExportOperationResult(invertedExported) ||
-    invertedExported.value.inventory.length !== 4 ||
-    invertedExported.value.childProcesses.length !== 5 ||
-    invertedExported.value.childProcesses.some((child) => child.exitCode !== 0) ||
-    invertedExported.value.cleanupWarnings.length !== 0
-  ) {
-    throw new Error(`Studio Inverted export failed: ${JSON.stringify(invertedExported)}`);
-  }
-
   process.stdout.write(
-    `${JSON.stringify(
-      {
-        configuration,
-        lifecycle: lifecycleEvidence,
-        migration: migrationEvidence,
-        project: opened.value.locationLabel,
-        bundlePath: exported.value.bundlePath,
-        processorFuid: exported.value.processorFuid,
-        controllerFuid: exported.value.controllerFuid,
-        runtimeSha256: exported.value.runtimeSha256,
-        compiledSha256: exported.value.compiledSha256,
-        moduleInfoSha256: exported.value.moduleInfoSha256,
-        inventory: exported.value.inventory,
-        childProcesses: exported.value.childProcesses,
-        inverted: {
-          project: invertedOpened.value.locationLabel,
-          bundlePath: invertedExported.value.bundlePath,
-          processorFuid: invertedExported.value.processorFuid,
-          controllerFuid: invertedExported.value.controllerFuid,
-          runtimeSha256: invertedExported.value.runtimeSha256,
-          compiledSha256: invertedExported.value.compiledSha256,
-          moduleInfoSha256: invertedExported.value.moduleInfoSha256,
-          inventory: invertedExported.value.inventory,
-          childProcesses: invertedExported.value.childProcesses,
-        },
-      },
-      undefined,
-      2,
-    )}\n`,
+    `${JSON.stringify({ configuration, lifecycle: lifecycleEvidence, migrations, products }, undefined, 2)}\n`,
   );
 }
 

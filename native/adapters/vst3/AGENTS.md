@@ -14,6 +14,6 @@ The repository and `native/AGENTS.md` rules apply here with these narrower adapt
 - The VST3 factory and SDK-owned parameter container require transfer of a freshly allocated
   reference-counted object through a raw ABI pointer. Direct `new` is allowed only at those
   explicit SDK ownership-transfer sites.
-- Keep automatic plugin links disabled. Validate repository-local exported Warm/Bright bundles
+- Keep automatic plugin links disabled. Validate repository-local exported Warm/Bright/Inverted/Saturated bundles
   with the exact `moduleinfotool`, first-party inspector, and official validator built by the
   matching Product Runtime configuration.

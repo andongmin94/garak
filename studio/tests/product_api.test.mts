@@ -12,7 +12,7 @@ import {
 } from '../src/shared/product_api.mts';
 
 const GRAPH = {
-  schemaVersion: 2,
+  schemaVersion: 3,
   nodes: [
     { id: 'input', type: 'garak.audio-input', implementationVersion: 1 },
     { id: 'gain', type: 'garak.gain', implementationVersion: 1 },
@@ -81,10 +81,10 @@ test('Product IPC response guards reject malformed or authority-bearing results'
     documentId: 'document-1',
     locationLabel: null,
     saved: false,
-    schemaVersion: 4,
+    schemaVersion: 5,
     schemaStatus: {
-      sourceSchemaVersion: 4,
-      currentSchemaVersion: 4,
+      sourceSchemaVersion: 5,
+      currentSchemaVersion: 5,
       migrationRequired: false,
       steps: [],
     },
@@ -121,10 +121,61 @@ test('Product IPC response guards reject malformed or authority-bearing results'
       value: {
         ...document,
         schemaStatus: {
-          sourceSchemaVersion: 1,
-          currentSchemaVersion: 4,
+          sourceSchemaVersion: 4,
+          currentSchemaVersion: 5,
           migrationRequired: true,
-          steps: ['project-schema-1-to-2', 'project-schema-2-to-3', 'project-schema-3-to-4'],
+          steps: ['project-schema-4-to-5'],
+        },
+      },
+    }),
+    true,
+  );
+  for (const schemaStatus of [
+    {
+      sourceSchemaVersion: 4,
+      currentSchemaVersion: 5,
+      migrationRequired: false,
+      steps: [],
+    },
+    {
+      sourceSchemaVersion: 2,
+      currentSchemaVersion: 5,
+      migrationRequired: true,
+      steps: ['project-schema-2-to-3', 'project-schema-4-to-5', 'project-schema-3-to-4'],
+    },
+    {
+      sourceSchemaVersion: 1,
+      currentSchemaVersion: 5,
+      migrationRequired: true,
+      steps: ['project-schema-1-to-2', 'project-schema-2-to-3', 'project-schema-3-to-4'],
+    },
+    {
+      sourceSchemaVersion: 6,
+      currentSchemaVersion: 5,
+      migrationRequired: true,
+      steps: [],
+    },
+  ]) {
+    assert.equal(
+      isProductDocumentResult({ status: 'ok', value: { ...document, schemaStatus } }),
+      false,
+    );
+  }
+  assert.equal(
+    isProductDocumentResult({
+      status: 'ok',
+      value: {
+        ...document,
+        schemaStatus: {
+          sourceSchemaVersion: 1,
+          currentSchemaVersion: 5,
+          migrationRequired: true,
+          steps: [
+            'project-schema-1-to-2',
+            'project-schema-2-to-3',
+            'project-schema-3-to-4',
+            'project-schema-4-to-5',
+          ],
         },
       },
     }),
@@ -137,9 +188,9 @@ test('Product IPC response guards reject malformed or authority-bearing results'
         ...document,
         schemaStatus: {
           sourceSchemaVersion: 2,
-          currentSchemaVersion: 4,
+          currentSchemaVersion: 5,
           migrationRequired: true,
-          steps: ['project-schema-2-to-3', 'project-schema-3-to-4'],
+          steps: ['project-schema-2-to-3', 'project-schema-3-to-4', 'project-schema-4-to-5'],
         },
       },
     }),
@@ -152,9 +203,9 @@ test('Product IPC response guards reject malformed or authority-bearing results'
         ...document,
         schemaStatus: {
           sourceSchemaVersion: 3,
-          currentSchemaVersion: 4,
+          currentSchemaVersion: 5,
           migrationRequired: true,
-          steps: ['project-schema-3-to-4'],
+          steps: ['project-schema-3-to-4', 'project-schema-4-to-5'],
         },
       },
     }),
@@ -167,7 +218,7 @@ test('Product IPC response guards reject malformed or authority-bearing results'
         ...document,
         schemaStatus: {
           sourceSchemaVersion: 1,
-          currentSchemaVersion: 4,
+          currentSchemaVersion: 5,
           migrationRequired: false,
           steps: [],
         },

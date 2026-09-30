@@ -21,6 +21,12 @@ if(GARAK_BUILD_TESTS)
 endif()
 
 if(GARAK_BUILD_PRODUCT_RUNTIME_V1)
+  if(NOT WIN32)
+    message(
+      FATAL_ERROR
+        "GARAK_BUILD_PRODUCT_RUNTIME_V1 builds the Windows VST3 runtime. Use debug/release presets for platform-independent DSP, product, state, and graph contract tests."
+    )
+  endif()
   set(GARAK_VST3_SDK_DIR "${CMAKE_CURRENT_SOURCE_DIR}/third_party/vst3sdk")
   if(NOT EXISTS "${GARAK_VST3_SDK_DIR}/CMakeLists.txt")
     message(

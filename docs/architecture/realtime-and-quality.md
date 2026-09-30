@@ -135,6 +135,10 @@ Graph edit는 새 runtime을 compile/prepare한 뒤 안전한 lifecycle 경계�
 
 검증 순서는 Windows VST3, macOS VST3, macOS AU이다. 앞 단계 통과만으로 전체 v0.1 품질 수용을 주장하지 않는다.
 
+## Current exact static Runtime coverage
+
+Phase 3D2 current implementation은 Gain-only, Gain→Polarity와 Gain→Saturation의 세 exact bindings를 사용한다. 하나의 optional post-Gain operation을 Gain active sample loop에 fuse하며 whole-product Bypass는 original dry input을 출력한다. Saturation v1은 finite active post-Gain sample의 `tanh`다. Float32/Float64 direct DSP tests와 allocation/deallocation-counted long-run stress가 current native gates에 포함된다. Runtime parsing, compatibility classification과 migration은 callback 이전에 완료한다. 실제 검증 결과와 Windows acceptance 상태는 [current status](../status/current.md)를 따른다.
+
 ## 아직 수치화하지 않은 기준
 
 - target CPU별 평균·최악 CPU와 deadline miss/xrun 허용치

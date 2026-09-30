@@ -1,9 +1,9 @@
 # Garak Runtime and Export
 
-- 문서 상태: Phase 3D1 current runtime/export contract
-- 최종 갱신: 2026-09-08
-- Current editable project: schema v4 / graph source v2
-- Current compiled formats: `GARAKCPD` 1.0, `GARAKGRF` 1.1, `GARAKPST` 1.0
+- 문서 상태: Phase 3D2 current implementation contract; acceptance pending
+- 최종 갱신: 2026-09-30
+- Current editable project: schema v5 / graph source v3
+- Current compiled formats: `GARAKCPD` 1.0, `GARAKGRF` 1.2, `GARAKPST` 1.0
 - Windows x64 runtime strategy: prebuilt Product Runtime + product data
 
 ## 역할
@@ -29,36 +29,38 @@ editable .garak source
 
 ## Editable source
 
-Current project schema는 v4이고 embedded graph source는 v2다. Supported legacy project schema는 v1/v2/v3이며 current model까지 순서대로 migration한다.
+Current project schema는 v5이고 embedded graph source는 v3다. Supported legacy project schema는 v1/v2/v3/v4이며 v1→v2→v3→v4→v5 순서로 migration한다. v4→v5는 node IDs와 source node/connection array order, 기존 topology를 보존한다. Current source serialization은 authoring array order를 보존하고, compiled bytes는 semantic topology로 결정한다. Historical graph source v1의 canonical ordering은 변경하지 않는다.
 
-Graph source v2는 정확히 두 topology만 허용한다.
+Graph source v3는 정확히 세 topology만 허용한다.
 
 ```text
 Audio Input → Gain → Audio Output
 Audio Input → Gain → Polarity → Audio Output
+Audio Input → Gain → Saturation → Audio Output
 ```
 
-Node types는 `garak.audio-input`, `garak.gain`, optional `garak.polarity`, `garak.audio-output`이고 implementationVersion은 모두 1이다. Endpoint port는 `audio`다. Repeated types, extra properties, arbitrary DAG, branching, feedback와 sidechain은 current product contract가 아니다.
+Node types는 `garak.audio-input`, `garak.gain`, optional `garak.polarity` 또는 `garak.saturation`, `garak.audio-output`이고 implementationVersion은 모두 1이다. Optional post-Gain node는 최대 하나이고 endpoint port는 `audio`다. Repeated types, extra properties, arbitrary DAG, branching, feedback와 sidechain은 current product contract가 아니다.
 
 ## Compiled runtime data
 
 ### `product.garakbin`
 
-`GARAKCPD` 1.0은 product identity, metadata, template/default와 permanent public parameter contract를 담는 derived data다. Phase 3D1에서 format version은 변경되지 않았다.
+`GARAKCPD` 1.0은 product identity, metadata, template/default와 permanent public parameter contract를 담는 derived data다. Phase 3D2에서 format version은 변경되지 않는다.
 
 ### `graph.garakbin`
 
-`GARAKGRF` 1.1은 validated source graph를 exact operation/buffer plan으로 낮춘 derived data다.
+`GARAKGRF` 1.2는 validated source graph를 exact operation/buffer plan으로 낮춘 derived data다.
 
 - Gain-only: 3 operations, 92 bytes, 2 logical buffers
 - Gain→Polarity: 4 operations, 112 bytes, 3 logical buffers
-- both zero latency
+- Gain→Saturation: 4 operations, 112 bytes, 3 logical buffers
+- all zero latency
 
 Export는 validated `project.graph`에서 graph bytes를 생성한다. Missing/invalid source graph를 canonical constant로 대체하지 않는다.
 
 ### Plug-in state
 
-`GARAKPST` 1.0은 product-bound Gain/Bypass state를 유지한다. Polarity는 fixed graph structure이므로 public parameter/state를 추가하지 않는다.
+`GARAKPST` 1.0은 product-bound Gain/Bypass state를 유지한다. Polarity/Saturation은 fixed graph structure이므로 public parameter/state를 추가하지 않는다.
 
 ## Module-load Runtime boundary
 
@@ -76,7 +78,7 @@ Non-current graph는 module-load path에서 fail closed한다. Deployed Runtime�
 
 ## Realtime execution
 
-현재 DSP schedule은 exact static binding 두 개뿐이다.
+현재 DSP schedule은 exact static binding 세 개뿐이다.
 
 ### Gain-only
 
@@ -86,7 +88,11 @@ Gain DSP의 active branch가 normalized Gain automation을 sample-accurately 적
 
 Polarity는 active Gain sample을 `-1`로 변환한다. Naive second post-Gain pass는 bypassed dry sample까지 반전시킬 수 있으므로 사용하지 않는다.
 
-Current Runtime은 exact Polarity operation을 Gain DSP의 active-sample transform으로 fuse한다.
+### Gain→Saturation
+
+`garak.saturation` implementation version 1은 finite active post-Gain sample에 fixed `tanh`를 적용한다. Public drive/mix/output parameter와 state field는 없다.
+
+Current Runtime은 하나의 exact optional post-Gain operation을 Gain DSP의 active-sample transform으로 fuse한다.
 
 ```text
 if bypass:
@@ -95,9 +101,10 @@ else:
     gained = input × gain
     output = gained                 # Gain-only
     output = -gained                # Gain→Polarity
+    output = tanh(gained)           # Gain→Saturation
 ```
 
-Compiled plan의 logical buffer count와 Runtime의 physical callback optimization은 구분한다. Plan은 Polarity operation과 third logical buffer를 명시하지만 callback은 dynamic intermediate buffer를 할당하지 않는다.
+Compiled plan의 logical buffer count와 Runtime의 physical callback optimization은 구분한다. Plan은 optional Polarity/Saturation operation과 third logical buffer를 명시하지만 callback은 dynamic intermediate buffer를 할당하지 않는다.
 
 ## Realtime safety
 
@@ -110,11 +117,11 @@ Audio callback은 다음을 하지 않는다.
 - graph parsing/mutation
 - exception propagation
 
-Gain-only와 Gain→Polarity, Float32/Float64에 대해 allocation-counted long-run stress가 CTest에 포함된다.
+Gain-only, Gain→Polarity와 Gain→Saturation, Float32/Float64에 대해 allocation-counted long-run stress가 CTest에 포함된다.
 
 ## Whole-product Bypass
 
-Bypass는 Gain node만의 bypass가 아니라 product graph 전체 bypass다. Exact offset에서 Bypass=true가 되면 optional Polarity를 포함한 모든 active graph operation을 우회하고 original dry input을 그대로 출력한다.
+Bypass는 Gain node만의 bypass가 아니라 product graph 전체 bypass다. Exact offset에서 Bypass=true가 되면 optional Polarity/Saturation을 포함한 모든 active graph operation을 우회하고 original dry input을 그대로 출력한다.
 
 Gain `1001`, Bypass `1002`는 unchanged다.
 
@@ -125,6 +132,7 @@ Current reference products:
 - `examples/products/artist-gain-warm.garak`
 - `examples/products/artist-gain-bright.garak`
 - `examples/products/artist-gain-inverted.garak`
+- `examples/products/artist-gain-saturated.garak` — Product ID `8a5ce3f8-7b74-4f53-bdc2-c52e4f586072`, default Gain `0 dB`
 
 Export는 configuration에 맞는 prebuilt `Garak Product Runtime v1.vst3`를 sibling staging directory로 복사/rename하고 다음 product resources를 배치한다.
 
@@ -158,7 +166,9 @@ Studio Product workspace는 headless compiler/export path의 frontend다.
 - Main은 Product Compiler callable workflow를 직접 사용하며 compiler/export semantics를 재구현하지 않는다.
 - Current graph는 main-owned session data이며 ordinary product metadata/default editing이 graph를 암묵적으로 변경하지 않는다.
 
-## Current acceptance evidence
+## Accepted baseline and current acceptance
+
+Phase 3D2는 In Progress이며 current source의 clean Windows four-product acceptance는 pending이다. Linux 결과와 남은 gates는 [current status](../status/current.md)를 따른다. 다음 기록은 accepted Phase 3D1 baseline이다.
 
 Phase 3D1 exact verified source:
 
@@ -172,4 +182,4 @@ Clean acceptance run:
 
 ## 다음 확장 원칙
 
-Phase 3D2는 하나의 실제 node가 요구하는 최소 source/compiled/Runtime contract만 추가한다. Pan, Dry/Wet, Biquad, Tilt EQ, Saturation, generic node registry, arbitrary scheduler, macro system은 해당 increment가 선택되기 전에 미리 추가하지 않는다.
+Phase 3D2는 fixed Saturation에 필요한 최소 source/compiled/Runtime contract만 추가한다. Polarity+Saturation 조합, Pan, Dry/Wet, Biquad, Tilt EQ, generic node registry, arbitrary scheduler와 macro system은 이 increment의 범위가 아니다.

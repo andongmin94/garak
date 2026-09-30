@@ -1,7 +1,7 @@
 # Garak Module Boundaries
 
-- 문서 상태: Phase 2A project migration과 Studio Product workflow 경계 반영
-- 최종 갱신: 2026-08-12
+- 문서 상태: Phase 3D2 current project/static graph/Studio implementation boundaries; acceptance pending
+- 최종 갱신: 2026-09-30
 - 권위 범위: first-party 책임, dependency direction, public contract와 third-party adapter 경계
 - 관련 문서: [시스템 개요](system-overview.md), [프로젝트 모델](project-model.md), [Project Migration Engine](project-migration-engine.md), [Runtime과 export](runtime-and-export.md), [의존성 정책](dependency-policy.md), [Product Identity Derivation](product-identity-derivation.md), [Compiled Product Data v1](compiled-product-data-v1.md), [Product State v1](product-state-v1.md), [ADR 0002](../adr/0002-no-juce-and-adapter-boundaries.md), [ADR 0005](../adr/0005-windows-v0x-prebuilt-product-runtime.md), [ADR 0006](../adr/0006-studio-product-workflow-boundary.md), [ADR 0007](../adr/0007-editable-project-schema-migration-policy.md)
 
@@ -25,7 +25,7 @@ Dependency 선택과 license 승인 절차는 [의존성 정책](dependency-poli
 | 논리적 책임 | 소유하는 것 | 소유하지 않는 것 |
 | --- | --- | --- |
 | Studio Authoring | Sound/Control/Interface/Product workflow, editing command와 사용자 진단 표현 | Native plugin runtime, third-party 타입을 포함한 영속 제품 계약 |
-| Project Model | `.garak` semantic model, version-first v1/v2 reading, current canonical v2, identity/reference와 pure project migration; minimal unpacked directory 계약 | DSP 실행, host format object, third-party serialization library API |
+| Project Model | `.garak` semantic model, version-first supported v1/v2/v3/v4 reading, current canonical v5 / graph source v3, identity/reference와 pure project migration; minimal unpacked directory 계약 | DSP 실행, host format object, third-party serialization library API |
 | DSP Graph Model | Node instance, typed port, connection과 graph validity 의미 | Renderer interaction model, host process buffer 타입 |
 | DSP Node Contract | `NodeDescriptor`에 해당하는 first-party descriptor, node configuration와 implementation version contract | Third-party DSP object를 public node contract로 노출하는 것 |
 | Graph Compiler | Graph validation, execution ordering, buffer planning와 latency propagation | Audio-device I/O, plugin package 생성 |
@@ -114,13 +114,15 @@ Compiler workflow를 호출하며 renderer/main에 validation, serialization 또
 복제하지 않는다. 이 좁은 결정은 general graph/interface generated binding, native preview/Engine IPC와
 audio-device process 배치를 정하지 않는다.
 
-Phase 2A의 editable source migration은 Product Compiler input boundary가 소유한다. Exact v1 validator와
-pure `project-schema-1-to-2` step은 current v2 model을 만든 뒤 사라지고 inspect/compile/export downstream에
-legacy representation union을 누출하지 않는다. Canonical `ProductProject`와 versioned source model에는
+Editable source migration은 Product Compiler input boundary가 소유한다. Exact version-specific v1/v2/v3/v4 validators와 ordered v1→v2→v3→v4→v5 pure steps는 current v5 model을 만든 뒤 inspect/compile/export downstream에 legacy representation union을 누출하지 않는다. Current graph source v3와 v4→v5 migration은 authoring IDs/order를 보존하고 compiler는 세 exact topology의 deterministic `GARAKGRF` 1.2만 생성한다. Canonical `ProductProject`와 versioned source model에는
 filesystem path가 없고 `LoadedProductProject`의 lexical/physical source directory, document snapshot과
 compile/export operation option이 collision/output safety provenance를 semantic model 밖에서 별도로 소유한다. CLI와
 Electron main은 shared workflow를 호출하고
 renderer에 migration path 또는 filesystem mutation 권한을 주지 않는다.
+
+## Current static graph boundary
+
+`native/runtime/static_graph`는 exact Gain-only, Gain→Polarity 또는 Gain→Saturation plan을 검증해 immutable binding으로 만든다. `native/dsp/gain`의 active loop는 하나의 explicit identity/polarity/saturation transform을 실행하며 fixed `tanh` implementation은 `native/dsp/saturation`이 소유한다. Whole-product Bypass는 dry input을 출력한다. Optional post-Gain node는 최대 하나이며 generic registry/scheduler를 도입하지 않는다. `GARAKCPD` 1.0, `GARAKPST` 1.0, Product/FUID identity와 Gain/Bypass IDs는 유지한다.
 
 ## Graph와 node 경계
 

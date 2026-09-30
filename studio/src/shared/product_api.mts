@@ -19,7 +19,8 @@ export type {
 export const PRODUCT_SCHEMA_V1 = 1 as const;
 export const PRODUCT_SCHEMA_V2 = 2 as const;
 export const PRODUCT_SCHEMA_V3 = 3 as const;
-export const PRODUCT_SCHEMA_VERSION = 4 as const;
+export const PRODUCT_SCHEMA_V4 = 4 as const;
+export const PRODUCT_SCHEMA_VERSION = 5 as const;
 export const PRODUCT_CATEGORY = 'Fx' as const;
 export const PRODUCT_TEMPLATE_ID = 'garak.gain' as const;
 export const PRODUCT_TEMPLATE_VERSION = 1 as const;
@@ -30,6 +31,7 @@ export const PRODUCT_TEMPLATE = Object.freeze({
 export const PROJECT_MIGRATION_STEP_V1_TO_V2 = 'project-schema-1-to-2' as const;
 export const PROJECT_MIGRATION_STEP_V2_TO_V3 = 'project-schema-2-to-3' as const;
 export const PROJECT_MIGRATION_STEP_V3_TO_V4 = 'project-schema-3-to-4' as const;
+export const PROJECT_MIGRATION_STEP_V4_TO_V5 = 'project-schema-4-to-5' as const;
 
 export type ProductConfiguration = 'Debug' | 'Release';
 
@@ -51,6 +53,7 @@ export interface ProductSchemaStatus {
     | typeof PRODUCT_SCHEMA_V1
     | typeof PRODUCT_SCHEMA_V2
     | typeof PRODUCT_SCHEMA_V3
+    | typeof PRODUCT_SCHEMA_V4
     | typeof PRODUCT_SCHEMA_VERSION;
   readonly currentSchemaVersion: typeof PRODUCT_SCHEMA_VERSION;
   readonly migrationRequired: boolean;
@@ -58,6 +61,7 @@ export interface ProductSchemaStatus {
     | typeof PROJECT_MIGRATION_STEP_V1_TO_V2
     | typeof PROJECT_MIGRATION_STEP_V2_TO_V3
     | typeof PROJECT_MIGRATION_STEP_V3_TO_V4
+    | typeof PROJECT_MIGRATION_STEP_V4_TO_V5
   )[];
 }
 
@@ -202,25 +206,35 @@ function isProductSchemaStatus(value: unknown): value is ProductSchemaStatus {
   if (value.sourceSchemaVersion === PRODUCT_SCHEMA_V1) {
     return (
       value.migrationRequired === true &&
-      value.steps.length === 3 &&
+      value.steps.length === 4 &&
       value.steps[0] === PROJECT_MIGRATION_STEP_V1_TO_V2 &&
       value.steps[1] === PROJECT_MIGRATION_STEP_V2_TO_V3 &&
-      value.steps[2] === PROJECT_MIGRATION_STEP_V3_TO_V4
+      value.steps[2] === PROJECT_MIGRATION_STEP_V3_TO_V4 &&
+      value.steps[3] === PROJECT_MIGRATION_STEP_V4_TO_V5
     );
   }
   if (value.sourceSchemaVersion === PRODUCT_SCHEMA_V2) {
     return (
       value.migrationRequired === true &&
-      value.steps.length === 2 &&
+      value.steps.length === 3 &&
       value.steps[0] === PROJECT_MIGRATION_STEP_V2_TO_V3 &&
-      value.steps[1] === PROJECT_MIGRATION_STEP_V3_TO_V4
+      value.steps[1] === PROJECT_MIGRATION_STEP_V3_TO_V4 &&
+      value.steps[2] === PROJECT_MIGRATION_STEP_V4_TO_V5
     );
   }
   if (value.sourceSchemaVersion === PRODUCT_SCHEMA_V3) {
     return (
       value.migrationRequired === true &&
+      value.steps.length === 2 &&
+      value.steps[0] === PROJECT_MIGRATION_STEP_V3_TO_V4 &&
+      value.steps[1] === PROJECT_MIGRATION_STEP_V4_TO_V5
+    );
+  }
+  if (value.sourceSchemaVersion === PRODUCT_SCHEMA_V4) {
+    return (
+      value.migrationRequired === true &&
       value.steps.length === 1 &&
-      value.steps[0] === PROJECT_MIGRATION_STEP_V3_TO_V4
+      value.steps[0] === PROJECT_MIGRATION_STEP_V4_TO_V5
     );
   }
   return (

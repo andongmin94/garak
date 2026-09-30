@@ -1,8 +1,8 @@
 {
   "schemaVersion": 5,
-  "productId": "d1331806-9ae0-4971-b83f-871d4af677b5",
+  "productId": "8a5ce3f8-7b74-4f53-bdc2-c52e4f586072",
   "vendor": "Garak Test Artist",
-  "name": "Artist Gain Inverted",
+  "name": "Artist Gain Saturated",
   "version": "0.1.0",
   "category": "Fx",
   "template": {
@@ -26,8 +26,8 @@
         "implementationVersion": 1
       },
       {
-        "id": "polarity",
-        "type": "garak.polarity",
+        "id": "saturation",
+        "type": "garak.saturation",
         "implementationVersion": 1
       },
       {
@@ -53,13 +53,13 @@
           "port": "audio"
         },
         "to": {
-          "nodeId": "polarity",
+          "nodeId": "saturation",
           "port": "audio"
         }
       },
       {
         "from": {
-          "nodeId": "polarity",
+          "nodeId": "saturation",
           "port": "audio"
         },
         "to": {

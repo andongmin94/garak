@@ -454,7 +454,7 @@ test("export derives graph.garakbin from the validated project graph without an 
     const project = await loadTemporaryWarmProject(temporary);
     const canonical = canonicalProductGraphSource();
     const authoredGraph = validateProductGraphSource({
-      schemaVersion: 2,
+      schemaVersion: 3,
       nodes: [
         { ...canonical.nodes[2], id: "artist-output" },
         { ...canonical.nodes[0], id: "artist-input" },

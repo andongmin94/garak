@@ -10,35 +10,41 @@ import {
   canonicalPolarityProductGraphSource,
   canonicalProductGraphSource,
   canonicalProductGraphSourceV1,
+  canonicalSaturationProductGraphSource,
+  migrateProductGraphV1ToV2,
   cloneProductGraphSource,
 } from "../src/graph_source.ts";
 import {
   PROJECT_MIGRATION_STEP_V1_TO_V2,
   PROJECT_MIGRATION_STEP_V2_TO_V3,
   PROJECT_MIGRATION_STEP_V3_TO_V4,
+  PROJECT_MIGRATION_STEP_V4_TO_V5,
   assertProjectMigrationInvariants,
   migrateProjectV1ToV2,
   migrateProjectV2ToV3,
   migrateProjectV3ToV4,
-  migrateValidatedProjectToCurrent,
+  migrateProjectV4ToV5,
   serializeCanonicalProductProject,
 } from "../src/project_migration_core.ts";
 import {
+  migrateValidatedProjectToCurrent,
   validateProjectSchemaV1,
   validateProjectSchemaV2,
   validateProjectSchemaV3,
   validateProjectSchemaV4,
+  validateProjectSchemaV5,
 } from "../src/validation.ts";
 import {
   mutableLegacyV2WarmProduct,
   mutableLegacyV3WarmProduct,
+  mutableLegacyV4WarmProduct,
   mutableLegacyWarmProduct,
   mutableWarmProduct,
 } from "./helpers.ts";
 
 const CURRENT_PROJECT_SHA256 = Object.freeze({
-  warm: "318C9B3FA0D553C253239E6BF65F4141B6F120CE473F8BF2D6AF2183B8D6D597",
-  bright: "4C47566B3AFEFD790CC13D10D8765BA518FD20760DF1C380E6BC8FC5888582E7",
+  warm: "C8ABCE7931D177CE1283700CF87F1101DC8E40B9D5BD7757A05D2A873EF1C008",
+  bright: "0534929F36E106ADE365AF3B3AF60F6F8620665DF48CB8D0F8A21DEAF6F86E5C",
 });
 
 function customIdGraph() {
@@ -90,26 +96,32 @@ test("pure v2-to-v3 and v3-to-v4 migrations preserve the exact Gain-only graph m
   const v3Before = structuredClone(v3);
   const v4 = migrateProjectV3ToV4(v3);
   assert.deepEqual(v3, v3Before);
-  assert.deepEqual(v4.graph, canonicalProductGraphSource());
+  assert.deepEqual(
+    v4.graph,
+    migrateProductGraphV1ToV2(canonicalProductGraphSourceV1()),
+  );
+  const v5 = migrateProjectV4ToV5(v4);
+  assert.deepEqual(v5.graph, canonicalProductGraphSource());
   assert.equal(
-    assertProjectMigrationInvariants(v2, v4).productSemanticsChanged,
+    assertProjectMigrationInvariants(v2, v5).productSemanticsChanged,
     false,
   );
 });
 
-test("migration chain reports ordered v1/v2/v3 steps and a v4 no-op", () => {
+test("migration chain reports ordered v1/v2/v3/v4 steps and a v5 no-op", () => {
   const legacyV1 = validateProjectSchemaV1(
     mutableLegacyWarmProduct(),
     "legacy-v1-warm.garak",
   );
   assert.deepEqual(migrateValidatedProjectToCurrent(legacyV1).schemaStatus, {
     sourceSchemaVersion: 1,
-    currentSchemaVersion: 4,
+    currentSchemaVersion: 5,
     migrationRequired: true,
     steps: [
       PROJECT_MIGRATION_STEP_V1_TO_V2,
       PROJECT_MIGRATION_STEP_V2_TO_V3,
       PROJECT_MIGRATION_STEP_V3_TO_V4,
+      PROJECT_MIGRATION_STEP_V4_TO_V5,
     ],
   });
 
@@ -119,9 +131,13 @@ test("migration chain reports ordered v1/v2/v3 steps and a v4 no-op", () => {
   );
   assert.deepEqual(migrateValidatedProjectToCurrent(legacyV2).schemaStatus, {
     sourceSchemaVersion: 2,
-    currentSchemaVersion: 4,
+    currentSchemaVersion: 5,
     migrationRequired: true,
-    steps: [PROJECT_MIGRATION_STEP_V2_TO_V3, PROJECT_MIGRATION_STEP_V3_TO_V4],
+    steps: [
+      PROJECT_MIGRATION_STEP_V2_TO_V3,
+      PROJECT_MIGRATION_STEP_V3_TO_V4,
+      PROJECT_MIGRATION_STEP_V4_TO_V5,
+    ],
   });
 
   const legacyV3 = validateProjectSchemaV3(
@@ -130,20 +146,31 @@ test("migration chain reports ordered v1/v2/v3 steps and a v4 no-op", () => {
   );
   assert.deepEqual(migrateValidatedProjectToCurrent(legacyV3).schemaStatus, {
     sourceSchemaVersion: 3,
-    currentSchemaVersion: 4,
+    currentSchemaVersion: 5,
     migrationRequired: true,
-    steps: [PROJECT_MIGRATION_STEP_V3_TO_V4],
+    steps: [PROJECT_MIGRATION_STEP_V3_TO_V4, PROJECT_MIGRATION_STEP_V4_TO_V5],
   });
 
-  const current = validateProjectSchemaV4(
+  const legacyV4 = validateProjectSchemaV4(
+    mutableLegacyV4WarmProduct(),
+    "legacy-v4.garak",
+  );
+  assert.deepEqual(migrateValidatedProjectToCurrent(legacyV4).schemaStatus, {
+    sourceSchemaVersion: 4,
+    currentSchemaVersion: 5,
+    migrationRequired: true,
+    steps: [PROJECT_MIGRATION_STEP_V4_TO_V5],
+  });
+
+  const current = validateProjectSchemaV5(
     mutableWarmProduct(),
     "current-warm.garak",
   );
   const currentResult = migrateValidatedProjectToCurrent(current);
   assert.deepEqual(currentResult.project, current);
   assert.deepEqual(currentResult.schemaStatus, {
-    sourceSchemaVersion: 4,
-    currentSchemaVersion: 4,
+    sourceSchemaVersion: 5,
+    currentSchemaVersion: 5,
     migrationRequired: false,
     steps: [],
   });
@@ -154,7 +181,7 @@ test("migration invariants reject identity, defaults, metadata, and graph drift"
     mutableLegacyV3WarmProduct(),
     "legacy-v3-warm.garak",
   );
-  const target = migrateProjectV3ToV4(source);
+  const target = migrateProjectV4ToV5(migrateProjectV3ToV4(source));
   const disconnectedGraph = {
     ...target.graph,
     connections: [
@@ -171,6 +198,7 @@ test("migration invariants reject identity, defaults, metadata, and graph drift"
     { ...target, name: "Changed Product" },
     { ...target, graph: disconnectedGraph },
     { ...target, graph: canonicalPolarityProductGraphSource() },
+    { ...target, graph: canonicalSaturationProductGraphSource() },
   ]) {
     assert.throws(
       () => assertProjectMigrationInvariants(source, changed),
@@ -187,34 +215,34 @@ test("migration invariants reject identity, defaults, metadata, and graph drift"
   );
 });
 
-test("canonical v4 serialization normalizes order and negative zero", () => {
+test("canonical v5 serialization preserves authoring order and normalizes negative zero", () => {
   const value = mutableWarmProduct();
   value.defaults.gainDb = -0;
   value.graph = customIdGraph();
-  const project = validateProjectSchemaV4(value, "negative-zero.garak");
+  const project = validateProjectSchemaV5(value, "negative-zero.garak");
   const serialized = serializeCanonicalProductProject(project);
-  assert.match(serialized, /"schemaVersion": 4/u);
-  assert.match(serialized, /"schemaVersion": 2/u);
+  assert.match(serialized, /"schemaVersion": 5/u);
+  assert.match(serialized, /"schemaVersion": 3/u);
   assert.match(serialized, /"gainDb": 0/u);
   assert.equal(serialized.endsWith("\n"), true);
   assert.equal(serialized.includes("\r"), false);
 
-  const reparsed = validateProjectSchemaV4(
+  const reparsed = validateProjectSchemaV5(
     JSON.parse(serialized) as unknown,
     "reparsed.garak",
   );
   assert.equal(Object.is(reparsed.defaults.gainDb, -0), false);
   assert.deepEqual(
     reparsed.graph.nodes.map((node) => node.type),
-    ["garak.audio-input", "garak.gain", "garak.audio-output"],
+    ["garak.audio-output", "garak.gain", "garak.audio-input"],
   );
   assert.deepEqual(
     reparsed.graph.connections.map((connection) => connection.from.nodeId),
-    ["main-input", "main-gain"],
+    ["main-gain", "main-input"],
   );
 });
 
-test("Warm and Bright tracked v4 fixtures are exact canonical SHA-256 oracles", async () => {
+test("Warm and Bright tracked v5 fixtures are exact canonical SHA-256 oracles", async () => {
   const repositoryRoot = path.resolve(import.meta.dirname, "../../..");
   const bright = mutableWarmProduct();
   bright.productId = "c8a56d90-7e4b-4af1-91d3-2b6c8e0f1357";
@@ -224,7 +252,7 @@ test("Warm and Bright tracked v4 fixtures are exact canonical SHA-256 oracles", 
     ["warm", "artist-gain-warm.garak", mutableWarmProduct()],
     ["bright", "artist-gain-bright.garak", bright],
   ] as const) {
-    const project = validateProjectSchemaV4(source, `${name}.garak`);
+    const project = validateProjectSchemaV5(source, `${name}.garak`);
     const canonical = serializeCanonicalProductProject(project);
     const tracked = await readFile(
       path.join(repositoryRoot, "examples/products", fixture, "product.json"),
@@ -243,7 +271,7 @@ test("graph cloning preserves authoring identity without sharing nested objects"
   const cloned = cloneProductGraphSource(graph);
   assert.deepEqual(
     cloned,
-    validateProjectSchemaV4({ ...mutableWarmProduct(), graph }, "clone.garak")
+    validateProjectSchemaV5({ ...mutableWarmProduct(), graph }, "clone.garak")
       .graph,
   );
   assert.notStrictEqual(cloned, graph);
@@ -256,4 +284,58 @@ test("Polarity source compiles to the current four-operation GARAKGRF plan", () 
   assert.equal(plan.bufferCount, 3);
   assert.equal(plan.latencySamples, 0);
   assert.equal(plan.operations[2]?.type, 4);
+});
+
+test("v4-to-v5 changes only version boundaries for custom Gain and Polarity graphs", () => {
+  for (const graph of [
+    canonicalProductGraphSource(),
+    canonicalPolarityProductGraphSource(),
+  ]) {
+    const renamed = new Map(
+      graph.nodes.map(({ id }, index) => [id, `kept-${index}`]),
+    );
+    const rawGraph = {
+      schemaVersion: 2,
+      nodes: graph.nodes
+        .map((node) => ({ ...node, id: renamed.get(node.id)! }))
+        .reverse(),
+      connections: graph.connections
+        .map(({ from, to }) => ({
+          from: { ...from, nodeId: renamed.get(from.nodeId)! },
+          to: { ...to, nodeId: renamed.get(to.nodeId)! },
+        }))
+        .reverse(),
+    };
+    const legacy = validateProjectSchemaV4(
+      { ...mutableLegacyV4WarmProduct(), graph: rawGraph },
+      "legacy-v4-custom.garak",
+    );
+    assert.deepEqual(legacy.graph, rawGraph);
+    const before = structuredClone(legacy);
+    const migrated = migrateProjectV4ToV5(legacy);
+    assert.deepEqual(legacy, before);
+    assert.deepEqual(migrated, {
+      ...legacy,
+      schemaVersion: 5,
+      graph: { ...rawGraph, schemaVersion: 3 },
+    });
+    assert.notStrictEqual(migrated.graph.nodes[0], legacy.graph.nodes[0]);
+    assert.notStrictEqual(
+      migrated.graph.connections[0]?.from,
+      legacy.graph.connections[0]?.from,
+    );
+    const invariants = assertProjectMigrationInvariants(legacy, migrated);
+    assert.equal(invariants.identityChanged, false);
+    assert.equal(invariants.productSemanticsChanged, false);
+    assert.deepEqual(invariants.targetIdentity, invariants.sourceIdentity);
+    assert.deepEqual(JSON.parse(serializeCanonicalProductProject(migrated)), {
+      ...mutableLegacyV4WarmProduct(),
+      schemaVersion: 5,
+      graph: { ...rawGraph, schemaVersion: 3 },
+    });
+    assert.deepEqual(
+      compileProductGraph(migrated.graph),
+      compileProductGraph(graph),
+    );
+  }
 });

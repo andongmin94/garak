@@ -3,6 +3,7 @@
 
 #include "garak/dsp/gain/gain.hpp"
 #include "garak/dsp/polarity/polarity.hpp"
+#include "garak/dsp/saturation/saturation.hpp"
 
 #include <array>
 #include <cstddef>
@@ -19,6 +20,7 @@ enum class OperationKind : std::uint8_t {
   gain = 2,
   audio_output = 3,
   polarity = 4,
+  saturation = 5,
 };
 
 using OperationType = std::uint16_t;
@@ -48,6 +50,12 @@ struct StaticExecutionParameterIds final {
   std::uint32_t bypass_parameter_id{};
 };
 
+enum class PostGainTransform : std::uint8_t {
+  identity,
+  polarity,
+  saturation,
+};
+
 class StaticExecutionBinding final {
 public:
   [[nodiscard]] static constexpr StaticExecutionBinding
@@ -63,7 +71,16 @@ public:
     StaticExecutionBinding binding{};
     binding.gain_parameter_id_ = parameter_ids.gain_parameter_id;
     binding.bypass_parameter_id_ = parameter_ids.bypass_parameter_id;
-    binding.has_polarity_ = true;
+    binding.post_gain_transform_ = PostGainTransform::polarity;
+    return binding;
+  }
+
+  [[nodiscard]] static constexpr StaticExecutionBinding
+  gain_saturation(const StaticExecutionParameterIds parameter_ids) noexcept {
+    StaticExecutionBinding binding{};
+    binding.gain_parameter_id_ = parameter_ids.gain_parameter_id;
+    binding.bypass_parameter_id_ = parameter_ids.bypass_parameter_id;
+    binding.post_gain_transform_ = PostGainTransform::saturation;
     return binding;
   }
 
@@ -73,7 +90,9 @@ public:
   [[nodiscard]] constexpr std::uint32_t bypass_parameter_id() const noexcept {
     return bypass_parameter_id_;
   }
-  [[nodiscard]] constexpr bool has_polarity() const noexcept { return has_polarity_; }
+  [[nodiscard]] constexpr PostGainTransform post_gain_transform() const noexcept {
+    return post_gain_transform_;
+  }
 
   [[nodiscard]] friend constexpr bool operator==(const StaticExecutionBinding&,
                                                  const StaticExecutionBinding&) noexcept = default;
@@ -83,7 +102,7 @@ private:
 
   std::uint32_t gain_parameter_id_{};
   std::uint32_t bypass_parameter_id_{};
-  bool has_polarity_{};
+  PostGainTransform post_gain_transform_{PostGainTransform::identity};
 };
 
 [[nodiscard]] constexpr StaticExecutionPlan
@@ -110,6 +129,14 @@ make_gain_polarity_execution_plan(const std::uint32_t gain_parameter_id,
   plan.operations[3] = {4, operation_type_code(OperationKind::audio_output), 2, kNoBuffer, 0, 0};
   plan.operation_count = 4;
   plan.buffer_count = 3;
+  return plan;
+}
+
+[[nodiscard]] constexpr StaticExecutionPlan
+make_gain_saturation_execution_plan(const std::uint32_t gain_parameter_id,
+                                    const std::uint32_t bypass_parameter_id) noexcept {
+  auto plan = make_gain_polarity_execution_plan(gain_parameter_id, bypass_parameter_id);
+  plan.operations[2].type = operation_type_code(OperationKind::saturation);
   return plan;
 }
 
@@ -148,26 +175,40 @@ bind_static_execution_plan(const StaticExecutionPlan& plan, const std::uint32_t 
   if (plan_equal(plan, make_gain_polarity_execution_plan(gain_parameter_id, bypass_parameter_id))) {
     return StaticExecutionBinding::gain_polarity(parameter_ids);
   }
+  if (plan_equal(plan,
+                 make_gain_saturation_execution_plan(gain_parameter_id, bypass_parameter_id))) {
+    return StaticExecutionBinding::gain_saturation(parameter_ids);
+  }
   return std::nullopt;
 }
 
 template <typename Sample> class BoundActiveTransform final {
 public:
-  explicit constexpr BoundActiveTransform(const bool invert) noexcept : invert_(invert) {}
+  explicit constexpr BoundActiveTransform(const PostGainTransform transform) noexcept
+      : transform_(transform) {}
 
   [[nodiscard]] Sample operator()(const Sample sample) const noexcept {
-    return invert_ ? garak::dsp::polarity::processed_sample(sample) : sample;
+    switch (transform_) {
+    case PostGainTransform::identity:
+      return sample;
+    case PostGainTransform::polarity:
+      return garak::dsp::polarity::processed_sample(sample);
+    case PostGainTransform::saturation:
+      return garak::dsp::saturation::processed_sample(sample);
+    }
+    return sample;
   }
 
 private:
-  bool invert_{};
+  PostGainTransform transform_{};
 };
 
 template <typename Sample, typename GainSource, typename BypassSource>
 void execute_static_binding(
     const StaticExecutionBinding& binding,
     const garak::dsp::gain::ProcessBlockContext<Sample, GainSource, BypassSource>& context) {
-  garak::dsp::gain::process_block(context, BoundActiveTransform<Sample>{binding.has_polarity()});
+  garak::dsp::gain::process_block(context,
+                                  BoundActiveTransform<Sample>{binding.post_gain_transform()});
 }
 
 } // namespace garak::runtime::static_graph

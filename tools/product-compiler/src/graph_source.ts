@@ -473,10 +473,10 @@ function assertExactLinearTopology(
   }
 }
 
-function canonicalNode(
+function canonicalNode<T extends ProductGraphNodeType>(
   id: string,
-  type: ProductGraphNodeType,
-): ProductGraphNode {
+  type: T,
+): ProductGraphNode & { readonly type: T } {
   return {
     id,
     type,
@@ -618,18 +618,21 @@ export function validateProductGraphSourceV2(
   );
   return {
     schemaVersion: PRODUCT_GRAPH_SCHEMA_V2,
-    nodes: ordered.map((node) => ({ ...node })),
-    connections: ordered.slice(0, -1).map((node, index) => {
-      const next = ordered[index + 1];
-      if (next === undefined) {
+    nodes: validated.nodes.map((node) => {
+      const typedNode = ordered.find((candidate) => candidate.id === node.id);
+      if (typedNode === undefined) {
         graphFailure(
-          "GARAK_PROJECT_GRAPH_DISCONNECTED",
-          "connections",
-          "Graph source v2 contains an incomplete linear chain.",
+          "GARAK_PROJECT_GRAPH_NODE_COUNT",
+          "nodes",
+          "Graph source v2 contains an unsupported node set.",
         );
       }
-      return copyConnection(node.id, next.id);
+      return { ...typedNode };
     }),
+    connections: validated.connections.map((connection) => ({
+      from: { ...connection.from },
+      to: { ...connection.to },
+    })),
   };
 }
 
@@ -691,18 +694,11 @@ export function validateProductGraphSource(value: unknown): ProductGraphSource {
   );
   return {
     schemaVersion: PRODUCT_GRAPH_SCHEMA_VERSION,
-    nodes: ordered.map((node) => ({ ...node })),
-    connections: ordered.slice(0, -1).map((node, index) => {
-      const next = ordered[index + 1];
-      if (next === undefined) {
-        graphFailure(
-          "GARAK_PROJECT_GRAPH_DISCONNECTED",
-          "connections",
-          "Graph source v3 contains an incomplete linear chain.",
-        );
-      }
-      return copyConnection(node.id, next.id);
-    }),
+    nodes: validated.nodes.map((node) => ({ ...node })),
+    connections: validated.connections.map((connection) => ({
+      from: { ...connection.from },
+      to: { ...connection.to },
+    })),
   };
 }
 

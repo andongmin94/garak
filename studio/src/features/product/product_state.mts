@@ -2,6 +2,7 @@ import type {
   ProductDiagnostic,
   ProductDocument,
   ProductDraft,
+  ProductGraphSource,
 } from '../../shared/product_api.mjs';
 
 export interface EditableProductDraft {
@@ -77,6 +78,16 @@ export function draftMatchesDocument(
 }
 
 export type DraftField = 'vendor' | 'name' | 'version' | 'gainDb';
+
+export function productGraphLabel(graph: ProductGraphSource): string {
+  if (graph.nodes.some((node) => node.type === 'garak.saturation')) {
+    return 'Input → Gain → Saturation → Output';
+  }
+  if (graph.nodes.some((node) => node.type === 'garak.polarity')) {
+    return 'Input → Gain → Polarity → Output';
+  }
+  return 'Input → Gain → Output';
+}
 
 export function diagnosticTargetsField(
   diagnostic: ProductDiagnostic | null,

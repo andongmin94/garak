@@ -12,6 +12,8 @@ import { loadProductProject, validateProjectValue } from "../src/validation.ts";
 import {
   expectProductError,
   mutableLegacyV2WarmProduct,
+  mutableLegacyV3WarmProduct,
+  mutableLegacyV4WarmProduct,
   mutableLegacyWarmProduct,
   mutableWarmProduct,
   withTemporaryDirectory,
@@ -46,7 +48,7 @@ test("encodes the normative Warm fixture bytes and SHA-256 exactly", () => {
   assert.equal(decoded.parameters[1].defaultNormalized, 0);
 });
 
-test("legacy v1/v2 and current v3 lower to identical GARAKCPD v1 bytes", () => {
+test("legacy v1/v2/v3/v4 and current v5 lower to identical GARAKCPD v1 bytes", () => {
   const legacyV1 = encodeCompiledProduct(
     validateProjectValue(mutableLegacyWarmProduct(), "legacy-v1.garak"),
   );
@@ -56,6 +58,15 @@ test("legacy v1/v2 and current v3 lower to identical GARAKCPD v1 bytes", () => {
   const current = encodeCompiledProduct(
     validateProjectValue(mutableWarmProduct(), "current.garak"),
   );
+  for (const legacy of [
+    mutableLegacyV3WarmProduct(),
+    mutableLegacyV4WarmProduct(),
+  ]) {
+    assert.deepEqual(
+      encodeCompiledProduct(validateProjectValue(legacy, "legacy.garak")),
+      current,
+    );
+  }
   assert.deepEqual(legacyV1, legacyV2);
   assert.deepEqual(legacyV2, current);
   assert.equal(sha256Hex(legacyV1), WARM_COMPILED_SHA256);

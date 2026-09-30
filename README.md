@@ -4,17 +4,18 @@ Garak(가락)은 음악가와 창작자가 자기 사운드, control language, i
 
 ## 현재 제품 경로
 
-현재 Windows x64 vertical slice는 다음 경로를 실제로 통과한다.
+Phase 3D2에서 구현·검증 중인 Windows x64 vertical slice는 다음 경로다. Accepted 기준선은 아래 Phase 3D1 기록이며, 현재 변경의 Windows acceptance는 아직 남아 있다.
 
 ```text
-unpacked .garak project schema v4 / graph source v2
-→ Product Compiler validation and ordered v1/v2/v3 migration
-→ deterministic GARAKCPD 1.0 + GARAKGRF 1.1
+unpacked .garak project schema v5 / graph source v3
+→ Product Compiler validation and ordered v1/v2/v3/v4 migration
+→ deterministic GARAKCPD 1.0 + GARAKGRF 1.2
 → prebuilt Garak Product Runtime v1
 → module-load compatibility classification
 → exact immutable StaticExecutionBinding
 → Input → Gain → Output
    또는 Input → Gain → Polarity → Output
+   또는 Input → Gain → Saturation → Output
 → product-specific moduleinfo.json
 → local white-label VST3 bundle
 → first-party inspector + official VST3 Validator
@@ -24,17 +25,20 @@ Studio는 `.garak` 생성·열기·편집·migration·conflict/recovery 처리�
 
 Native Runtime은 C++20이며 생성된 VST3에는 Electron, Chromium, Node.js 또는 임의 JavaScript runtime이 포함되지 않는다.
 
-현재 reference products는 세 개다.
+현재 reference products는 네 개다.
 
 - `Artist Gain Warm` — Gain-only
 - `Artist Gain Bright` — Gain-only
 - `Artist Gain Inverted` — Gain→Polarity
+- `Artist Gain Saturated` — Gain→Saturation, Product ID `8a5ce3f8-7b74-4f53-bdc2-c52e4f586072`, default Gain `0 dB`
 
-세 제품은 같은 configuration의 prebuilt Runtime binary를 재사용한다. Warm/Bright는 같은 canonical Gain-only graph bytes를 사용하고 Inverted는 distinct canonical Polarity graph bytes를 사용한다. Product ID, processor/controller FUID, metadata, defaults와 compiled product data는 제품별이다.
+네 제품은 같은 configuration의 prebuilt Runtime binary를 재사용한다. Warm/Bright는 같은 canonical Gain-only graph bytes를 사용하고 Inverted/Saturated는 각각 distinct canonical Polarity/Saturation graph bytes를 사용한다. Product ID, processor/controller FUID, metadata, defaults와 compiled product data는 제품별이다.
 
 ## 현재 검증 상태
 
-**Phase 3D1 — Polarity Node는 PASS / Complete다.**
+**Phase 3D2 — Saturation Node는 In Progress이며 Windows acceptance는 pending이다.** Current source의 검증 결과는 [`docs/status/current.md`](docs/status/current.md)에 기록한다.
+
+**Accepted 기준선인 Phase 3D1 — Polarity Node는 PASS / Complete다.** 아래 기록은 Phase 3D1 exact source에 대한 증거이며 Phase 3D2 acceptance를 뜻하지 않는다.
 
 - exact verified source: `96ba29cf009eab00980405d7de456b5f1d431956`
 - clean Linux + Windows acceptance run: `34193494228`
@@ -53,25 +57,27 @@ Historical Phase 3B/3C acceptance evidence는 [`docs/status/current.md`](docs/st
 
 ## 현재 persistent contract
 
-- editable project schema v4
-- embedded graph source v2
-- strict ordered project migration v1→v2→v3→v4
-- graph v2는 정확히 두 linear topology만 지원
+- editable project schema v5
+- embedded graph source v3
+- strict ordered project migration v1→v2→v3→v4→v5
+- graph v3는 정확히 세 linear topology만 지원하며 optional post-Gain node는 최대 하나
 - deterministic `GARAKCPD` 1.0
-- deterministic `GARAKGRF` 1.1
+- deterministic `GARAKGRF` 1.2
 - product-bound `GARAKPST` 1.0
 - permanent Gain Parameter ID `1001`
 - permanent Bypass Parameter ID `1002`
-- parameterless fixed Polarity operation
+- parameterless fixed Polarity와 Saturation (`tanh` after Gain) operations
+- v4→v5는 기존 node IDs와 node/connection array order 보존
+- current source authoring order 보존, 동일 topology의 compiled bytes는 deterministic
 - immutable Product ID와 deterministic processor/controller FUID
 - missing/old compiled graph는 authoring에서 rebuild, future/corrupt는 reject
 - deployed Runtime은 non-current graph artifact에 fallback하지 않음
 
 ## Realtime contract
 
-Gain-only와 Gain→Polarity는 같은 sample-accurate processing loop를 사용한다. Gain-only active branch는 identity transform, Polarity active branch는 negation transform이다. Bypass=true인 sample은 whole product graph를 우회해 original dry input을 그대로 출력한다.
+세 topology는 같은 sample-accurate processing loop를 사용한다. Gain-only active branch는 identity transform, Polarity는 negation, Saturation은 post-Gain `tanh` transform이다. Bypass=true인 sample은 whole product graph를 우회해 original dry input을 그대로 출력한다.
 
-Polarity compiled plan은 logical third buffer를 기록하지만 current exact Runtime binding은 optional Polarity를 Gain active pass에 fuse한다. Callback에서 second dynamic scratch pass를 만들지 않는다.
+Polarity/Saturation compiled plans는 logical third buffer를 기록하지만 current exact Runtime binding은 하나의 optional post-Gain transform을 Gain active pass에 fuse한다. Callback에서 second dynamic scratch pass를 만들지 않는다.
 
 Audio callback에는 다음을 허용하지 않는다.
 
@@ -137,6 +143,7 @@ cmake --build --preset product-runtime-debug-build --clean-first
 pnpm product:export --project examples/products/artist-gain-warm.garak --configuration Debug --output out/exports/debug --force --validate
 pnpm product:export --project examples/products/artist-gain-bright.garak --configuration Debug --output out/exports/debug --force --validate
 pnpm product:export --project examples/products/artist-gain-inverted.garak --configuration Debug --output out/exports/debug --force --validate
+pnpm product:export --project examples/products/artist-gain-saturated.garak --configuration Debug --output out/exports/debug --force --validate
 
 ctest --preset product-runtime-debug-test --no-tests=error
 pnpm --dir studio verify:product-workflow --configuration Debug
@@ -151,6 +158,7 @@ cmake --build --preset product-runtime-release-build --clean-first
 pnpm product:export --project examples/products/artist-gain-warm.garak --configuration Release --output out/exports/release --force --validate
 pnpm product:export --project examples/products/artist-gain-bright.garak --configuration Release --output out/exports/release --force --validate
 pnpm product:export --project examples/products/artist-gain-inverted.garak --configuration Release --output out/exports/release --force --validate
+pnpm product:export --project examples/products/artist-gain-saturated.garak --configuration Release --output out/exports/release --force --validate
 
 ctest --preset product-runtime-release-test --no-tests=error
 pnpm --dir studio verify:product-workflow --configuration Release
@@ -172,17 +180,18 @@ cmake --build --preset product-runtime-clang-tidy-build --clean-first
 - Phase 3B — Realtime Safety Instrumentation and Long-run Runtime Stress: Complete
 - Phase 3C — Editable Static Graph Project Contract and Compiled Plan: Complete
 - Phase 3D1 — Polarity Node: Complete
-- Phase 3D2 — not started
+- Phase 3D2 — Saturation Node: In Progress, Windows acceptance pending
 
-Phase 3D는 node를 하나씩 working vertical slice로 수용한다. Pan, Dry/Wet, Biquad, Tilt EQ, Saturation 또는 generic graph engine을 다음 increment가 요구하기 전에 미리 구현하지 않는다.
+Phase 3D는 node를 하나씩 working vertical slice로 수용한다. Pan, Dry/Wet, Biquad, Tilt EQ 또는 generic graph engine을 다음 increment가 요구하기 전에 미리 구현하지 않는다.
 
 ## 문서
 
 - [Repository constitution](AGENTS.md)
 - [Roadmap](ROADMAP.md)
 - [Current status](docs/status/current.md)
-- [Phase 3D1 ExecPlan](plans/0018-phase-3d1-polarity-node.md)
-- [Editable Project Schema v4](docs/architecture/editable-project-schema-v4.md)
+- [Active Phase 3D2 ExecPlan](plans/0019-phase-3d2-saturation-node.md)
+- [Accepted Phase 3D1 ExecPlan](plans/0018-phase-3d1-polarity-node.md)
+- [Editable Project Schema v5](docs/architecture/editable-project-schema-v5.md)
 - [Compiled/state compatibility](docs/architecture/compiled-and-state-compatibility.md)
 - [Runtime and export](docs/architecture/runtime-and-export.md)
 - [System overview](docs/architecture/system-overview.md)

@@ -14,6 +14,7 @@ import {
   draftMatchesDocument,
   editableDraftFrom,
   productDraftFrom,
+  productGraphLabel,
   type DraftField,
   type EditableProductDraft,
 } from './product_state.mjs';
@@ -529,7 +530,9 @@ export function ProductWorkspace() {
                 <div>
                   <dt>Graph · main-owned</dt>
                   <dd>
-                    <code>v{document.graph.schemaVersion} · Input → Gain → Output</code>
+                    <code>
+                      v{document.graph.schemaVersion} · {productGraphLabel(document.graph)}
+                    </code>
                   </dd>
                 </div>
               </dl>

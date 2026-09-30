@@ -15,6 +15,7 @@ import path from "node:path";
 import { TextDecoder } from "node:util";
 
 import {
+  COMPILED_GRAPH_OPERATION_TYPE,
   compileProductGraph,
   decodeCompiledGraph,
   encodeCompiledGraph,
@@ -738,9 +739,18 @@ export async function exportWindowsProduct(
   const identity = deriveProductIdentity(options.project.productId);
   const compiledBytes = encodeCompiledProduct(options.project);
   assertCompiledParity(options.project, compiledBytes);
-  const graphBytes = encodeCompiledGraph(
-    compileProductGraph(options.project.graph),
-  );
+  const graphPlan = compileProductGraph(options.project.graph);
+  const graphBytes = encodeCompiledGraph(graphPlan);
+  const postGainTransform = graphPlan.operations.some(
+    (operation) => operation.type === COMPILED_GRAPH_OPERATION_TYPE.polarity,
+  )
+    ? "polarity"
+    : graphPlan.operations.some(
+          (operation) =>
+            operation.type === COMPILED_GRAPH_OPERATION_TYPE.saturation,
+        )
+      ? "saturation"
+      : "identity";
   decodeCompiledGraph(graphBytes);
   const artifacts =
     options.artifacts ??
@@ -958,6 +968,8 @@ export async function exportWindowsProduct(
           String(BYPASS_PARAMETER_ID),
           "--bypass-default-normalized",
           "0",
+          "--post-gain-transform",
+          postGainTransform,
         ],
         cwd: options.repositoryRoot,
       },

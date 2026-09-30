@@ -8,9 +8,11 @@ The persistence service is a main-owned wrapper around the existing canonical pr
 
 - `openDurableProductProject`: recover a provable interrupted transaction, then return the current project with a tree revision.
 - `createDurableProductProject`: serialize through the existing writer while holding a physical-target lock.
-- `saveDurableProductProject`: verify the open revision and Product ID, retain a verified backup, then publish the canonical v2 candidate.
-- `migrateProductProjectInPlace`: explicitly publish the Phase 2A v1→v2 canonical result with a legacy backup.
+- `saveDurableProductProject`: verify the open revision and Product ID, retain a verified backup, then publish the canonical v5 candidate through the shared current writer.
+- `migrateProductProjectInPlace`: explicitly publish the ordered v1/v2/v3/v4→v5 migration result with a verified legacy backup.
 - `recoverProductPersistence`: resolve one transaction only when source, candidate, or backup fingerprints prove the result.
+
+The current project/schema contract is [Editable Project Schema v5](editable-project-schema-v5.md). Current graph source array order is preserved by the shared writer; v4→v5 also preserves existing node IDs and node/connection ordering. Persistent transaction, backup and recovery formats are independent of the project version.
 
 ## Tree revision v1
 

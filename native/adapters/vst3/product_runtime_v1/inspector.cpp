@@ -44,6 +44,7 @@ struct Arguments final {
   std::string version;
   std::string category;
   std::string product_template;
+  std::string post_gain_transform;
   std::string processor_fuid;
   std::string controller_fuid;
   std::string gain_id;
@@ -133,7 +134,7 @@ struct Arguments final {
 }
 
 [[nodiscard]] std::optional<Arguments> parse_arguments(const int argc, wchar_t* argv[]) {
-  if (argc != 27) {
+  if (argc != 29) {
     return std::nullopt;
   }
   Arguments result{};
@@ -158,6 +159,8 @@ struct Arguments final {
       accepted = set_once(result.category, value);
     } else if (option == L"--template") {
       accepted = set_once(result.product_template, value);
+    } else if (option == L"--post-gain-transform") {
+      accepted = set_once(result.post_gain_transform, value);
     } else if (option == L"--processor-fuid") {
       accepted = set_once(result.processor_fuid, value);
     } else if (option == L"--controller-fuid") {
@@ -174,6 +177,10 @@ struct Arguments final {
     if (!accepted) {
       return std::nullopt;
     }
+  }
+  if (result.post_gain_transform != "identity" && result.post_gain_transform != "polarity" &&
+      result.post_gain_transform != "saturation") {
+    return std::nullopt;
   }
   return result;
 }
@@ -416,6 +423,16 @@ int wmain(const int argc, wchar_t* argv[]) {
                    "Product parity inspection failed at compiled graph compatibility (%s)\n",
                    garak::runtime::static_graph::compiled_graph_diagnostic_code(graph.diagnostic));
       return 5;
+    }
+    using garak::runtime::static_graph::PostGainTransform;
+    const auto expected_transform =
+        arguments->post_gain_transform == "saturation"
+            ? PostGainTransform::saturation
+            : (arguments->post_gain_transform == "polarity" ? PostGainTransform::polarity
+                                                            : PostGainTransform::identity);
+    if (graph.binding->post_gain_transform() != expected_transform) {
+      std::fputs("Product parity inspection failed at compiled graph topology parity\n", stderr);
+      return 6;
     }
     if (!check_module_info(resources / L"moduleinfo.json", *arguments)) {
       std::fputs("Product parity inspection failed at moduleinfo parity\n", stderr);

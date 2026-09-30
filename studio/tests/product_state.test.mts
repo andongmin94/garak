@@ -10,7 +10,7 @@ import {
 } from '../src/features/product/product_state.mts';
 
 const GRAPH = {
-  schemaVersion: 2,
+  schemaVersion: 3,
   nodes: [
     { id: 'input', type: 'garak.audio-input', implementationVersion: 1 },
     { id: 'gain', type: 'garak.gain', implementationVersion: 1 },
@@ -32,10 +32,10 @@ const document: ProductDocument = {
   documentId: 'document-1',
   locationLabel: 'Artist Gain.garak',
   saved: true,
-  schemaVersion: 4,
+  schemaVersion: 5,
   schemaStatus: {
-    sourceSchemaVersion: 4,
-    currentSchemaVersion: 4,
+    sourceSchemaVersion: 5,
+    currentSchemaVersion: 5,
     migrationRequired: false,
     steps: [],
   },

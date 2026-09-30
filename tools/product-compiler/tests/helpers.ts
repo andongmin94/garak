@@ -13,6 +13,7 @@ import { ProductCompilerError } from "../src/errors.ts";
 import {
   canonicalProductGraphSource,
   canonicalProductGraphSourceV1,
+  migrateProductGraphV1ToV2,
 } from "../src/graph_source.ts";
 import { deriveProductIdentity } from "../src/identity.ts";
 import type { ProductRuntimeArtifacts } from "../src/export_windows.ts";
@@ -43,7 +44,7 @@ export interface MutableProductJson {
 }
 
 export const WARM_PRODUCT_JSON: Readonly<MutableProductJson> = Object.freeze({
-  schemaVersion: 4,
+  schemaVersion: 5,
   productId: "6f0e50f1-a2d4-4b37-8c9e-1f2a3b4c5d6e",
   vendor: "Garak Test Artist",
   name: "Artist Gain Warm",
@@ -102,6 +103,14 @@ export function mutableWarmProduct(): MutableProductJson {
     template: { id: "garak.gain", version: 1 },
     defaults: { gainDb: -6 },
     graph: canonicalProductGraphSource(),
+  };
+}
+
+export function mutableLegacyV4WarmProduct(): MutableProductJson {
+  return {
+    ...mutableWarmProduct(),
+    schemaVersion: 4,
+    graph: migrateProductGraphV1ToV2(canonicalProductGraphSourceV1()),
   };
 }
 
@@ -285,9 +294,17 @@ export function fakeProcessRunner(
         ],
         ["--bypass-id", String(BYPASS_PARAMETER_ID)],
         ["--bypass-default-normalized", "0"],
+        [
+          "--post-gain-transform",
+          project.graph.nodes.some(({ type }) => type === "garak.saturation")
+            ? "saturation"
+            : project.graph.nodes.some(({ type }) => type === "garak.polarity")
+              ? "polarity"
+              : "identity",
+        ],
       ]);
       if (
-        request.arguments.length !== 26 ||
+        request.arguments.length !== 28 ||
         !request.arguments.includes("--bundle")
       ) {
         throw new Error(

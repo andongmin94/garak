@@ -56,7 +56,9 @@ export type {
 } from "./compatibility.ts";
 export { ProductCompilerError, diagnosticFor } from "./errors.ts";
 export {
+  canonicalPolarityProductGraphSource,
   canonicalProductGraphSource,
+  canonicalSaturationProductGraphSource,
   cloneProductGraphSource,
   validateProductGraphSource,
 } from "./graph_source.ts";

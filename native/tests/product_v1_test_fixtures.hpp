@@ -41,6 +41,10 @@ inline constexpr std::array<std::uint8_t, 16> kInvertedProcessorFuid{
 inline constexpr std::array<std::uint8_t, 16> kInvertedControllerFuid{
     0x46, 0xA9, 0x2F, 0xFD, 0x83, 0x3F, 0x6E, 0x28, 0x8A, 0xF7, 0xCC, 0xFC, 0x5C, 0x73, 0x52, 0x30};
 
+inline constexpr auto kSaturatedProductId = bytes_from_hex("8A5CE3F87B744F53BDC2C52E4F586072");
+inline constexpr auto kSaturatedProcessorFuid = bytes_from_hex("5BC75D591A2E038417BFAB96E15BB0B2");
+inline constexpr auto kSaturatedControllerFuid = bytes_from_hex("A74435CAC63CBB919D2051DDE2D8707B");
+
 inline constexpr auto kWarmCompiledProduct = bytes_from_hex(
     "474152414B4350440100000060000000B100000000000000000000006F0E50F1A2D44B378C9E1F2A3B4C5D6E"
     "3BA93DD6A062C97D89EC78F3652F83C400DD9000A50F7F28F4AE084CD29C43300000010000000100010000001100"

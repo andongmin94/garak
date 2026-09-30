@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 5,
+  "schemaVersion": 4,
   "productId": "d1331806-9ae0-4971-b83f-871d4af677b5",
   "vendor": "Garak Test Artist",
   "name": "Artist Gain Inverted",
@@ -13,7 +13,7 @@
     "gainDb": 0
   },
   "graph": {
-    "schemaVersion": 3,
+    "schemaVersion": 2,
     "nodes": [
       {
         "id": "input",

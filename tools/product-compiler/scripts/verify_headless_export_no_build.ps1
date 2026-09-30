@@ -28,10 +28,12 @@ $brightProject = Join-Path $repositoryRoot `
     'examples\products\artist-gain-bright.garak'
 $invertedProject = Join-Path $repositoryRoot `
     'examples\products\artist-gain-inverted.garak'
+$saturatedProject = Join-Path $repositoryRoot `
+    'examples\products\artist-gain-saturated.garak'
 
 if ([string]::IsNullOrWhiteSpace($OutputDirectory)) {
     $OutputDirectory = Join-Path $repositoryRoot `
-        "out\exports\phase-1c1\$configurationSlug"
+        "out\exports\phase-3d2\$configurationSlug"
 }
 else {
     $OutputDirectory = [IO.Path]::GetFullPath($OutputDirectory)
@@ -122,7 +124,11 @@ function Get-BundleEvidence {
 function Invoke-ProductExport {
     param(
         [Parameter(Mandatory = $true)]
-        [string]$ProjectPath
+        [string]$ProjectPath,
+
+        [Parameter(Mandatory = $true)]
+        [ValidateSet('identity', 'polarity', 'saturation')]
+        [string]$ExpectedTransform
     )
 
     $node = (Get-Command node.exe -ErrorAction Stop).Source
@@ -171,6 +177,14 @@ function Invoke-ProductExport {
         if ([int]$record.exitCode -ne 0) {
             throw "Child process did not exit zero: $leaf"
         }
+        if ($leaf -ceq 'garak_product_inspector.exe') {
+            $inspectorArguments = [string[]]@($record.arguments)
+            $transformIndex = [Array]::IndexOf($inspectorArguments, '--post-gain-transform')
+            if ($transformIndex -lt 0 -or $transformIndex + 1 -ge $inspectorArguments.Length -or
+                $inspectorArguments[$transformIndex + 1] -cne $ExpectedTransform) {
+                throw "Inspector did not request the expected '$ExpectedTransform' graph for $ProjectPath."
+            }
+        }
         $childProcesses.Add($record)
     }
     if ($childProcesses.Count -ne 5) {
@@ -191,17 +205,18 @@ $beforeManifest = @(Get-TreeManifest -RootPath $artifactRoot)
 $beforeManifestJson = $beforeManifest | ConvertTo-Json -Depth 8 -Compress
 $templateHashBefore = (Get-FileHash -LiteralPath $templateInner -Algorithm SHA256).Hash
 
-$warmFirstRun = Invoke-ProductExport -ProjectPath $warmProject
-$brightFirstRun = Invoke-ProductExport -ProjectPath $brightProject
-$invertedFirstRun = Invoke-ProductExport -ProjectPath $invertedProject
-foreach ($run in @($warmFirstRun, $brightFirstRun, $invertedFirstRun)) {
+$warmFirstRun = Invoke-ProductExport -ProjectPath $warmProject -ExpectedTransform identity
+$brightFirstRun = Invoke-ProductExport -ProjectPath $brightProject -ExpectedTransform identity
+$invertedFirstRun = Invoke-ProductExport -ProjectPath $invertedProject -ExpectedTransform polarity
+$saturatedFirstRun = Invoke-ProductExport -ProjectPath $saturatedProject -ExpectedTransform saturation
+foreach ($run in @($warmFirstRun, $brightFirstRun, $invertedFirstRun, $saturatedFirstRun)) {
     Write-Output "NODE_PROCESS $($run.nodeProcess)"
     foreach ($line in $run.transcript) {
         Write-Output $line
     }
 }
 $firstChildLog = [System.Collections.Generic.List[object]]::new()
-foreach ($run in @($warmFirstRun, $brightFirstRun, $invertedFirstRun)) {
+foreach ($run in @($warmFirstRun, $brightFirstRun, $invertedFirstRun, $saturatedFirstRun)) {
     foreach ($entry in $run.childProcesses) {
         $firstChildLog.Add($entry)
     }
@@ -210,21 +225,24 @@ foreach ($run in @($warmFirstRun, $brightFirstRun, $invertedFirstRun)) {
 $warmBundle = Join-Path $OutputDirectory 'Artist Gain Warm.vst3'
 $brightBundle = Join-Path $OutputDirectory 'Artist Gain Bright.vst3'
 $invertedBundle = Join-Path $OutputDirectory 'Artist Gain Inverted.vst3'
+$saturatedBundle = Join-Path $OutputDirectory 'Artist Gain Saturated.vst3'
 $warmFirst = Get-BundleEvidence -BundlePath $warmBundle
 $brightFirst = Get-BundleEvidence -BundlePath $brightBundle
 $invertedFirst = Get-BundleEvidence -BundlePath $invertedBundle
+$saturatedFirst = Get-BundleEvidence -BundlePath $saturatedBundle
 
-$warmSecondRun = Invoke-ProductExport -ProjectPath $warmProject
-$brightSecondRun = Invoke-ProductExport -ProjectPath $brightProject
-$invertedSecondRun = Invoke-ProductExport -ProjectPath $invertedProject
-foreach ($run in @($warmSecondRun, $brightSecondRun, $invertedSecondRun)) {
+$warmSecondRun = Invoke-ProductExport -ProjectPath $warmProject -ExpectedTransform identity
+$brightSecondRun = Invoke-ProductExport -ProjectPath $brightProject -ExpectedTransform identity
+$invertedSecondRun = Invoke-ProductExport -ProjectPath $invertedProject -ExpectedTransform polarity
+$saturatedSecondRun = Invoke-ProductExport -ProjectPath $saturatedProject -ExpectedTransform saturation
+foreach ($run in @($warmSecondRun, $brightSecondRun, $invertedSecondRun, $saturatedSecondRun)) {
     Write-Output "NODE_PROCESS $($run.nodeProcess)"
     foreach ($line in $run.transcript) {
         Write-Output $line
     }
 }
 $secondChildLog = [System.Collections.Generic.List[object]]::new()
-foreach ($run in @($warmSecondRun, $brightSecondRun, $invertedSecondRun)) {
+foreach ($run in @($warmSecondRun, $brightSecondRun, $invertedSecondRun, $saturatedSecondRun)) {
     foreach ($entry in $run.childProcesses) {
         $secondChildLog.Add($entry)
     }
@@ -232,6 +250,7 @@ foreach ($run in @($warmSecondRun, $brightSecondRun, $invertedSecondRun)) {
 $warmSecond = Get-BundleEvidence -BundlePath $warmBundle
 $brightSecond = Get-BundleEvidence -BundlePath $brightBundle
 $invertedSecond = Get-BundleEvidence -BundlePath $invertedBundle
+$saturatedSecond = Get-BundleEvidence -BundlePath $saturatedBundle
 
 foreach ($field in @('runtimeSha256', 'graphSha256', 'compiledSha256', 'moduleInfoSha256')) {
     if ($warmFirst.$field -cne $warmSecond.$field) {
@@ -243,10 +262,14 @@ foreach ($field in @('runtimeSha256', 'graphSha256', 'compiledSha256', 'moduleIn
     if ($invertedFirst.$field -cne $invertedSecond.$field) {
         throw "Inverted repeated export changed $field."
     }
+    if ($saturatedFirst.$field -cne $saturatedSecond.$field) {
+        throw "Saturated repeated export changed $field."
+    }
 }
 if ($warmSecond.runtimeSha256 -cne $templateHashBefore -or
     $brightSecond.runtimeSha256 -cne $templateHashBefore -or
-    $invertedSecond.runtimeSha256 -cne $templateHashBefore) {
+    $invertedSecond.runtimeSha256 -cne $templateHashBefore -or
+    $saturatedSecond.runtimeSha256 -cne $templateHashBefore) {
     throw 'Exported Runtime hashes do not match the immutable prebuilt template.'
 }
 if ($warmSecond.graphSha256 -cne $brightSecond.graphSha256) {
@@ -255,15 +278,19 @@ if ($warmSecond.graphSha256 -cne $brightSecond.graphSha256) {
 if ($invertedSecond.graphSha256 -ceq $warmSecond.graphSha256) {
     throw 'Inverted compiled graph data must differ from the Gain-only graph.'
 }
-if ($warmSecond.compiledSha256 -ceq $brightSecond.compiledSha256 -or
-    $warmSecond.compiledSha256 -ceq $invertedSecond.compiledSha256 -or
-    $brightSecond.compiledSha256 -ceq $invertedSecond.compiledSha256) {
-    throw 'Each reference product must have distinct compiled product data.'
+if ($saturatedSecond.graphSha256 -ceq $warmSecond.graphSha256 -or
+    $saturatedSecond.graphSha256 -ceq $invertedSecond.graphSha256) {
+    throw 'Saturated compiled graph data must differ from Gain-only and Polarity graphs.'
 }
-if ($warmSecond.moduleInfoSha256 -ceq $brightSecond.moduleInfoSha256 -or
-    $warmSecond.moduleInfoSha256 -ceq $invertedSecond.moduleInfoSha256 -or
-    $brightSecond.moduleInfoSha256 -ceq $invertedSecond.moduleInfoSha256) {
-    throw 'Each reference product must have distinct moduleinfo data.'
+foreach ($field in @('compiledSha256', 'moduleInfoSha256')) {
+    $products = @($warmSecond, $brightSecond, $invertedSecond, $saturatedSecond)
+    for ($left = 0; $left -lt $products.Count; $left++) {
+        for ($right = $left + 1; $right -lt $products.Count; $right++) {
+            if ($products[$left].$field -ceq $products[$right].$field) {
+                throw "Each reference product must have distinct $field data."
+            }
+        }
+    }
 }
 
 $afterManifest = @(Get-TreeManifest -RootPath $artifactRoot)
@@ -291,6 +318,7 @@ $report = [ordered]@{
     warm = $warmSecond
     bright = $brightSecond
     inverted = $invertedSecond
+    saturated = $saturatedSecond
 }
 
 $reportParent = [IO.Path]::GetDirectoryName($ReportPath)
@@ -301,3 +329,4 @@ Write-Output "Template Runtime SHA-256: $templateHashAfter"
 Write-Output "Warm compiled SHA-256: $($warmSecond.compiledSha256)"
 Write-Output "Bright compiled SHA-256: $($brightSecond.compiledSha256)"
 Write-Output "Inverted compiled SHA-256: $($invertedSecond.compiledSha256)"
+Write-Output "Saturated compiled SHA-256: $($saturatedSecond.compiledSha256)"

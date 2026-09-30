@@ -1,7 +1,18 @@
 import assert from 'node:assert/strict';
+import { cp, mkdtemp, readFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
 
-import { canonicalProductGraphSource } from '../../tools/product-compiler/src/api.ts';
+import {
+  canonicalProductGraphSource,
+  canonicalSaturationProductGraphSource,
+  createProductProject,
+  inspectProductProjectDraft,
+  openProductProject,
+  saveProductProject,
+} from '../../tools/product-compiler/src/api.ts';
 import type {
   OwnedCleanupDiagnostic,
   ProductProjectSnapshot,
@@ -12,7 +23,11 @@ import {
   type ProductCompilerPort,
   type ProductDialogPort,
 } from '../electron/product_service.mts';
-import type { ProductDiagnostic, ProductDraft } from '../src/shared/product_api.mts';
+import {
+  isProductDocumentResult,
+  type ProductDiagnostic,
+  type ProductDraft,
+} from '../src/shared/product_api.mts';
 
 const PROJECT_DIRECTORY = 'C:\\Products\\Artist Gain.garak';
 const OUTPUT_DIRECTORY = 'C:\\Exports';
@@ -23,47 +38,36 @@ const DRAFT: ProductDraft = {
   version: '0.1.0',
   gainDb: -6,
 };
+const REPOSITORY_ROOT = fileURLToPath(new URL('../../', import.meta.url));
 
 function snapshot(
   revision = 'a'.repeat(64),
-  sourceSchemaVersion: 1 | 2 | 3 | 4 = 4,
+  sourceSchemaVersion: 1 | 2 | 3 | 4 | 5 = 5,
 ): ProductProjectSnapshot {
-  let schemaStatus: ProductProjectSnapshot['schemaStatus'];
-  if (sourceSchemaVersion === 1) {
-    schemaStatus = {
-      sourceSchemaVersion: 1,
-      currentSchemaVersion: 4,
-      migrationRequired: true,
-      steps: ['project-schema-1-to-2', 'project-schema-2-to-3', 'project-schema-3-to-4'],
-    };
-  } else if (sourceSchemaVersion === 2) {
-    schemaStatus = {
-      sourceSchemaVersion: 2,
-      currentSchemaVersion: 4,
-      migrationRequired: true,
-      steps: ['project-schema-2-to-3', 'project-schema-3-to-4'],
-    };
-  } else if (sourceSchemaVersion === 3) {
-    schemaStatus = {
-      sourceSchemaVersion: 3,
-      currentSchemaVersion: 4,
-      migrationRequired: true,
-      steps: ['project-schema-3-to-4'],
-    };
-  } else {
-    schemaStatus = {
-      sourceSchemaVersion: 4,
-      currentSchemaVersion: 4,
-      migrationRequired: false,
-      steps: [],
-    };
-  }
+  const stepsByVersion = {
+    1: [
+      'project-schema-1-to-2',
+      'project-schema-2-to-3',
+      'project-schema-3-to-4',
+      'project-schema-4-to-5',
+    ],
+    2: ['project-schema-2-to-3', 'project-schema-3-to-4', 'project-schema-4-to-5'],
+    3: ['project-schema-3-to-4', 'project-schema-4-to-5'],
+    4: ['project-schema-4-to-5'],
+    5: [],
+  } as const;
+  const schemaStatus: ProductProjectSnapshot['schemaStatus'] = {
+    sourceSchemaVersion,
+    currentSchemaVersion: 5,
+    migrationRequired: sourceSchemaVersion !== 5,
+    steps: stepsByVersion[sourceSchemaVersion],
+  };
   return {
     sourceDirectory: PROJECT_DIRECTORY,
     revision,
     schemaStatus,
     document: {
-      schemaVersion: 4,
+      schemaVersion: 5,
       productId: PRODUCT_ID,
       vendor: DRAFT.vendor,
       name: DRAFT.name,
@@ -232,13 +236,13 @@ test('legacy open remains read-only when migration is declined', async () => {
   const opened = await productService.openProduct();
   assert.equal(opened.status, 'ok');
   if (opened.status !== 'ok') return;
-  assert.equal(opened.value.schemaVersion, 4);
+  assert.equal(opened.value.schemaVersion, 5);
   assert.deepEqual(opened.value.template, { id: 'garak.gain', version: 1 });
   assert.deepEqual(opened.value.schemaStatus, {
     sourceSchemaVersion: 2,
-    currentSchemaVersion: 4,
+    currentSchemaVersion: 5,
     migrationRequired: true,
-    steps: ['project-schema-2-to-3', 'project-schema-3-to-4'],
+    steps: ['project-schema-2-to-3', 'project-schema-3-to-4', 'project-schema-4-to-5'],
   });
 
   const saved = await productService.saveProduct({
@@ -294,7 +298,7 @@ test('legacy open upgrades only after native confirmation and reports the verifi
   });
   if (opened.status === 'ok') {
     assert.equal(opened.value.schemaStatus.migrationRequired, false);
-    assert.equal(opened.value.schemaStatus.sourceSchemaVersion, 4);
+    assert.equal(opened.value.schemaStatus.sourceSchemaVersion, 5);
   }
 });
 
@@ -307,7 +311,7 @@ test('future-schema open failure creates no session that can overwrite the sourc
         throw new MockCompilerError({
           code: 'GARAK_PROJECT_VERSION_TOO_NEW',
           path: 'product.json.schemaVersion',
-          message: 'schemaVersion 5 is newer than the current version 4.',
+          message: 'schemaVersion 6 is newer than the current version 5.',
         });
       },
       saveProductProject: async () => {
@@ -322,7 +326,7 @@ test('future-schema open failure creates no session that can overwrite the sourc
     diagnostic: {
       code: 'GARAK_PROJECT_VERSION_TOO_NEW',
       path: 'product.json.schemaVersion',
-      message: 'schemaVersion 5 is newer than the current version 4.',
+      message: 'schemaVersion 6 is newer than the current version 5.',
     },
   });
   assert.equal(
@@ -502,4 +506,175 @@ test('overlapping Product operations fail closed', async () => {
   });
   releaseDialog?.(null);
   assert.deepEqual(await opening, { status: 'cancelled' });
+});
+
+test('real legacy v1-v4 Studio open requires approval, retains exact backup, and reopens current v5', async () => {
+  for (const sourceSchemaVersion of [1, 2, 3, 4] as const) {
+    const temporary = await mkdtemp(
+      path.join(tmpdir(), `garak-studio-legacy-v${sourceSchemaVersion}-`),
+    );
+    const projectDirectory = path.join(temporary, 'Legacy.garak');
+    try {
+      await cp(
+        path.join(
+          REPOSITORY_ROOT,
+          'examples',
+          'products',
+          'legacy',
+          `v${sourceSchemaVersion}`,
+          sourceSchemaVersion === 4 ? 'artist-gain-inverted.garak' : 'artist-gain-warm.garak',
+        ),
+        projectDirectory,
+        { recursive: true, errorOnExist: true },
+      );
+      const originalSource = await readFile(path.join(projectDirectory, 'product.json'), 'utf8');
+      let approved = false;
+      let notice: { readonly projectDirectory: string; readonly fingerprint: string } | undefined;
+      const productService = new ProductService({
+        repositoryRoot: REPOSITORY_ROOT,
+        dialogs: dialogs({
+          chooseProjectToOpen: async () => projectDirectory,
+          confirmProjectMigration: async () => approved,
+          notifyProjectMigrationComplete: async (value) => {
+            notice = value;
+          },
+        }),
+      });
+      const legacy = await productService.openProduct();
+      assert.equal(legacy.status, 'ok');
+      assert.equal(isProductDocumentResult(legacy), true);
+      if (legacy.status !== 'ok') continue;
+      assert.equal(legacy.value.schemaStatus.sourceSchemaVersion, sourceSchemaVersion);
+      assert.equal(legacy.value.schemaStatus.migrationRequired, true);
+      assert.equal(legacy.value.schemaVersion, 5);
+      assert.equal(legacy.value.graph.schemaVersion, 3);
+      assert.equal(
+        await readFile(path.join(projectDirectory, 'product.json'), 'utf8'),
+        originalSource,
+      );
+      const refused = await productService.saveProduct({
+        documentId: legacy.value.documentId,
+        draft: legacy.value.draft,
+      });
+      assert.equal(refused.status, 'error');
+      if (refused.status === 'error') {
+        assert.equal(refused.diagnostic.code, 'GARAK_PROJECT_MIGRATION_REQUIRED');
+      }
+      assert.equal(
+        await readFile(path.join(projectDirectory, 'product.json'), 'utf8'),
+        originalSource,
+      );
+      const originalIdentity = await productService.validateProduct({
+        documentId: legacy.value.documentId,
+        draft: legacy.value.draft,
+      });
+      approved = true;
+      const migrated = await productService.openProduct();
+      assert.equal(migrated.status, 'ok');
+      assert.equal(isProductDocumentResult(migrated), true);
+      assert.notEqual(notice, undefined);
+      if (migrated.status !== 'ok' || notice === undefined) continue;
+      assert.equal(migrated.value.schemaStatus.sourceSchemaVersion, 5);
+      assert.equal(migrated.value.schemaStatus.migrationRequired, false);
+      assert.deepEqual(migrated.value.graph, legacy.value.graph);
+      assert.equal(migrated.value.productId, legacy.value.productId);
+      assert.equal(
+        await readFile(path.join(notice.projectDirectory, 'product.json'), 'utf8'),
+        originalSource,
+      );
+      assert.deepEqual(
+        await productService.validateProduct({
+          documentId: migrated.value.documentId,
+          draft: migrated.value.draft,
+        }),
+        originalIdentity,
+      );
+      const reopened = await productService.openProduct();
+      assert.equal(reopened.status, 'ok');
+      if (reopened.status === 'ok') {
+        assert.equal(reopened.value.productId, migrated.value.productId);
+        assert.deepEqual(reopened.value.graph, migrated.value.graph);
+      }
+    } finally {
+      await rm(temporary, { recursive: true, force: false });
+    }
+  }
+});
+
+test('real Saturated create, Studio edit/save/reopen and export preserve the main-owned graph', async () => {
+  const temporary = await mkdtemp(path.join(tmpdir(), 'garak-studio-saturated-'));
+  const projectDirectory = path.join(temporary, 'Saturated.garak');
+  try {
+    const source = canonicalSaturationProductGraphSource();
+    const graph = {
+      ...source,
+      nodes: [...source.nodes].reverse(),
+      connections: [...source.connections].reverse(),
+    };
+    await createProductProject({
+      projectDirectory,
+      productId: PRODUCT_ID,
+      draft: { ...DRAFT, graph },
+    });
+    let exportedGraph: unknown;
+    const productService = new ProductService({
+      repositoryRoot: REPOSITORY_ROOT,
+      dialogs: dialogs({
+        chooseProjectToOpen: async () => projectDirectory,
+      }),
+      compiler: compiler({
+        openProductProject,
+        inspectProductProjectDraft,
+        createProductProject,
+        saveProductProject,
+        exportProductProject: async (options) => {
+          exportedGraph = (await openProductProject(options.projectPath)).document.graph;
+          assert.equal(options.validate, true);
+          assert.equal(options.configuration, 'Release');
+          return await compiler().exportProductProject(options);
+        },
+      }),
+    });
+    const opened = await productService.openProduct();
+    assert.equal(opened.status, 'ok');
+    assert.equal(isProductDocumentResult(opened), true);
+    if (opened.status !== 'ok') return;
+    assert.deepEqual(opened.value.graph, graph);
+    const updated = { ...opened.value.draft, name: 'Studio Saturated', gainDb: -3 };
+    const inspected = await productService.validateProduct({
+      documentId: opened.value.documentId,
+      draft: updated,
+    });
+    assert.equal(inspected.status, 'ok');
+    const saved = await productService.saveProduct({
+      documentId: opened.value.documentId,
+      draft: updated,
+    });
+    assert.equal(saved.status, 'ok');
+    if (saved.status === 'ok') {
+      assert.deepEqual(saved.value.graph, graph);
+      assert.equal(saved.value.productId, PRODUCT_ID);
+    }
+    const reopened = await productService.openProduct();
+    assert.equal(reopened.status, 'ok');
+    if (reopened.status !== 'ok') return;
+    assert.deepEqual(reopened.value.graph, graph);
+    assert.deepEqual(reopened.value.draft, updated);
+    assert.equal(reopened.value.productId, PRODUCT_ID);
+    assert.deepEqual(
+      await productService.validateProduct({
+        documentId: reopened.value.documentId,
+        draft: updated,
+      }),
+      inspected,
+    );
+    const exported = await productService.exportProduct({
+      documentId: reopened.value.documentId,
+      configuration: 'Release',
+    });
+    assert.equal(exported.status, 'ok');
+    assert.deepEqual(exportedGraph, graph);
+  } finally {
+    await rm(temporary, { recursive: true, force: false });
+  }
 });

@@ -33,7 +33,7 @@ macOS/AU 결과를 Windows 결과로 일반화하지 않는다.
 
 ## 현재 canonical product path
 
-현재 실행 가능한 Windows x64 제품 경로는 다음 하나다.
+현재 canonical Windows x64 제품 경로는 다음 하나다. 수용된 기준선은 Phase 3D1이며 Phase 3D2 Saturation 변경은 [current status](docs/status/current.md)의 acceptance 상태를 따른다.
 
 ```text
 unpacked .garak project
@@ -44,11 +44,11 @@ unpacked .garak project
 → inspector + official validator + loaded-module tests
 ```
 
-Current reference products는 `Artist Gain Warm`과 `Artist Gain Bright`다.
+Current reference products는 `Artist Gain Warm`, `Artist Gain Bright`, `Artist Gain Inverted`, `Artist Gain Saturated`다. Current source는 project schema v5 / graph source v3 / `GARAKGRF` 1.2이며 Gain-only, Gain→Polarity 또는 Gain→Saturation의 exact topology만 지원한다.
 
 Phase 1A fixed Gain plug-in과 Phase 1B Data/Thin runtime-strategy A/B 구현은 삭제됐다. 당시 ADR, ExecPlan과 status 문서는 역사적 증거다. 삭제된 source, CMake option, preset, script 또는 test를 compatibility path나 fallback으로 복원하지 않는다.
 
-Current reusable Gain processing은 `native/dsp/gain`, persistent compiled/state contract는 `native/runtime/product_v1`, compiled graph contract는 `native/runtime/static_graph`, VST3 ABI integration은 `native/adapters/vst3/product_runtime_v1`에 둔다.
+Current reusable Gain processing은 `native/dsp/gain`, fixed Saturation은 `native/dsp/saturation`, persistent compiled/state contract는 `native/runtime/product_v1`, compiled graph contract는 `native/runtime/static_graph`, VST3 ABI integration은 `native/adapters/vst3/product_runtime_v1`에 둔다.
 
 ## First-party 경계
 
@@ -170,15 +170,19 @@ git submodule update --init --recursive third_party/vst3sdk
 
 cmake --preset product-runtime-debug --fresh
 cmake --build --preset product-runtime-debug-build --clean-first
-pnpm product:export --project examples/products/artist-gain-warm.garak --configuration Debug --output out/exports/phase-1c1/debug --force --validate
-pnpm product:export --project examples/products/artist-gain-bright.garak --configuration Debug --output out/exports/phase-1c1/debug --force --validate
+pnpm product:export --project examples/products/artist-gain-warm.garak --configuration Debug --output out/exports/phase-3d2/debug --force --validate
+pnpm product:export --project examples/products/artist-gain-bright.garak --configuration Debug --output out/exports/phase-3d2/debug --force --validate
+pnpm product:export --project examples/products/artist-gain-inverted.garak --configuration Debug --output out/exports/phase-3d2/debug --force --validate
+pnpm product:export --project examples/products/artist-gain-saturated.garak --configuration Debug --output out/exports/phase-3d2/debug --force --validate
 ctest --preset product-runtime-debug-test --no-tests=error
 pnpm --dir studio verify:product-workflow --configuration Debug
 
 cmake --preset product-runtime-release --fresh
 cmake --build --preset product-runtime-release-build --clean-first
-pnpm product:export --project examples/products/artist-gain-warm.garak --configuration Release --output out/exports/phase-1c1/release --force --validate
-pnpm product:export --project examples/products/artist-gain-bright.garak --configuration Release --output out/exports/phase-1c1/release --force --validate
+pnpm product:export --project examples/products/artist-gain-warm.garak --configuration Release --output out/exports/phase-3d2/release --force --validate
+pnpm product:export --project examples/products/artist-gain-bright.garak --configuration Release --output out/exports/phase-3d2/release --force --validate
+pnpm product:export --project examples/products/artist-gain-inverted.garak --configuration Release --output out/exports/phase-3d2/release --force --validate
+pnpm product:export --project examples/products/artist-gain-saturated.garak --configuration Release --output out/exports/phase-3d2/release --force --validate
 ctest --preset product-runtime-release-test --no-tests=error
 pnpm --dir studio verify:product-workflow --configuration Release
 

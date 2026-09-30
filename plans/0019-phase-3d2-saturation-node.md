@@ -2,7 +2,7 @@
 
 - Status: In Progress
 - Started: 2026-09-08
-- Updated: 2026-09-08
+- Updated: 2026-09-30
 - Owner: Product Compiler, Native static graph Runtime and Studio product workflow
 
 ## 목적
@@ -103,18 +103,18 @@ Bypassed samples continue to copy exact dry input, so no second callback pass or
 ## 구현 단계
 
 1. [x] Write this ExecPlan on `main` before implementation.
-2. [ ] Align stale current constitution/status text with the accepted three-product Phase 3D1 baseline.
-3. [ ] Add `native/dsp/saturation` and direct Float32/Float64 tests.
-4. [ ] Evolve graph source to v3 and project schema to v5 with strict v4→v5 migration.
-5. [ ] Extend exact graph validation for Gain-only, Polarity or Saturation only.
-6. [ ] Evolve deterministic compiled graph to `GARAKGRF` 1.2 and add fixed Gain/Polarity/Saturation fixtures.
-7. [ ] Replace polarity boolean binding representation with exact post-Gain transform kind and execute Saturation in the fused active branch.
-8. [ ] Extend compatibility/resource/static-graph/realtime stress tests for old 1.0/1.1, current 1.2 and all three plans.
-9. [ ] Add `Artist Gain Saturated` and extend headless export, inspector, loaded-module and Studio workflow coverage.
-10. [ ] Run Product Compiler, Studio, Native Debug/Release, warnings-as-errors and clang-tidy gates; fix all failures.
+2. [x] Align stale current constitution/status text with the accepted three-product Phase 3D1 baseline.
+3. [x] Add `native/dsp/saturation` and direct Float32/Float64 tests.
+4. [x] Evolve graph source to v3 and project schema to v5 with strict v4→v5 migration.
+5. [x] Extend exact graph validation for Gain-only, Polarity or Saturation only.
+6. [x] Evolve deterministic compiled graph to `GARAKGRF` 1.2 and add fixed Gain/Polarity/Saturation fixtures.
+7. [x] Replace polarity boolean binding representation with exact post-Gain transform kind and execute Saturation in the fused active branch.
+8. [x] Extend compatibility/resource/static-graph/realtime stress tests for old 1.0/1.1, current 1.2 and all three plans.
+9. [x] Add `Artist Gain Saturated` and extend headless export, inspector, loaded-module and Studio workflow coverage.
+10. [x] Run Product Compiler, Studio, Native Debug/Release, warnings-as-errors and clang-tidy gates; fix all failures.
 11. [ ] Run clean exact-main Windows Debug/Release four-product export/Validator/CTest/Studio workflow plus `/WX`, clang-tidy and clean-tree.
 12. [ ] Update README, roadmap, current status, compatibility/runtime architecture and this ExecPlan; mark Complete only after green acceptance.
-13. [ ] Remove any temporary verification workflow from final `main`.
+13. [x] Remove any temporary verification workflow from final `main`; permanent `Verify` CI covers Linux and Windows.
 
 ## 변경 대상 파일
 
@@ -196,11 +196,19 @@ Authoritative Windows acceptance is a clean x64 checkout of the exact final `mai
 
 ## 발견 사항
 
+- 2026-09-30: Resumed at selected `main` commit `84cb786` in the platform checkout. The checkout was initially clean and already contained partial Phase 3D2 source changes, including standalone Saturation DSP, graph v3/project v5 types and compiled graph 1.2. The completion record below was stale. Initial Linux checks showed Product Compiler type errors and 74 failing tests caused by partially migrated schema contracts; Studio build failed through the same compiler source. These are implementation gaps, not dependency failures.
+- 2026-09-30: The cloud machine is Linux with Node 24.19.0. pnpm 11.16.0, CMake 3.31.6 and Ninja 1.11.1.4 are available via `/workspace/.cloud-tools/activate.sh`. Generic Native Debug/Release each passed six tests before completion work. GNU has no repository warning policy, so strict native gates require Clang. Windows acceptance access is being checked separately and is not assumed from Linux results.
+- 2026-09-30: Work is split across disjoint Compiler source, Compiler tests, Native Runtime, and Studio/examples scopes. This remains the only active ExecPlan. No feature branch or worktree is created; source changes remain on canonical `main`.
+- 2026-09-30: The platform supplied a local `work` branch at the selected main commit. Development was aligned to local `main` tracking `origin/main`, preserving all changes and the existing branch. No feature branch, worktree or PR is used.
+- 2026-09-30: Native Git HTTPS read and push dry-run connectivity succeed. The GitHub API route is blocked by proxy CONNECT 403, independently of token authentication. Public Actions pages are reachable; actual CI execution/results are not yet claimed.
 - 2026-09-08: `AGENTS.md` still names only Warm/Bright as current reference products although Phase 3D1 accepted Inverted. This stale current statement must be corrected before Phase 3D2 completion and does not change engineering policy.
 - 2026-09-08: Current static binding represents the optional post-Gain operation as `has_polarity` boolean. Saturation is the point where an exact enum-like post-Gain transform representation becomes simpler than accumulating feature booleans.
 
 ## 의사결정 로그
 
+- 2026-09-30: Follow the v4→v5 preservation criterion literally: graph v2/v3 validation and current serialization preserve authoring node/connection order; compiled plans remain deterministic by exact topology. The historical graph v1 normalizer remains unchanged. This resolves the stale historical canonical-order text without changing sound or persistent identity.
+- 2026-09-30: Move adjacent migration orchestration to the validation boundary so each target schema is validated before the next pure migration step. This enforces ADR 0007 without introducing an import cycle or compatibility alias.
+- 2026-09-30: Add a permanent Linux/Windows verification workflow rather than retain the temporary Linux-only Phase 3D2 workflow. Verification stays read-only with respect to repository source.
 - 2026-09-08: Select Saturation before Pan/Dry-Wet/Biquad/Tilt EQ. It adds nonlinear sound behavior while remaining stateless, parameterless and single-path, so it is the smallest next end-to-end capability.
 - 2026-09-08: Define `garak.saturation` implementation version 1 as fixed `tanh(x)` after Gain.
 - 2026-09-08: Advance project schema v5, graph source v3 and `GARAKGRF` 1.2 instead of broadening existing accepted version meanings.
@@ -208,8 +216,21 @@ Authoritative Windows acceptance is a clean x64 checkout of the exact final `mai
 
 ## 완료 기록
 
-Phase 3D2 is in progress. Only the ExecPlan has been created so far; no product source, compiled contract, Runtime behavior or public state has changed yet.
+Implementation and Linux validation are complete; Windows acceptance is pending, so Phase 3D2 remains In Progress.
+
+- Product Compiler format/lint/typecheck PASS; 111 tests executed, 110 passed, 0 failed, 1 Windows-only junction case skipped.
+- Studio format/lint/typecheck/test/build PASS; 19 tests passed, none skipped.
+- First-party Native clang-format 19 dry-run PASS for 49 files.
+- Native Debug/Release builds and CTest PASS: 9/9 each, including product/state/resource contracts.
+- Clang 19 warnings-as-errors build and CTest PASS: 9/9. Clang-tidy build PASS.
+- Each Gain-only/Polarity/Saturation Float32/Float64 stress case executes 20,000 blocks and 1,919,504 channel-samples with zero allocation/deallocation.
+- Four real TypeScript-emitted `GARAKGRF` 1.2 files were decoded by the C++ production parser with the expected identity/polarity/saturation binding.
+- Exact pinned recursive SDK initialization and strict adapter/Saturated-test syntax checks PASS. These are not Windows runtime acceptance.
+- Permanent CI contains the full Windows Debug/Release matrix, four-product repeated export, nine legacy/current export parity pairs, inspector topology rejection, official Validator, loaded-module tests, Studio workflow, `/WX`, clang-tidy and source-mutation checks. Report-only artifacts preserve JSON/CTest evidence.
+- Current architecture/status/roadmap and current engineering command paths are synchronized. Historical accepted evidence is preserved.
+
+Actual Windows execution is required before step 11, final acceptance, and Complete status can be recorded. Package declarations, pnpm lockfile, public Parameter IDs, `GARAKCPD` 1.0 and `GARAKPST` 1.0 remain unchanged.
 
 ## 다음 단계
 
-Correct the stale Phase 3D1 canonical-product statement, then add the standalone Saturation DSP module and direct tests before evolving persistent source/compiled contracts.
+Run the permanent clean exact-main Linux/Windows CI against the completed implementation, diagnose any failed required gate, and record successful Windows acceptance before closing this increment. No later node or Phase 4 work starts while this gate remains outstanding.

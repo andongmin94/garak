@@ -1,4 +1,4 @@
-export const PRODUCT_GRAPH_SCHEMA_VERSION = 2 as const;
+export const PRODUCT_GRAPH_SCHEMA_VERSION = 3 as const;
 export const PRODUCT_GRAPH_IMPLEMENTATION_VERSION = 1 as const;
 export const PRODUCT_GRAPH_AUDIO_PORT = 'audio' as const;
 
@@ -6,6 +6,7 @@ export const PRODUCT_GRAPH_NODE_TYPE = Object.freeze({
   audioInput: 'garak.audio-input',
   gain: 'garak.gain',
   polarity: 'garak.polarity',
+  saturation: 'garak.saturation',
   audioOutput: 'garak.audio-output',
 } as const);
 
@@ -107,15 +108,20 @@ export function isProductGraphSource(value: unknown): value is ProductGraphSourc
   const input = nodesByType.get(PRODUCT_GRAPH_NODE_TYPE.audioInput);
   const gain = nodesByType.get(PRODUCT_GRAPH_NODE_TYPE.gain);
   const polarity = nodesByType.get(PRODUCT_GRAPH_NODE_TYPE.polarity);
+  const saturation = nodesByType.get(PRODUCT_GRAPH_NODE_TYPE.saturation);
   const output = nodesByType.get(PRODUCT_GRAPH_NODE_TYPE.audioOutput);
   if (input === undefined || gain === undefined || output === undefined) {
     return false;
   }
-  if ((value.nodes.length === 3) !== (polarity === undefined)) {
+  if (polarity !== undefined && saturation !== undefined) {
+    return false;
+  }
+  const postGain = polarity ?? saturation;
+  if ((value.nodes.length === 3) !== (postGain === undefined)) {
     return false;
   }
 
-  const ordered = polarity === undefined ? [input, gain, output] : [input, gain, polarity, output];
+  const ordered = postGain === undefined ? [input, gain, output] : [input, gain, postGain, output];
   const connections = new Set<string>();
   for (const connection of value.connections) {
     if (!nodesById.has(connection.from.nodeId) || !nodesById.has(connection.to.nodeId)) {

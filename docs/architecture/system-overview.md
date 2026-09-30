@@ -1,9 +1,9 @@
 # Garak System Overview
 
-- 문서 상태: Phase 3C2 editable graph source와 deployed graph execution 경로 반영
-- 최종 갱신: 2026-09-02
+- 문서 상태: Phase 3D2 current source/runtime implementation contract; acceptance pending
+- 최종 갱신: 2026-09-30
 - 권위 범위: 전체 시스템 문맥, 최상위 구성 요소와 authoring-to-runtime 흐름
-- 관련 문서: [제품 비전](../product/vision.md), [v0.1 제품 요구사항](../product/v0.1-prd.md), [모듈 경계](module-boundaries.md), [프로젝트 모델](project-model.md), [Runtime과 export](runtime-and-export.md), [Minimal Garak Product Project](minimal-garak-product-project.md), [Editable Project Schema v3](editable-project-schema-v3.md), [Editable Project Schema v2](editable-project-schema-v2.md), [Project Migration Engine](project-migration-engine.md), [ADR 0005](../adr/0005-windows-v0x-prebuilt-product-runtime.md), [ADR 0007](../adr/0007-editable-project-schema-migration-policy.md)
+- 관련 문서: [제품 비전](../product/vision.md), [v0.1 제품 요구사항](../product/v0.1-prd.md), [모듈 경계](module-boundaries.md), [프로젝트 모델](project-model.md), [Runtime과 export](runtime-and-export.md), [Minimal Garak Product Project](minimal-garak-product-project.md), [Editable Project Schema v5](editable-project-schema-v5.md), [Historical Editable Project Schema v3](editable-project-schema-v3.md), [Editable Project Schema v2](editable-project-schema-v2.md), [Project Migration Engine](project-migration-engine.md), [ADR 0005](../adr/0005-windows-v0x-prebuilt-product-runtime.md), [ADR 0007](../adr/0007-editable-project-schema-migration-policy.md)
 
 ## 문서의 역할
 
@@ -62,13 +62,11 @@ Studio preview는 project의 sound/control/interface 의미를 빠르게 확인�
 
 Project Model은 `.garak`에 저장되는 제품 의도를 정의한다. Product identity, graph, parameter와 macro,
 interface scene, preset, asset reference와 metadata가 하나의 versioned aggregate를 이룬다. 현재 최소
-source는 unpacked `.garak` directory 안의 exact `product.json` 하나다. Current schema v3는 structured
-Gain template와 versioned `Audio Input → Gain → Audio Output` graph source를 사용한다. Schema v1/v2는
-supported legacy input으로 ordered deterministic memory migration한다. General graph/interface/preset project의
+source는 unpacked `.garak` directory 안의 exact `product.json` 하나다. Current schema v5는 structured Gain template와 graph source v3를 사용한다. Exact Gain-only, Gain→Polarity 또는 Gain→Saturation topology만 허용하며 optional post-Gain node는 최대 하나다. Schema v1/v2/v3/v4는 supported legacy input으로 v1→v2→v3→v4→v5 ordered deterministic memory migration한다. Current parse/serialize와 v4→v5 migration은 source node IDs와 node/connection array order를 보존하고 동일 topology의 compiled bytes는 deterministic하다. General graph/interface/preset project의
 최종 physical container, serialization technology와 asset embedding 방식은 아직 정하지 않았다.
 
 장기 의미의 세부 권위는 [프로젝트 모델](project-model.md), 현재 최소 physical contract는
-[Minimal Garak Product Project](minimal-garak-product-project.md)에 있다.
+[Editable Project Schema v5](editable-project-schema-v5.md)에 있다.
 
 ### Garak Compilers
 
@@ -85,8 +83,7 @@ Phase 1C.1의 최소 Product Compiler는 Studio와 독립된 headless TypeScript
 validation, identity derivation, deterministic `GARAKCPD` v1 compile과 Windows VST3 packaging을 수행한다.
 Phase 1C.2 Studio의 Electron main은 동일한 callable workflow를 직접 호출한다. Phase 2A/2B는 이 source
 boundary에 version-first validation, pure migration, canonical writer와 durable publication을 추가했다.
-Phase 3C1/3C2는 deterministic `GARAKGRF` v1 resource, module-load prepared binding과 current schema v3의
-strict editable graph source를 end-to-end로 연결한다. 이 경로는 general graph/interface compiler와 native
+Phase 3C/3D는 source-derived graph resource와 immutable module-load binding을 end-to-end로 연결한다. Current Phase 3D2 implementation은 `GARAKGRF` 1.2와 schema v5 / graph source v3이며 `GARAKCPD` 1.0, `GARAKPST` 1.0과 Gain/Bypass IDs는 유지한다. Fixed Saturation v1은 non-bypassed post-Gain sample에 `tanh`를 적용하고 whole-product Bypass는 exact dry input을 출력한다. 이 경로는 general graph/interface compiler와 native
 preview/audio Engine의 언어 또는 process 배치를 확정하지 않는다.
 
 ### Generated Plugin Runtime
@@ -151,9 +148,10 @@ Authoring audition은 같은 project 의미를 입력으로 사용하지만 expo
 3. Phase 2A/2B/2C — migration, durable persistence와 compiled/state compatibility — 완료
 4. Phase 3A/3B — production static execution과 realtime stress — 완료
 5. Phase 3C1 — Runtime-consumed compiled graph resource — 완료
-6. Phase 3C2 — Editable project schema v3 — 구현 및 검증 진행
-7. Phase 3C3 — Compiled graph compatibility matrix와 final product gate — pending
-8. 후속 product capability를 단계적으로 구현한 뒤 첫 상용 배포 전 cross-platform release gate
+6. Phase 3C2/3C3 — Editable schema v3와 compiled graph compatibility — 완료
+7. Phase 3D1 — Polarity Node, schema v4 / graph v2 / `GARAKGRF` 1.1 — accepted
+8. Phase 3D2 — Saturation Node, schema v5 / graph v3 / `GARAKGRF` 1.2 — In Progress, Windows acceptance pending
+9. 후속 product capability를 단계적으로 구현한 뒤 첫 상용 배포 전 cross-platform release gate
 
 Release gate에는 macOS arm64/x86_64 및 Universal VST3, macOS AU, signing/notarization, installer와
 Windows/macOS 실제 DAW 검증이 포함된다. 첫 상용 v0.1 목표는 계속 Windows VST3, macOS Universal VST3와 macOS
@@ -161,6 +159,8 @@ AU이며 macOS/AU를 제거하거나 Windows 결과로 대체하지 않는다. F
 [ADR 0004](../adr/0004-windows-macos-and-plugin-formats.md)에 있다.
 
 ## Reference product가 검증하는 경로
+
+Current increment의 reference products는 Warm/Bright/Inverted/Saturated다. Warm/Bright는 Gain-only, Inverted는 Gain→Polarity, Saturated는 Gain→Saturation을 사용한다. 네 제품은 configuration별 동일 prebuilt Runtime을 재사용하며 product identity와 data는 제품별이다. Phase 3D1은 accepted 기준선이고 Phase 3D2 acceptance 상태는 [current status](../status/current.md)를 따른다.
 
 `ANDONGMIN — BLOOM`은 architecture 기능을 따로 시연하는 demo가 아니라 다음 경계를 모두 통과하는 첫 수직 증거이다.
 
@@ -196,12 +196,12 @@ Phase 0A에서는 BLOOM의 DSP algorithm, node 목록, control range/curve 또�
 - General graph/interface compiler와 native preview/audio Engine의 process/language 배치. Phase 1C.2의
   project authoring/export는 Electron main이 callable Product Compiler를 직접 호출하는 경계로 확정됐지만,
   이 결정은 realtime preview 또는 general graph compiler topology를 정하지 않는다.
-- Minimal schema v3 이후 general `.garak`/compiled runtime data의 physical container 및 schema technology
+- Minimal schema v5 이후 general `.garak`/compiled runtime data의 physical container 및 schema technology
 - macOS VST3/AU와 장기 cross-platform generated runtime packaging 선택
 - Format adapter SDK와 renderer/layout/audio-device 등 외부 구현의 적합성
 - Preview와 native runtime의 audio/visual parity 측정 방법과 허용 오차
 - 지원 OS/DAW matrix, CPU/latency/memory budget와 accessibility threshold
 - Signing, notarization, installer와 최종 고객 지원의 v0.1 경계
-- Schema v1/v2 legacy project, preset와 state migration 지원 범위와 기간
+- Schema v1/v2/v3/v4 legacy project, preset와 state migration 지원 범위와 기간
 
 이 항목은 후속 spike, 품질 계획 또는 ADR 전에는 확정 구현 선택으로 표현하지 않는다.

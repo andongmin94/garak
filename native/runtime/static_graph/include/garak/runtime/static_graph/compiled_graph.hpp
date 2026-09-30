@@ -13,7 +13,7 @@
 namespace garak::runtime::static_graph {
 
 inline constexpr std::uint16_t kCompiledGraphMajorVersion = 1;
-inline constexpr std::uint16_t kCompiledGraphMinorVersion = 1;
+inline constexpr std::uint16_t kCompiledGraphMinorVersion = 2;
 inline constexpr std::size_t kCompiledGraphHeaderBytes = 32;
 inline constexpr std::size_t kCompiledGraphOperationBytes = 20;
 inline constexpr std::size_t kCompiledGraphMinimumOperationCount = 3;

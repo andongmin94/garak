@@ -35,18 +35,16 @@ template <typename Sample> [[nodiscard]] constexpr Sample tolerance() noexcept {
   }
 }
 
-template <typename Sample>
-[[nodiscard]] bool near(const Sample left, const Sample right) noexcept {
+template <typename Sample> [[nodiscard]] bool near(const Sample left, const Sample right) noexcept {
   return std::abs(left - right) <= tolerance<Sample>();
 }
 
 template <typename Sample> void test_scalar_contract(TestContext& test) {
   using garak::dsp::saturation::processed_sample;
-  constexpr std::array inputs{static_cast<Sample>(0),      static_cast<Sample>(0.125),
-                              static_cast<Sample>(-0.125), static_cast<Sample>(0.5),
-                              static_cast<Sample>(-0.5),   static_cast<Sample>(1),
-                              static_cast<Sample>(-1),     static_cast<Sample>(4),
-                              static_cast<Sample>(-4)};
+  constexpr std::array inputs{
+      static_cast<Sample>(0),   static_cast<Sample>(0.125), static_cast<Sample>(-0.125),
+      static_cast<Sample>(0.5), static_cast<Sample>(-0.5),  static_cast<Sample>(1),
+      static_cast<Sample>(-1),  static_cast<Sample>(4),     static_cast<Sample>(-4)};
   for (const auto input : inputs) {
     const auto output = processed_sample(input);
     test.expect(near(output, static_cast<Sample>(std::tanh(input))),
@@ -75,10 +73,10 @@ template <typename Sample> void test_channel_blocks(TestContext& test) {
                                               static_cast<Sample>(-0.25), static_cast<Sample>(0.75),
                                               static_cast<Sample>(-0.75), static_cast<Sample>(2),
                                               static_cast<Sample>(-2)};
-  const std::array<Sample, sample_count> right{
-      static_cast<Sample>(-0.5), static_cast<Sample>(0.5), static_cast<Sample>(1.5),
-      static_cast<Sample>(-1.5), static_cast<Sample>(0),   static_cast<Sample>(3),
-      static_cast<Sample>(-3)};
+  const std::array<Sample, sample_count> right{static_cast<Sample>(-0.5), static_cast<Sample>(0.5),
+                                               static_cast<Sample>(1.5),  static_cast<Sample>(-1.5),
+                                               static_cast<Sample>(0),    static_cast<Sample>(3),
+                                               static_cast<Sample>(-3)};
   const std::array inputs{left, right};
   for (const std::size_t channel_count : {std::size_t{1}, std::size_t{2}}) {
     auto outputs = inputs;

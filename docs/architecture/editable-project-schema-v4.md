@@ -1,6 +1,8 @@
 # Editable Project Schema v4
 
-- 문서 상태: Current
+> Historical schema snapshot. 아래의 current/version 표현은 당시 계약을 뜻한다. 현재 schema v5 / graph source v3 contract는 [Editable Project Schema v5](editable-project-schema-v5.md), acceptance 상태는 [current status](../status/current.md)를 따른다. 기존 schema 의미와 canonical ordering은 변경하지 않는다.
+
+- 문서 상태: Historical Phase 3D1 schema v4 contract; supported legacy input
 - Project schema version: `4`
 - Embedded graph source version: `2`
 - Supported legacy project input: schema `1`, `2`, `3`

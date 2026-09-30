@@ -1,5 +1,7 @@
 # Garak Editable Project Schema v3
 
+> Historical schema snapshot. 아래의 current/version 표현은 당시 계약을 뜻한다. 현재 schema v5 / graph source v3 contract는 [Editable Project Schema v5](editable-project-schema-v5.md), acceptance 상태는 [current status](../status/current.md)를 따른다. 기존 schema 의미와 canonical ordering은 변경하지 않는다.
+
 - 상태: Phase 3C2 current editable source contract
 - Current schema version: `3`
 - Supported legacy input: schema versions `1`, `2`

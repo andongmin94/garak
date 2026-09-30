@@ -10,7 +10,9 @@ namespace garak::dsp::saturation {
 // persistent state. Signal sanitation and whole-product Bypass are the caller's
 // responsibility.
 [[nodiscard]] inline float processed_sample(const float input) noexcept { return std::tanh(input); }
-[[nodiscard]] inline double processed_sample(const double input) noexcept { return std::tanh(input); }
+[[nodiscard]] inline double processed_sample(const double input) noexcept {
+  return std::tanh(input);
+}
 
 // Spans must have equal lengths and must either be disjoint or refer to the same
 // buffer. Partial overlap returns false without writing output. A length mismatch

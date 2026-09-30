@@ -1,17 +1,17 @@
 # Garak Project Model
 
-- 문서 상태: Phase 3C2 editable project schema v3와 graph source 경계 반영
-- 최종 갱신: 2026-09-02
+- 문서 상태: Phase 3D2 editable project schema v5 / graph source v3 implementation contract; acceptance pending
+- 최종 갱신: 2026-09-30
 - 권위 범위: `.garak` semantic model, product identity, node version reference, project schema와 migration
-- 관련 문서: [v0.1 제품 요구사항](../product/v0.1-prd.md), [시스템 개요](system-overview.md), [모듈 경계](module-boundaries.md), [Minimal Garak Product Project](minimal-garak-product-project.md), [Editable Project Schema v3](editable-project-schema-v3.md), [Editable Project Schema v2](editable-project-schema-v2.md), [Project Migration Engine](project-migration-engine.md), [Parameter와 state](parameter-and-state.md), [Interface Designer](interface-designer.md), [Runtime과 export](runtime-and-export.md), [ADR 0007](../adr/0007-editable-project-schema-migration-policy.md)
+- 관련 문서: [v0.1 제품 요구사항](../product/v0.1-prd.md), [시스템 개요](system-overview.md), [모듈 경계](module-boundaries.md), [Minimal Garak Product Project](minimal-garak-product-project.md), [Editable Project Schema v5](editable-project-schema-v5.md), [Historical Editable Project Schema v3](editable-project-schema-v3.md), [Editable Project Schema v2](editable-project-schema-v2.md), [Project Migration Engine](project-migration-engine.md), [Parameter와 state](parameter-and-state.md), [Interface Designer](interface-designer.md), [Runtime과 export](runtime-and-export.md), [ADR 0007](../adr/0007-editable-project-schema-migration-policy.md)
 
 ## 문서의 역할
 
 이 문서는 하나의 Garak product project가 어떤 의미를 보존해야 하는지 정의한다. `.garak`은 Studio 편집 상태와 제품 의도를 다시 열고 발전시킬 수 있는 versioned source of truth이다. Generated plugin이 직접 실행하는 compiled runtime data나 DAW가 저장하는 plugin state와 동일한 형식으로 취급하지 않는다.
 
 여기서 설명하는 section과 속성은 semantic aggregate이다. Current minimal physical form은 exact
-`product.json` 하나를 가진 directory `.garak`이고 current editable schema는 JSON v3다. Schema v3은
-versioned embedded graph source v1을 소유하지만, general graph/interface/asset project의 final
+`product.json` 하나를 가진 directory `.garak`이고 current editable schema는 JSON v5다. Schema v5는
+versioned embedded graph source v3을 소유하지만, general graph/interface/asset project의 final
 single-file/archive/container나 schema library를 확정하지 않는다.
 
 ## Project의 책임
@@ -76,11 +76,11 @@ Project graph는 node instance, typed port와 connection을 first-party 의미�
 - 단순 project migration이 node version을 조용히 바꾸어 sound를 변경해서는 안 된다.
 - 더 이상 지원되지 않는 version을 열 수 없다면 명시적인 diagnostic과 지원 정책을 적용하며 임의의 최신 version으로 fallback하지 않는다.
 
-Current graph source v1의 node ID는 `^[a-z][a-z0-9-]{0,63}$`이고, node type은
-`garak.audio-input`, `garak.gain`, `garak.audio-output`, implementation version은 모두 `1`로 고정한다.
-이 ID는 authoring reference이고 operation order, buffer slot 또는 compiled bytes를 결정하지 않는다.
+Current graph source v3의 node ID는 `^[a-z][a-z0-9-]{0,63}$`이고, node type은
+`garak.audio-input`, `garak.gain`, optional `garak.polarity` 또는 `garak.saturation`, `garak.audio-output`, implementation version은 모두 `1`로 고정한다.
+이 ID는 authoring reference이고 operation order, buffer slot 또는 compiled bytes를 결정하지 않는다. Exact Gain-only, Gain→Polarity 또는 Gain→Saturation chain만 지원하고 optional post-Gain node는 최대 하나다. Saturation v1은 finite active post-Gain sample의 `tanh`이며 public parameter/state가 없다. Current parse/serialize는 node/connection array order를 보존한다.
 Additional node의 general ID scope, registry/factory와 version lifecycle은 아직 미결정이다. Exact current
-contract는 [Editable Project Schema v3](editable-project-schema-v3.md), module 책임은
+contract는 [Editable Project Schema v5](editable-project-schema-v5.md), [Historical Editable Project Schema v3](editable-project-schema-v3.md), module 책임은
 [모듈 경계](module-boundaries.md)가 정의한다.
 
 ## Reference integrity
@@ -124,11 +124,9 @@ Migration은 version이 명시된 source project를 검증 가능한 target sche
 - Migration이 완전히 성공하기 전에 source project를 덮어쓰지 않는다.
 - 실행된 migration과 warning을 사용자가 확인할 수 있어야 한다.
 
-Current chain은 exact supported legacy v1을 `project-schema-1-to-2`, 이어
-`project-schema-2-to-3`으로 변환하고, legacy v2는 두 번째 step만 적용한다. 두 경로는 current v3
-revalidation 뒤 같은 canonical model로 합류한다. Version-first reader, headless status/dry-run/distinct-output
+Current chain은 exact supported legacy v1/v2/v3/v4를 v1→v2→v3→v4→v5의 남은 ordered steps로 변환한다. 모든 경로는 current v5 revalidation 뒤 같은 canonical model로 합류한다. v4→v5는 graph source version만 승격하고 기존 node IDs, node/connection array order와 topology를 보존한다. Historical graph source v1 canonical ordering은 그대로 유지한다. Version-first reader, headless status/dry-run/distinct-output
 publication과 Studio의 explicit in-place migration/verified backup은
-[Project Migration Engine](project-migration-engine.md)이 정의한다. Schema v1/v2의 장기 support 기간은
+[Project Migration Engine](project-migration-engine.md)이 정의한다. Schema v1/v2/v3/v4의 장기 support 기간은
 아직 미결정이며, 이 chain은 모든 역사적 또는 pre-release draft를 무기한 지원한다는 뜻이 아니다.
 
 ## Released data와 내부 compatibility의 구분
@@ -209,9 +207,9 @@ FlatBuffers를 포함한 알려진 기술은 검증 후보일 뿐이다. Candida
 
 ## Open Questions
 
-- General/final `.garak` container와 schema technology는 current directory JSON v3 이후 무엇인가?
+- General/final `.garak` container와 schema technology는 current directory JSON v5 이후 무엇인가?
 - 새 제품·복제 workflow가 current canonical Product ID를 언제 명시적으로 재발급하는가?
-- Current graph source v1을 넘어서는 graph, scene, component와 asset reference의 ID scope와 lifecycle은 무엇인가?
+- Current graph source v3을 넘어서는 graph, scene, component와 asset reference의 ID scope와 lifecycle은 무엇인가?
 - Authoring-only data와 product-semantic data를 어느 경계에서 분리할 것인가?
 - Asset embedding, font/SVG subset과 project portability 한계는 무엇인가?
 - Schema v1/v2 legacy support range는 언제까지 유지하며 future migration warning/failure UX는 어떻게 동작하는가?

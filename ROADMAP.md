@@ -1,11 +1,12 @@
 # Garak Roadmap
 
-- 기준일: 2026-09-08
+- 기준일: 2026-09-30
 - Branch: `main`
 - Current accepted milestone: **Phase 3D1 — Polarity Node, PASS / Complete**
 - Phase 3D1 exact verified source: `96ba29cf009eab00980405d7de456b5f1d431956`
 - Phase 3D1 clean acceptance run: `34193494228`
-- 다음 gate: **Phase 3D2 — 별도 ExecPlan 작성 후 하나의 추가 node를 end-to-end로 수용**
+- 현재 작업: **Phase 3D2 — Saturation Node, In Progress**
+- 다음 gate: exact final source의 clean Windows Debug/Release four-product export·Validator·CTest·Studio workflow와 strict acceptance
 
 이 roadmap은 기능 목록을 미리 구현하는 문서가 아니다. 각 milestone은 직전의 실제 제품 경로가 clean checkout에서 통과한 뒤에만 다음 층으로 진행한다.
 
@@ -124,9 +125,11 @@ Phase 3D는 node를 한꺼번에 구현하지 않는다. 각 node를 source → 
 - exact verified source: `96ba29cf009eab00980405d7de456b5f1d431956`
 - clean Linux + Windows run: `34193494228`
 
-### Phase 3D2 — Not started
+### Phase 3D2 — Saturation Node — In Progress
 
-다음 node는 별도 ExecPlan을 먼저 작성한 뒤 시작한다. 후보는 Pan, Dry/Wet, Biquad, Tilt EQ, Saturation이다. 선택 전에는 이들을 위한 public parameter, macro system, generic node registry 또는 arbitrary scheduler를 추가하지 않는다.
+활성 계획은 [`plans/0019-phase-3d2-saturation-node.md`](plans/0019-phase-3d2-saturation-node.md)다. Parameterless `garak.saturation` v1을 fixed post-Gain `tanh` operation으로 추가한다. Current implementation은 schema v5 / graph source v3 / `GARAKGRF` 1.2와 exact Gain-only, Gain→Polarity, Gain→Saturation topology를 사용한다. Ordered v1→v2→v3→v4→v5 migration은 identity/state를 유지하며, v4→v5는 node IDs와 node/connection array order를 보존한다. `Artist Gain Saturated`를 포함한 네 reference products가 같은 prebuilt Runtime을 사용한다.
+
+현재 변경은 아직 accepted milestone이 아니다. Linux 검증 결과는 [current status](docs/status/current.md)에 기록하며, Windows exact-source clean acceptance는 pending이다. Public Saturation parameters/state, Polarity+Saturation 조합, macro system과 generic scheduler는 이 increment의 범위가 아니다.
 
 ---
 

@@ -67,6 +67,9 @@ $fixtures = @(
         controllerFuid = '00DD9000A50F7F28F4AE084CD29C4330'
         gainDb = [double]-6.0
         gainNormalized = '0.75'
+        postGainTransform = 'identity'
+        graphBytes = [long]92
+        graphSha256 = 'E881CC7440C155182908BF07A5AE07182AF27A45FA5654F1141C02C94A8045B6'
         compiledBytes = [long]177
         compiledSha256 = `
             '3B38FDC841F100A32D5A62BBCBB4016D145847C619F5B9DA73B654A14E1D08B9'
@@ -81,9 +84,28 @@ $fixtures = @(
         controllerFuid = '32D933DFBD3C8110E014829EF5D62EA3'
         gainDb = [double]3.0
         gainNormalized = '0.875'
+        postGainTransform = 'identity'
+        graphBytes = [long]92
+        graphSha256 = 'E881CC7440C155182908BF07A5AE07182AF27A45FA5654F1141C02C94A8045B6'
         compiledBytes = [long]179
         compiledSha256 = `
             'ABBA7E49FAA8504FD07AF161EA8C18285A8E073E9D31F969EB7665FE5DF47E52'
+    },
+    [pscustomobject][ordered]@{
+        productKey = 'inverted'
+        productLabel = 'Inverted'
+        projectLeaf = 'artist-gain-inverted.garak'
+        productName = 'Artist Gain Inverted'
+        productId = 'd1331806-9ae0-4971-b83f-871d4af677b5'
+        processorFuid = '0F9440082CB44B2520D74808ABBE9BB7'
+        controllerFuid = '46A92FFD833F6E288AF7CCFC5C735230'
+        gainDb = [double]0.0
+        gainNormalized = '0.8333333333333334'
+        postGainTransform = 'polarity'
+        graphBytes = [long]112
+        graphSha256 = 'B2F1363CBFAD3178500E404A61ABCC3C7A39CBB46DD8BD1416F5F0F0DF2A43FA'
+        compiledBytes = [long]181
+        compiledSha256 = '68F1DD92F10F1750ED268DE20B68ED261C5D5A44F6FEA5711B896A84B3ADB730'
     }
 )
 
@@ -92,11 +114,36 @@ $sourceKinds = @(
         key = 'legacy-v1'
         schemaVersion = 1
         relativeRoot = 'examples\products\legacy\v1'
+        productKeys = @('warm', 'bright')
+        migrationPath = @('project-schema-1-to-2', 'project-schema-2-to-3', 'project-schema-3-to-4', 'project-schema-4-to-5')
     },
     [pscustomobject][ordered]@{
-        key = 'current-v2'
+        key = 'legacy-v2'
         schemaVersion = 2
+        relativeRoot = 'examples\products\legacy\v2'
+        productKeys = @('warm', 'bright')
+        migrationPath = @('project-schema-2-to-3', 'project-schema-3-to-4', 'project-schema-4-to-5')
+    },
+    [pscustomobject][ordered]@{
+        key = 'legacy-v3'
+        schemaVersion = 3
+        relativeRoot = 'examples\products\legacy\v3'
+        productKeys = @('warm', 'bright')
+        migrationPath = @('project-schema-3-to-4', 'project-schema-4-to-5')
+    },
+    [pscustomobject][ordered]@{
+        key = 'legacy-v4'
+        schemaVersion = 4
+        relativeRoot = 'examples\products\legacy\v4'
+        productKeys = @('warm', 'bright', 'inverted')
+        migrationPath = @('project-schema-4-to-5')
+    },
+    [pscustomobject][ordered]@{
+        key = 'current-v5'
+        schemaVersion = 5
         relativeRoot = 'examples\products'
+        productKeys = @('warm', 'bright', 'inverted')
+        migrationPath = @()
     }
 )
 
@@ -339,9 +386,11 @@ function ConvertTo-ManifestJson {
 function Assert-StringArraysEqual {
     param(
         [Parameter(Mandatory = $true)]
+        [AllowEmptyCollection()]
         [string[]]$Expected,
 
         [Parameter(Mandatory = $true)]
+        [AllowEmptyCollection()]
         [string[]]$Actual,
 
         [Parameter(Mandatory = $true)]
@@ -386,6 +435,53 @@ function Get-FileEvidence {
         path = [IO.Path]::GetFullPath($file.FullName)
         bytes = [long]$file.Length
         sha256 = (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash
+    }
+}
+
+function Invoke-CompilerJson {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$NodePath,
+
+        [Parameter(Mandatory = $true)]
+        [string[]]$CommandArguments
+    )
+
+    $arguments = [string[]](@($compilerCli) + $CommandArguments)
+    $previousErrorActionPreference = $ErrorActionPreference
+    $lines = @()
+    $exitCode = $null
+    try {
+        $ErrorActionPreference = 'Continue'
+        $global:LASTEXITCODE = $null
+        $lines = @(& $NodePath @arguments 2>&1)
+        $exitCode = $LASTEXITCODE
+    }
+    finally {
+        $ErrorActionPreference = $previousErrorActionPreference
+    }
+    if ($null -eq $exitCode -or $exitCode -ne 0) {
+        $tail = @($lines | Select-Object -Last 20) -join ' '
+        throw "Compiler $($CommandArguments[0]) failed with exit code $exitCode. $tail"
+    }
+    foreach ($line in $lines) {
+        if ([string]$line -clike 'CHILD_PROCESS *') {
+            throw "Compiler $($CommandArguments[0]) unexpectedly invoked a native child process."
+        }
+    }
+    try {
+        $result = ($lines -join "`n") | ConvertFrom-Json
+    }
+    catch {
+        throw "Compiler $($CommandArguments[0]) emitted a non-JSON result."
+    }
+    return [pscustomobject][ordered]@{
+        nodeProcess = [ordered]@{
+            executable = $NodePath
+            arguments = $arguments
+            exitCode = [int]$exitCode
+        }
+        result = $result
     }
 }
 
@@ -500,9 +596,11 @@ function Get-BundleEvidence {
 
     $runtimePath = Join-Path $BundlePath "Contents\x86_64-win\$bundleLeaf"
     $compiledPath = Join-Path $BundlePath 'Contents\Resources\product.garakbin'
+    $graphPath = Join-Path $BundlePath 'Contents\Resources\graph.garakbin'
     $moduleInfoPath = Join-Path $BundlePath 'Contents\Resources\moduleinfo.json'
     $runtimeEvidence = Get-FileEvidence -Path $runtimePath
     $compiledEvidence = Get-FileEvidence -Path $compiledPath
+    $graphEvidence = Get-FileEvidence -Path $graphPath
     $moduleInfoEvidence = Get-FileEvidence -Path $moduleInfoPath
     if ([string]$CliResult.runtimeSha256 -cne $runtimeEvidence.sha256 -or
         [string]$CliResult.compiledSha256 -cne $compiledEvidence.sha256 -or
@@ -518,6 +616,7 @@ function Get-BundleEvidence {
         inventory = $actualInventory
         runtime = $runtimeEvidence
         compiled = $compiledEvidence
+        graph = $graphEvidence
         moduleInfo = $moduleInfoEvidence
     }
 }
@@ -698,6 +797,7 @@ function Invoke-ProductExport {
         '--gain-default-normalized' = [string]$Fixture.gainNormalized
         '--bypass-id' = '1002'
         '--bypass-default-normalized' = '0'
+        '--post-gain-transform' = [string]$Fixture.postGainTransform
     }
     foreach ($option in $expectedInspectorArguments.Keys) {
         $actualValue = Get-RequiredArgumentValue -Arguments $inspectArguments `
@@ -848,6 +948,9 @@ $nodePath = [IO.Path]::GetFullPath($nodeItem.FullName)
 $sourceRecords = [System.Collections.Generic.List[object]]::new()
 foreach ($fixture in $fixtures) {
     foreach ($sourceKind in $sourceKinds) {
+        if ($sourceKind.productKeys -cnotcontains $fixture.productKey) {
+            continue
+        }
         $projectPath = [IO.Path]::GetFullPath((
                 Join-Path $repositoryRoot `
                     (Join-Path $sourceKind.relativeRoot $fixture.projectLeaf)
@@ -861,12 +964,30 @@ foreach ($fixture in $fixtures) {
             $manifest[0].path -cne 'product.json') {
             throw "$($fixture.productLabel) $($sourceKind.key) source must contain only product.json."
         }
+        $migration = Invoke-CompilerJson -NodePath $nodePath -CommandArguments @(
+            'migration-status', '--project', $projectPath, '--json'
+        )
+        $migrationStatus = $migration.result
+        if ([int]$migrationStatus.detectedSchemaVersion -ne [int]$sourceKind.schemaVersion -or
+            [int]$migrationStatus.currentSchemaVersion -ne 5 -or
+            $migrationStatus.migrationRequired -ne ($sourceKind.schemaVersion -lt 5) -or
+            $migrationStatus.sourceModified -ne $false -or
+            [string]$migrationStatus.identity.productId -cne [string]$fixture.productId -or
+            [string]$migrationStatus.identity.processorFuid -cne [string]$fixture.processorFuid -or
+            [string]$migrationStatus.identity.controllerFuid -cne [string]$fixture.controllerFuid) {
+            throw "$($fixture.productLabel) $($sourceKind.key) migration status changed identity or version boundaries."
+        }
+        Assert-StringArraysEqual -Expected ([string[]]@($sourceKind.migrationPath)) `
+            -Actual ([string[]]@($migrationStatus.migrationPath)) `
+            -Description "$($fixture.productLabel) $($sourceKind.key) ordered migration path"
         $sourceRecords.Add([pscustomobject][ordered]@{
                 productKey = [string]$fixture.productKey
                 productLabel = [string]$fixture.productLabel
                 sourceKind = [string]$sourceKind.key
                 sourceSchemaVersion = [int]$sourceKind.schemaVersion
                 projectPath = $projectPath
+                migrationStatus = $migrationStatus
+                migrationNodeProcess = $migration.nodeProcess
                 evidence = Read-SourceEvidence -ProjectPath $projectPath `
                     -ExpectedSchemaVersion $sourceKind.schemaVersion -Fixture $fixture
                 beforeManifest = $manifest
@@ -874,8 +995,8 @@ foreach ($fixture in $fixtures) {
             })
     }
 }
-if ($sourceRecords.Count -ne 4) {
-    throw "Expected exactly four v1/v2 Warm/Bright source records; found $($sourceRecords.Count)."
+if ($sourceRecords.Count -ne 12) {
+    throw "Expected exactly twelve supported legacy/current source records; found $($sourceRecords.Count)."
 }
 
 $buildManifestBefore = @(Get-TreeManifest -RootPath $artifactRoot `
@@ -884,8 +1005,12 @@ $buildManifestBeforeJson = ConvertTo-ManifestJson -Manifest $buildManifestBefore
 $templateBefore = Get-FileEvidence -Path $templateInner
 
 $exports = [System.Collections.Generic.List[object]]::new()
+$compiles = [System.Collections.Generic.List[object]]::new()
 foreach ($fixture in $fixtures) {
     foreach ($sourceKind in $sourceKinds) {
+        if ($sourceKind.productKeys -cnotcontains $fixture.productKey) {
+            continue
+        }
         $source = @(
             $sourceRecords | Where-Object {
                 $_.productKey -ceq $fixture.productKey -and
@@ -895,30 +1020,66 @@ foreach ($fixture in $fixtures) {
         if ($source.Count -ne 1) {
             throw "Expected one source record for $($fixture.productKey)/$($sourceKind.key)."
         }
+        $compileFile = [IO.Path]::GetFullPath((
+                Join-Path $OutputRoot (Join-Path 'compiled' (Join-Path $fixture.productKey `
+                        (Join-Path $sourceKind.key 'product.garakbin')))
+            ))
+        Assert-PathContainedBy -CandidatePath $compileFile -BoundaryPath $phaseOutputBoundary `
+            -Description 'Parity standalone compiled output'
+        Assert-NoReparsePointInPath -CandidatePath $compileFile -BoundaryPath $outRoot `
+            -Description 'Parity standalone compiled output'
+        $compiled = Invoke-CompilerJson -NodePath $nodePath -CommandArguments @(
+            'compile', '--project', $source[0].projectPath, '--output', $compileFile, '--force'
+        )
+        $compileEvidence = Get-FileEvidence -Path $compileFile
+        if (-not ([IO.Path]::GetFullPath([string]$compiled.result.outputFile)).Equals($compileFile, $pathComparison) -or
+            [long]$compiled.result.bytes -ne $compileEvidence.bytes -or
+            [string]$compiled.result.sha256 -cne $compileEvidence.sha256 -or
+            @($compiled.result.cleanupDiagnostics).Count -ne 0) {
+            throw "$($fixture.productLabel) $($sourceKind.key) standalone compile evidence does not match its physical output."
+        }
+        $compiles.Add([pscustomobject][ordered]@{
+                productKey = [string]$fixture.productKey
+                sourceKind = [string]$sourceKind.key
+                sourceSchemaVersion = [int]$sourceKind.schemaVersion
+                nodeProcess = $compiled.nodeProcess
+                compiled = $compileEvidence
+            })
         $outputDirectory = [IO.Path]::GetFullPath((
                 Join-Path $OutputRoot `
                     (Join-Path $fixture.productKey $sourceKind.key)
             ))
-        $exports.Add((Invoke-ProductExport -Fixture $fixture -SourceKind $sourceKind `
-                -ProjectPath $source[0].projectPath -OutputDirectory $outputDirectory `
-                -NodePath $nodePath))
+        $exported = Invoke-ProductExport -Fixture $fixture -SourceKind $sourceKind `
+            -ProjectPath $source[0].projectPath -OutputDirectory $outputDirectory -NodePath $nodePath
+        if ($compileEvidence.bytes -ne $exported.bundle.compiled.bytes -or
+            $compileEvidence.sha256 -cne $exported.bundle.compiled.sha256 -or
+            -not (Test-FilesByteEqual -FirstPath $compileEvidence.path -SecondPath $exported.bundle.compiled.path)) {
+            throw "$($fixture.productLabel) $($sourceKind.key) standalone compiled bytes differ from exported product.garakbin."
+        }
+        $exports.Add($exported)
     }
 }
-if ($exports.Count -ne 4) {
-    throw "Expected exactly four v1/v2 Warm/Bright exports; found $($exports.Count)."
+if ($exports.Count -ne 12) {
+    throw "Expected exactly twelve supported legacy/current exports; found $($exports.Count)."
+}
+
+if ($compiles.Count -ne 12) {
+    throw "Expected exactly twelve supported legacy/current standalone compiles; found $($compiles.Count)."
 }
 
 $pairReports = [System.Collections.Generic.List[object]]::new()
 foreach ($fixture in $fixtures) {
-    $legacy = Get-ExportResult -Exports $exports.ToArray() `
-        -ProductKey $fixture.productKey -SourceKind 'legacy-v1'
     $current = Get-ExportResult -Exports $exports.ToArray() `
-        -ProductKey $fixture.productKey -SourceKind 'current-v2'
-
-    foreach ($entry in @($legacy, $current)) {
+        -ProductKey $fixture.productKey -SourceKind 'current-v5'
+    $productExports = @($exports | Where-Object { $_.productKey -ceq $fixture.productKey })
+    foreach ($entry in $productExports) {
         if ($entry.bundle.compiled.bytes -ne [long]$fixture.compiledBytes -or
             $entry.bundle.compiled.sha256 -cne [string]$fixture.compiledSha256) {
             throw "$($fixture.productLabel) $($entry.sourceKind) GARAKCPD bytes/hash changed."
+        }
+        if ($entry.bundle.graph.bytes -ne [long]$fixture.graphBytes -or
+            $entry.bundle.graph.sha256 -cne [string]$fixture.graphSha256) {
+            throw "$($fixture.productLabel) $($entry.sourceKind) exact GARAKGRF 1.2 bytes/hash changed."
         }
         if ($entry.bundle.runtime.sha256 -cne $templateBefore.sha256 -or
             $entry.bundle.runtime.bytes -ne $templateBefore.bytes -or
@@ -928,47 +1089,60 @@ foreach ($fixture in $fixtures) {
         }
     }
 
-    foreach ($component in @('compiled', 'runtime', 'moduleInfo')) {
-        $legacyFile = $legacy.bundle.$component
-        $currentFile = $current.bundle.$component
-        if ($legacyFile.bytes -ne $currentFile.bytes -or
-            $legacyFile.sha256 -cne $currentFile.sha256 -or
-            -not (Test-FilesByteEqual -FirstPath $legacyFile.path `
-                -SecondPath $currentFile.path)) {
-            throw "$($fixture.productLabel) v1/v2 $component bytes are not identical."
+    foreach ($sourceKind in $sourceKinds) {
+        if ($sourceKind.schemaVersion -eq 5 -or $sourceKind.productKeys -cnotcontains $fixture.productKey) {
+            continue
         }
-    }
-    Assert-StringArraysEqual -Expected $legacy.bundle.inventory `
-        -Actual $current.bundle.inventory `
-        -Description "$($fixture.productLabel) v1/v2 inventory"
-    if ($legacy.processorFuid -cne $current.processorFuid -or
-        $legacy.controllerFuid -cne $current.controllerFuid) {
-        throw "$($fixture.productLabel) v1/v2 export identity changed."
-    }
+        $legacy = Get-ExportResult -Exports $exports.ToArray() `
+            -ProductKey $fixture.productKey -SourceKind $sourceKind.key
+        foreach ($component in @('compiled', 'graph', 'runtime', 'moduleInfo')) {
+            $legacyFile = $legacy.bundle.$component
+            $currentFile = $current.bundle.$component
+            if ($legacyFile.bytes -ne $currentFile.bytes -or
+                $legacyFile.sha256 -cne $currentFile.sha256 -or
+                -not (Test-FilesByteEqual -FirstPath $legacyFile.path `
+                    -SecondPath $currentFile.path)) {
+                throw "$($fixture.productLabel) $($sourceKind.key)/v5 $component bytes are not identical."
+            }
+        }
+        Assert-StringArraysEqual -Expected $legacy.bundle.inventory `
+            -Actual $current.bundle.inventory `
+            -Description "$($fixture.productLabel) $($sourceKind.key)/v5 inventory"
+        if ($legacy.processorFuid -cne $current.processorFuid -or
+            $legacy.controllerFuid -cne $current.controllerFuid) {
+            throw "$($fixture.productLabel) $($sourceKind.key)/v5 export identity changed."
+        }
 
-    $pairReports.Add([ordered]@{
-            product = [string]$fixture.productLabel
-            productId = [string]$fixture.productId
-            processorFuid = [string]$fixture.processorFuid
-            controllerFuid = [string]$fixture.controllerFuid
-            gainParameterId = 1001
-            bypassParameterId = 1002
-            defaultGainDb = [double]$fixture.gainDb
-            legacySchemaVersion = 1
-            currentSchemaVersion = 2
-            compiledNormativeBytes = [long]$fixture.compiledBytes
-            compiledNormativeSha256 = [string]$fixture.compiledSha256
-            compiledByteParity = $true
-            runtimeByteParity = $true
-            moduleInfoByteParity = $true
-            identityParity = $true
-            inventoryParity = $true
-            legacy = $legacy.bundle
-            current = $current.bundle
-        })
+        $pairReports.Add([ordered]@{
+                product = [string]$fixture.productLabel
+                productId = [string]$fixture.productId
+                processorFuid = [string]$fixture.processorFuid
+                controllerFuid = [string]$fixture.controllerFuid
+                gainParameterId = 1001
+                bypassParameterId = 1002
+                defaultGainDb = [double]$fixture.gainDb
+                postGainTransform = [string]$fixture.postGainTransform
+                legacySchemaVersion = [int]$sourceKind.schemaVersion
+                currentSchemaVersion = 5
+                orderedMigrationPath = [string[]]@($sourceKind.migrationPath)
+                compiledNormativeBytes = [long]$fixture.compiledBytes
+                compiledNormativeSha256 = [string]$fixture.compiledSha256
+                graphNormativeBytes = [long]$fixture.graphBytes
+                graphNormativeSha256 = [string]$fixture.graphSha256
+                standaloneCompileByteParity = $true
+                compiledByteParity = $true
+                graphByteParity = $true
+                runtimeByteParity = $true
+                moduleInfoByteParity = $true
+                identityParity = $true
+                inventoryParity = $true
+                legacy = $legacy.bundle
+                current = $current.bundle
+            })
+    }
 }
-if ($pairReports.Count -ne 2) {
-    throw "Expected exactly two Warm/Bright parity pairs; found $($pairReports.Count)."
+if ($pairReports.Count -ne 9) {
+    throw "Expected exactly nine supported legacy/current Warm/Bright/Inverted parity pairs; found $($pairReports.Count)."
 }
 
 $sourceReports = [System.Collections.Generic.List[object]]::new()
@@ -977,7 +1151,7 @@ foreach ($source in $sourceRecords) {
             -Description "$($source.productLabel) $($source.sourceKind) source")
     $afterManifestJson = ConvertTo-ManifestJson -Manifest $afterManifest
     if ($source.beforeManifestJson -cne $afterManifestJson) {
-        throw "$($source.productLabel) $($source.sourceKind) source tree changed during export."
+        throw "$($source.productLabel) $($source.sourceKind) source tree changed during migration inspection, compile or export."
     }
     $sourceReports.Add([ordered]@{
             product = [string]$source.productLabel
@@ -985,6 +1159,8 @@ foreach ($source in $sourceRecords) {
             schemaVersion = [int]$source.sourceSchemaVersion
             projectPath = [string]$source.projectPath
             semantics = $source.evidence
+            migrationStatus = $source.migrationStatus
+            migrationNodeProcess = $source.migrationNodeProcess
             beforeManifest = $source.beforeManifest
             afterManifest = $afterManifest
             unchanged = $true
@@ -1016,7 +1192,10 @@ $report = [ordered]@{
     outputRoot = $OutputRoot
     artifactRoot = $artifactRoot
     forbiddenNativeBuildInvocationCount = 0
+    sourceCount = $sourceRecords.Count
+    compileCount = $compiles.Count
     exportCount = $exports.Count
+    parityPairCount = $pairReports.Count
     sourceTreesUnchanged = $true
     artifactTreeUnchanged = $true
     templateRuntime = [ordered]@{
@@ -1032,6 +1211,7 @@ $report = [ordered]@{
         unchanged = $true
     }
     sources = $sourceReports.ToArray()
+    compiles = $compiles.ToArray()
     exports = $exports.ToArray()
     pairs = $pairReports.ToArray()
 }
@@ -1055,9 +1235,10 @@ $reportJson = ConvertTo-Json -InputObject $report -Depth 20
 $utf8WithoutBom = New-Object Text.UTF8Encoding $false
 [IO.File]::WriteAllText($ReportPath, $reportJson + "`n", $utf8WithoutBom)
 
-Write-Output "Project migration export parity: PASS ($Configuration)"
+Write-Output "Project migration export parity: PASS ($Configuration, 12 compiles, 12 exports, 9 legacy/current pairs)"
 Write-Output "Evidence report: $ReportPath"
 Write-Output "Template Runtime SHA-256: $($templateAfter.sha256)"
 foreach ($pair in $pairReports) {
-    Write-Output "$($pair.product) GARAKCPD SHA-256: $($pair.compiledNormativeSha256)"
+    Write-Output "$($pair.product) v$($pair.legacySchemaVersion)/v5 GARAKCPD SHA-256: $($pair.compiledNormativeSha256)"
+    Write-Output "$($pair.product) v$($pair.legacySchemaVersion)/v5 GARAKGRF SHA-256: $($pair.graphNormativeSha256)"
 }

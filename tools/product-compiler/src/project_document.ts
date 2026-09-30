@@ -26,7 +26,7 @@ import { ownedCleanupDiagnostic } from "./owned_cleanup.ts";
 import type { OwnedCleanupDiagnostic } from "./owned_cleanup.ts";
 import {
   loadProductProjectSource,
-  validateProjectSchemaV4,
+  validateProjectSchemaV5,
 } from "./validation.ts";
 
 export interface ProductProjectDraft {
@@ -164,7 +164,7 @@ export function validateProductProjectDocument(
   value: unknown,
   sourceDirectory = "document.garak",
 ): ProductProjectDocument {
-  return documentForProject(validateProjectSchemaV4(value, sourceDirectory));
+  return documentForProject(validateProjectSchemaV5(value, sourceDirectory));
 }
 
 function projectForDraft(
@@ -173,7 +173,7 @@ function projectForDraft(
   sourceDirectory: string,
 ): ProductProject {
   assertExactDraft(draft);
-  return validateProjectSchemaV4(
+  return validateProjectSchemaV5(
     {
       schemaVersion: PRODUCT_SCHEMA_VERSION,
       productId,
@@ -212,7 +212,7 @@ export function serializeProductProjectDocument(
 ): string {
   const document = validateProductProjectDocument(value, sourceDirectory);
   return serializeCanonicalProductProject(
-    validateProjectSchemaV4(document, sourceDirectory),
+    validateProjectSchemaV5(document, sourceDirectory),
   );
 }
 

@@ -30,7 +30,7 @@ Namespace literal은 30 bytes이고 그 hex는 다음과 같다.
 ```
 
 Product ID는 current
-[`product.json` schema v2](editable-project-schema-v2.md)의 canonical/non-nil validation을 먼저
+[current `product.json` schema v5](editable-project-schema-v5.md)의 canonical/non-nil validation을 먼저
 통과해야 한다. Supported legacy v1도 exact validation 뒤 Product ID 값을 바꾸지 않고 v2로 migration한다.
 Role은 위 두 lowercase literal 외 값을 허용하지 않는다.
 

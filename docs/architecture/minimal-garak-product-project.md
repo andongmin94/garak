@@ -1,5 +1,7 @@
 # Minimal Garak Product Project
 
+> Historical schema snapshot. 아래의 current/version 표현은 당시 계약을 뜻한다. 현재 schema v5 / graph source v3 contract는 [Editable Project Schema v5](editable-project-schema-v5.md), acceptance 상태는 [current status](../status/current.md)를 따른다. 기존 schema 의미와 canonical ordering은 변경하지 않는다.
+
 - 상태: Phase 2A validated minimal physical/logical project contract
 - 범위: `garak.gain` template version 1, current editable schema v2와 supported legacy schema v1
 - 관련 문서: [Editable Project Schema v2](editable-project-schema-v2.md), [Project Migration Engine](project-migration-engine.md), [Product Identity Derivation](product-identity-derivation.md), [Compiled Product Data v1](compiled-product-data-v1.md), [Runtime과 export](runtime-and-export.md), [v0.1 PRD](../product/v0.1-prd.md), [ExecPlan 0007](../../plans/0007-phase-2a-editable-project-schema-migration.md)

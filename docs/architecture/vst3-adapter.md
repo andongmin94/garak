@@ -1,9 +1,11 @@
 # Garak VST3 Adapter
 
-- 기준일: 2026-08-22
+- 기준일: 2026-09-30
 - Active implementation: `native/adapters/vst3/product_runtime_v1`
 - Persistent contract: `native/runtime/product_v1`
-- Reusable DSP: `native/dsp/gain`
+- Reusable DSP: `native/dsp/gain`, `native/dsp/saturation`
+- Static graph contract: `native/runtime/static_graph`, `GARAKGRF` 1.2
+- 문서 상태: Phase 3D2 current implementation; Windows acceptance pending
 - Official SDK: `steinbergmedia/vst3sdk` `v3.8.0_build_66`
 - Exact superproject pin: `9fad9770f2ae8542ab1a548a68c1ad1ac690abe0`
 
@@ -19,22 +21,25 @@ Current Windows v0.x path는 하나의 prebuilt Product Runtime module을 제품
    ├─ x86_64-win/<Product Name>.vst3
    └─ Resources/
       ├─ product.garakbin
+      ├─ graph.garakbin
       └─ moduleinfo.json
 ```
 
-Runtime은 loaded module 위치에서 `product.garakbin`을 읽고 factory 공개 전에 strict validation한다. CWD, environment, registry와 Studio path에 의존하지 않는다. Missing, corrupt, future 또는 incompatible data는 fail closed한다.
+Runtime은 loaded module 위치에서 `product.garakbin`과 `graph.garakbin`을 읽고 factory 공개 전에 strict compatibility validation과 immutable static binding을 완료한다. CWD, environment, registry와 Studio path에 의존하지 않는다. Missing, corrupt, future 또는 incompatible data는 fail closed한다.
 
 ## Current module boundary
 
 | 경계 | 책임 |
 | --- | --- |
-| `native/dsp/gain` | Gain mapping, automation timeline, bypass와 sample processing |
+| `native/dsp/gain` | Gain mapping, automation timeline, whole-product bypass와 fused sample processing |
+| `native/dsp/saturation` | fixed parameterless v1 `tanh` transfer |
+| `native/runtime/static_graph` | exact Gain-only/Polarity/Saturation compiled plan validation와 immutable binding |
 | `native/runtime/product_v1` | `GARAKCPD` v1, `GARAKPST` v1, Product/Parameter identity contract |
 | `native/adapters/vst3/product_runtime_v1` | module resource loading, dynamic factory, processor/controller, stream adapter, inspector |
 | `native/tests/gain_dsp_tests.cpp` | SDK-independent DSP behavior |
 | `native/tests/product_v1_contract_tests.cpp` | compiled/state byte contract |
 | `native/tests/product_compatibility_tests.cpp` | compiled artifact compatibility policy |
-| `native/tests/product_runtime_v1_smoke_tests.cpp` | Warm/Bright actual module output와 state isolation |
+| `native/tests/product_runtime_v1_smoke_tests.cpp` | Warm/Bright/Inverted/Saturated actual module output와 state isolation |
 | CTest inspector/validator entries | metadata parity와 official standard/extensive validation |
 
 ## 제거된 spike
@@ -85,6 +90,8 @@ Controller는 custom editor를 제공하지 않는다. Event/MIDI bus, sidechain
 
 Gain normalized domain은 `[0, 1]`, physical range는 `-60 dB..+12 dB`다. Automation queue는 host storage를 bounded하게 순회하며 heap container로 복사하지 않는다.
 
+Gain-only는 identity, Polarity는 negation, Saturation v1은 finite active post-Gain sample의 `tanh` transform을 사용한다. Optional post-Gain node는 최대 하나이고 Bypass는 이를 모두 우회해 original dry input을 출력한다. Public Gain/Bypass parameters와 `GARAKPST` 1.0은 유지한다.
+
 Audio callback에서 allocation/deallocation, lock/wait, I/O, logging, formatting, parser, graph mutation과 exception propagation을 허용하지 않는다.
 
 ## State contract
@@ -120,18 +127,22 @@ git submodule update --init --recursive third_party/vst3sdk
 
 cmake --preset product-runtime-debug --fresh
 cmake --build --preset product-runtime-debug-build --clean-first
-pnpm product:export --project examples/products/artist-gain-warm.garak --configuration Debug --output out/exports/phase-1c1/debug --force --validate
-pnpm product:export --project examples/products/artist-gain-bright.garak --configuration Debug --output out/exports/phase-1c1/debug --force --validate
+pnpm product:export --project examples/products/artist-gain-warm.garak --configuration Debug --output out/exports/phase-3d2/debug --force --validate
+pnpm product:export --project examples/products/artist-gain-bright.garak --configuration Debug --output out/exports/phase-3d2/debug --force --validate
+pnpm product:export --project examples/products/artist-gain-inverted.garak --configuration Debug --output out/exports/phase-3d2/debug --force --validate
+pnpm product:export --project examples/products/artist-gain-saturated.garak --configuration Debug --output out/exports/phase-3d2/debug --force --validate
 ctest --preset product-runtime-debug-test --no-tests=error
 
 cmake --preset product-runtime-release --fresh
 cmake --build --preset product-runtime-release-build --clean-first
-pnpm product:export --project examples/products/artist-gain-warm.garak --configuration Release --output out/exports/phase-1c1/release --force --validate
-pnpm product:export --project examples/products/artist-gain-bright.garak --configuration Release --output out/exports/phase-1c1/release --force --validate
+pnpm product:export --project examples/products/artist-gain-warm.garak --configuration Release --output out/exports/phase-3d2/release --force --validate
+pnpm product:export --project examples/products/artist-gain-bright.garak --configuration Release --output out/exports/phase-3d2/release --force --validate
+pnpm product:export --project examples/products/artist-gain-inverted.garak --configuration Release --output out/exports/phase-3d2/release --force --validate
+pnpm product:export --project examples/products/artist-gain-saturated.garak --configuration Release --output out/exports/phase-3d2/release --force --validate
 ctest --preset product-runtime-release-test --no-tests=error
 ```
 
-CTest includes current Product Runtime DSP/contract/compatibility tests, Warm/Bright loaded-module smoke, inspector parity and official standard/extensive validator runs. The exact current commit's `garak/windows-foundation` status is authoritative.
+CTest includes current Product Runtime DSP/contract/compatibility tests, Warm/Bright/Inverted/Saturated loaded-module smoke, inspector parity and official standard/extensive validator runs. Acceptance requires the clean exact final source Windows matrix; historical Phase 3D1 results do not establish Phase 3D2 success. See [current status](../status/current.md).
 
 ## 미검증 release boundary
 

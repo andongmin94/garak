@@ -5,7 +5,6 @@ import { TextDecoder } from "node:util";
 
 import { fail } from "./errors.ts";
 import {
-  cloneProductGraphSource,
   validateProductGraphSource,
   validateProductGraphSourceV1,
   validateProductGraphSourceV2,
@@ -43,11 +42,23 @@ import type {
   ProductProjectSourceV3,
   ProductProjectSourceV4,
   ProductVersion,
+  ProjectMigrationStepId,
   ProjectSchemaDetection,
   ProjectSchemaStatus,
   SupportedProductSchemaVersion,
 } from "./project_model.ts";
-import { migrateValidatedProjectToCurrent } from "./project_migration_core.ts";
+import {
+  assertProjectMigrationInvariants,
+  migrateProjectV1ToV2,
+  migrateProjectV2ToV3,
+  migrateProjectV3ToV4,
+  migrateProjectV4ToV5,
+  PROJECT_MIGRATION_STEP_V1_TO_V2,
+  PROJECT_MIGRATION_STEP_V2_TO_V3,
+  PROJECT_MIGRATION_STEP_V3_TO_V4,
+  PROJECT_MIGRATION_STEP_V4_TO_V5,
+} from "./project_migration_core.ts";
+import type { MigratedProductProject } from "./project_migration_core.ts";
 import { parseStrictJsonWithNumberTokens } from "./strict_json.ts";
 
 const TOP_LEVEL_KEYS_V1_V2 = Object.freeze([
@@ -620,19 +631,61 @@ export function validateProjectSchemaV5(
   };
 }
 
-function sourceValueForCurrentProject(
-  project: ProductProject,
+function sourceValueForProject(
+  project: ProductProjectSource,
 ): Record<string, unknown> {
+  const { versionParts, ...sourceValue } = project;
+  void versionParts;
+  return sourceValue;
+}
+
+export function migrateValidatedProjectToCurrent(
+  source: ProductProjectSource,
+  sourceDirectory = "migration.garak",
+): MigratedProductProject {
+  let current = source;
+  const steps: ProjectMigrationStepId[] = [];
+  if (current.schemaVersion === PRODUCT_SCHEMA_V1) {
+    current = validateProjectSchemaV2(
+      sourceValueForProject(migrateProjectV1ToV2(current)),
+      sourceDirectory,
+    );
+    steps.push(PROJECT_MIGRATION_STEP_V1_TO_V2);
+  }
+  if (current.schemaVersion === PRODUCT_SCHEMA_V2) {
+    current = validateProjectSchemaV3(
+      sourceValueForProject(migrateProjectV2ToV3(current)),
+      sourceDirectory,
+    );
+    steps.push(PROJECT_MIGRATION_STEP_V2_TO_V3);
+  }
+  if (current.schemaVersion === PRODUCT_SCHEMA_V3) {
+    current = validateProjectSchemaV4(
+      sourceValueForProject(migrateProjectV3ToV4(current)),
+      sourceDirectory,
+    );
+    steps.push(PROJECT_MIGRATION_STEP_V3_TO_V4);
+  }
+  if (current.schemaVersion === PRODUCT_SCHEMA_V4) {
+    current = validateProjectSchemaV5(
+      sourceValueForProject(migrateProjectV4ToV5(current)),
+      sourceDirectory,
+    );
+    steps.push(PROJECT_MIGRATION_STEP_V4_TO_V5);
+  }
+  const project = validateProjectSchemaV5(
+    sourceValueForProject(current),
+    sourceDirectory,
+  );
+  assertProjectMigrationInvariants(source, project);
   return {
-    schemaVersion: PRODUCT_SCHEMA_VERSION,
-    productId: project.productId,
-    vendor: project.vendor,
-    name: project.name,
-    version: project.version,
-    category: PRODUCT_CATEGORY,
-    template: { ...project.template },
-    defaults: { gainDb: project.defaults.gainDb },
-    graph: cloneProductGraphSource(project.graph),
+    project,
+    schemaStatus: {
+      sourceSchemaVersion: source.schemaVersion,
+      currentSchemaVersion: PRODUCT_SCHEMA_VERSION,
+      migrationRequired: steps.length > 0,
+      steps,
+    },
   };
 }
 
@@ -659,14 +712,10 @@ export function validateVersionedProjectValue(
   } else {
     source = validateProjectSchemaV5(value, sourceDirectory);
   }
-  const migrated = migrateValidatedProjectToCurrent(source);
-  const project = validateProjectSchemaV5(
-    sourceValueForCurrentProject(migrated.project),
-    sourceDirectory,
-  );
+  const migrated = migrateValidatedProjectToCurrent(source, sourceDirectory);
   return {
     sourceProject: source,
-    project,
+    project: migrated.project,
     schemaStatus: migrated.schemaStatus,
   };
 }

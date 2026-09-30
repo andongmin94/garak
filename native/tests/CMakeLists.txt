@@ -42,56 +42,56 @@ garak_apply_clang_tidy(garak_realtime_stress_tests)
 add_test(NAME garak_realtime_stress_tests COMMAND garak_realtime_stress_tests)
 set_tests_properties(garak_realtime_stress_tests PROPERTIES TIMEOUT 120)
 
+add_executable(
+  garak_product_v1_contract_tests
+  product_v1_contract_tests.cpp
+  product_v1_test_fixtures.hpp
+)
+target_link_libraries(
+  garak_product_v1_contract_tests
+  PRIVATE garak::product_contract_v1
+)
+garak_apply_warnings(garak_product_v1_contract_tests)
+garak_apply_clang_tidy(garak_product_v1_contract_tests)
+add_test(NAME garak_product_v1_contract_tests COMMAND garak_product_v1_contract_tests)
+
+add_executable(
+  garak_product_compatibility_tests
+  product_compatibility_tests.cpp
+  product_v1_test_fixtures.hpp
+)
+target_link_libraries(
+  garak_product_compatibility_tests
+  PRIVATE garak::product_contract_v1
+)
+garak_apply_warnings(garak_product_compatibility_tests)
+garak_apply_clang_tidy(garak_product_compatibility_tests)
+add_test(
+  NAME garak_product_compatibility_tests
+  COMMAND garak_product_compatibility_tests
+)
+
+add_executable(
+  garak_compiled_graph_resource_tests
+  compiled_graph_resource_tests.cpp
+  compiled_graph_test_fixture.hpp
+)
+target_link_libraries(
+  garak_compiled_graph_resource_tests
+  PRIVATE garak::static_graph
+)
+target_include_directories(
+  garak_compiled_graph_resource_tests
+  PRIVATE "${CMAKE_SOURCE_DIR}/native/adapters/vst3/product_runtime_v1"
+)
+garak_apply_warnings(garak_compiled_graph_resource_tests)
+garak_apply_clang_tidy(garak_compiled_graph_resource_tests)
+add_test(
+  NAME garak_compiled_graph_resource_tests
+  COMMAND garak_compiled_graph_resource_tests
+)
+
 if(GARAK_BUILD_PRODUCT_RUNTIME_V1)
-  add_executable(
-    garak_product_v1_contract_tests
-    product_v1_contract_tests.cpp
-    product_v1_test_fixtures.hpp
-  )
-  target_link_libraries(
-    garak_product_v1_contract_tests
-    PRIVATE garak::product_contract_v1
-  )
-  garak_apply_warnings(garak_product_v1_contract_tests)
-  garak_apply_clang_tidy(garak_product_v1_contract_tests)
-  add_test(NAME garak_product_v1_contract_tests COMMAND garak_product_v1_contract_tests)
-
-  add_executable(
-    garak_product_compatibility_tests
-    product_compatibility_tests.cpp
-    product_v1_test_fixtures.hpp
-  )
-  target_link_libraries(
-    garak_product_compatibility_tests
-    PRIVATE garak::product_contract_v1
-  )
-  garak_apply_warnings(garak_product_compatibility_tests)
-  garak_apply_clang_tidy(garak_product_compatibility_tests)
-  add_test(
-    NAME garak_product_compatibility_tests
-    COMMAND garak_product_compatibility_tests
-  )
-
-  add_executable(
-    garak_compiled_graph_resource_tests
-    compiled_graph_resource_tests.cpp
-    compiled_graph_test_fixture.hpp
-  )
-  target_link_libraries(
-    garak_compiled_graph_resource_tests
-    PRIVATE garak::static_graph
-  )
-  target_include_directories(
-    garak_compiled_graph_resource_tests
-    PRIVATE "${CMAKE_SOURCE_DIR}/native/adapters/vst3/product_runtime_v1"
-  )
-  garak_apply_warnings(garak_compiled_graph_resource_tests)
-  garak_apply_clang_tidy(garak_compiled_graph_resource_tests)
-  add_test(
-    NAME garak_compiled_graph_resource_tests
-    COMMAND garak_compiled_graph_resource_tests
-  )
-
   add_executable(
     garak_product_runtime_v1_smoke_tests
     product_runtime_v1_smoke_tests.cpp
@@ -130,10 +130,29 @@ if(GARAK_BUILD_PRODUCT_RUNTIME_V1)
   garak_apply_warnings(garak_product_runtime_v1_inverted_tests)
   garak_apply_clang_tidy(garak_product_runtime_v1_inverted_tests)
 
+  add_executable(
+    garak_product_runtime_v1_saturated_tests
+    product_runtime_v1_saturated_tests.cpp
+    product_v1_test_fixtures.hpp
+  )
+  target_link_libraries(
+    garak_product_runtime_v1_saturated_tests
+    PRIVATE
+      garak::product_contract_v1
+      vst3_sdk_product_runtime_host_support
+      sdk_hosting
+  )
+  target_include_directories(
+    garak_product_runtime_v1_saturated_tests
+    SYSTEM PRIVATE "${GARAK_VST3_SDK_DIR}"
+  )
+  garak_apply_warnings(garak_product_runtime_v1_saturated_tests)
+  garak_apply_clang_tidy(garak_product_runtime_v1_saturated_tests)
+
   string(TOLOWER "${CMAKE_BUILD_TYPE}" garak_product_runtime_configuration_slug)
   set(
     garak_product_export_root
-    "${CMAKE_SOURCE_DIR}/out/exports/phase-1c1/${garak_product_runtime_configuration_slug}"
+    "${CMAKE_SOURCE_DIR}/out/exports/phase-3d2/${garak_product_runtime_configuration_slug}"
   )
   set(
     garak_warm_bundle
@@ -148,6 +167,11 @@ if(GARAK_BUILD_PRODUCT_RUNTIME_V1)
     "${garak_product_export_root}/Artist Gain Inverted.vst3"
   )
 
+  set(
+    garak_saturated_bundle
+    "${garak_product_export_root}/Artist Gain Saturated.vst3"
+  )
+
   add_test(
     NAME garak_product_runtime_v1_smoke_tests
     COMMAND
@@ -160,6 +184,10 @@ if(GARAK_BUILD_PRODUCT_RUNTIME_V1)
     COMMAND garak_product_runtime_v1_inverted_tests "${garak_inverted_bundle}"
   )
   add_test(
+    NAME garak_product_runtime_v1_saturated_tests
+    COMMAND garak_product_runtime_v1_saturated_tests "${garak_saturated_bundle}"
+  )
+  add_test(
     NAME garak_product_runtime_v1_warm_inspection
     COMMAND
       garak_product_inspector
@@ -170,6 +198,7 @@ if(GARAK_BUILD_PRODUCT_RUNTIME_V1)
       --version 0.1.0
       --category Fx
       --template garak.gain-v1
+      --post-gain-transform identity
       --processor-fuid 3BA93DD6A062C97D89EC78F3652F83C4
       --controller-fuid 00DD9000A50F7F28F4AE084CD29C4330
       --gain-id 1001
@@ -188,6 +217,7 @@ if(GARAK_BUILD_PRODUCT_RUNTIME_V1)
       --version 0.1.0
       --category Fx
       --template garak.gain-v1
+      --post-gain-transform identity
       --processor-fuid FCB1FDAED3D981A2AE3AE5A20898C449
       --controller-fuid 32D933DFBD3C8110E014829EF5D62EA3
       --gain-id 1001
@@ -206,12 +236,44 @@ if(GARAK_BUILD_PRODUCT_RUNTIME_V1)
       --version 0.1.0
       --category Fx
       --template garak.gain-v1
+      --post-gain-transform polarity
       --processor-fuid 0F9440082CB44B2520D74808ABBE9BB7
       --controller-fuid 46A92FFD833F6E288AF7CCFC5C735230
       --gain-id 1001
       --gain-default-normalized 0.8333333333333334
       --bypass-id 1002
       --bypass-default-normalized 0
+  )
+  set(
+    garak_saturated_inspection_arguments
+    --bundle "${garak_saturated_bundle}"
+    --product-id 8a5ce3f8-7b74-4f53-bdc2-c52e4f586072
+    --vendor "Garak Test Artist"
+    --name "Artist Gain Saturated"
+    --version 0.1.0
+    --category Fx
+    --template garak.gain-v1
+    --processor-fuid 5BC75D591A2E038417BFAB96E15BB0B2
+    --controller-fuid A74435CAC63CBB919D2051DDE2D8707B
+    --gain-id 1001
+    --gain-default-normalized 0.8333333333333334
+    --bypass-id 1002
+    --bypass-default-normalized 0
+  )
+  add_test(
+    NAME garak_product_runtime_v1_saturated_inspection
+    COMMAND
+      garak_product_inspector
+      ${garak_saturated_inspection_arguments}
+      --post-gain-transform saturation
+  )
+  add_test(
+    NAME garak_product_runtime_v1_saturated_topology_rejection
+    COMMAND
+      "${CMAKE_COMMAND}"
+      "-DINSPECTOR=$<TARGET_FILE:garak_product_inspector>"
+      "-DINSPECTION_ARGUMENTS=${garak_saturated_inspection_arguments}"
+      -P "${CMAKE_CURRENT_SOURCE_DIR}/inspect_graph_topology_rejection.cmake"
   )
   add_test(
     NAME garak_product_runtime_v1_warm_validator
@@ -236,5 +298,13 @@ if(GARAK_BUILD_PRODUCT_RUNTIME_V1)
   add_test(
     NAME garak_product_runtime_v1_inverted_validator_extensive
     COMMAND validator -e "${garak_inverted_bundle}"
+  )
+  add_test(
+    NAME garak_product_runtime_v1_saturated_validator
+    COMMAND validator "${garak_saturated_bundle}"
+  )
+  add_test(
+    NAME garak_product_runtime_v1_saturated_validator_extensive
+    COMMAND validator -e "${garak_saturated_bundle}"
   )
 endif()

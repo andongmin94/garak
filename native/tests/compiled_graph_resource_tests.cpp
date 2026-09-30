@@ -17,6 +17,7 @@ namespace {
 using garak::adapter::vst3::product_runtime_v1::read_compiled_graph_resource;
 using garak::runtime::static_graph::CompiledGraphDiagnostic;
 using garak::runtime::static_graph::CompiledGraphDisposition;
+using garak::runtime::static_graph::PostGainTransform;
 
 constexpr std::uint32_t kGainParameterId = 1001;
 constexpr std::uint32_t kBypassParameterId = 1002;
@@ -59,13 +60,13 @@ private:
 }
 
 [[nodiscard]] bool current_report_is_valid(const std::filesystem::path& path,
-                                           const bool expected_polarity) {
+                                           const PostGainTransform expected_transform) {
   const auto report = read_compiled_graph_resource(path, kGainParameterId, kBypassParameterId);
   return report.disposition == CompiledGraphDisposition::current &&
          report.diagnostic == CompiledGraphDiagnostic::none && report.version.available &&
          report.version.major == garak::runtime::static_graph::kCompiledGraphMajorVersion &&
          report.version.minor == garak::runtime::static_graph::kCompiledGraphMinorVersion &&
-         report.binding && report.binding->has_polarity() == expected_polarity &&
+         report.binding && report.binding->post_gain_transform() == expected_transform &&
          report.binding->gain_parameter_id() == kGainParameterId &&
          report.binding->bypass_parameter_id() == kBypassParameterId;
 }
@@ -82,11 +83,16 @@ private:
   }
 
   if (!write_bytes(graph, garak::test::kCompiledGainGraphFixture) ||
-      !current_report_is_valid(graph, false)) {
+      !current_report_is_valid(graph, PostGainTransform::identity)) {
     return false;
   }
   if (!write_bytes(graph, garak::test::kCompiledPolarityGraphFixture) ||
-      !current_report_is_valid(graph, true)) {
+      !current_report_is_valid(graph, PostGainTransform::polarity)) {
+    return false;
+  }
+
+  if (!write_bytes(graph, garak::test::kCompiledSaturationGraphFixture) ||
+      !current_report_is_valid(graph, PostGainTransform::saturation)) {
     return false;
   }
 
@@ -104,8 +110,20 @@ private:
     return false;
   }
 
+  old[10] = 1;
+  if (!write_bytes(graph, old)) {
+    return false;
+  }
+  const auto old_minor_report =
+      read_compiled_graph_resource(graph, kGainParameterId, kBypassParameterId);
+  if (old_minor_report.disposition != CompiledGraphDisposition::rebuild_from_project ||
+      old_minor_report.diagnostic != CompiledGraphDiagnostic::unsupported_old ||
+      old_minor_report.version.minor != 1 || old_minor_report.binding) {
+    return false;
+  }
+
   auto future = garak::test::kCompiledGainGraphFixture;
-  future[10] = 2;
+  future[10] = 3;
   future[11] = 0;
   if (!write_bytes(graph, future)) {
     return false;
@@ -114,7 +132,7 @@ private:
       read_compiled_graph_resource(graph, kGainParameterId, kBypassParameterId);
   if (future_report.disposition != CompiledGraphDisposition::reject_too_new ||
       future_report.diagnostic != CompiledGraphDiagnostic::too_new ||
-      future_report.version.major != 1 || future_report.version.minor != 2 ||
+      future_report.version.major != 1 || future_report.version.minor != 3 ||
       future_report.binding) {
     return false;
   }

@@ -1,5 +1,7 @@
 # Garak Compiled Product Data v1
 
+> 이 persistent contract는 Phase 3D2에서도 유지한다. Current editable schema v5 / graph source v3와 `GARAKGRF` 1.2는 [schema v5](editable-project-schema-v5.md)를 따른다. 아래 Phase 1A/1B Runtime 설명은 historical format 격리 기록이며 해당 spike source/build path는 제거됐다. Polarity/Saturation은 public parameter 또는 state field를 추가하지 않는다.
+
 - 상태: Phase 1C.1 normative binary contract
 - Resource path: `Contents/Resources/product.garakbin`
 - Magic/version: `GARAKCPD`, major `1`, minor `0`

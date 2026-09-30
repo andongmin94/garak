@@ -117,24 +117,37 @@ constexpr std::int32_t kMaximumSamples = 128;
 constexpr std::uint32_t kBlockCount = 20'000;
 constexpr std::uint32_t kGainParameterId = 1001;
 constexpr std::uint32_t kBypassParameterId = 1002;
+using PostGainTransform = garak::runtime::static_graph::PostGainTransform;
 using StaticExecutionBinding = garak::runtime::static_graph::StaticExecutionBinding;
 using StaticExecutionParameterIds = garak::runtime::static_graph::StaticExecutionParameterIds;
 constexpr StaticExecutionParameterIds kParameterIds{kGainParameterId, kBypassParameterId};
 
 class PointSource final {
 public:
-  void set(const double value) noexcept { point_ = {0, value}; }
-  [[nodiscard]] std::int32_t point_count() const noexcept { return 1; }
+  void set(const double value) noexcept {
+    points_[0] = {0, value};
+    count_ = 1;
+  }
+  void set_bypass(const bool bypass, const std::int32_t sample_count) noexcept {
+    set(bypass ? 1.0 : 0.0);
+    if (sample_count >= 3) {
+      points_[1] = {sample_count / 3, bypass ? 0.0 : 1.0};
+      points_[2] = {(sample_count * 2) / 3, bypass ? 1.0 : 0.0};
+      count_ = 3;
+    }
+  }
+  [[nodiscard]] std::int32_t point_count() const noexcept { return count_; }
   [[nodiscard]] bool point(const std::int32_t index,
                            garak::dsp::gain::AutomationPoint& point) const noexcept {
-    if (index != 0)
+    if (index < 0 || index >= count_)
       return false;
-    point = point_;
+    point = points_[static_cast<std::size_t>(index)];
     return true;
   }
 
 private:
-  garak::dsp::gain::AutomationPoint point_{};
+  std::array<garak::dsp::gain::AutomationPoint, 3> points_{};
+  std::int32_t count_{1};
 };
 
 struct StressResult final {
@@ -144,9 +157,12 @@ struct StressResult final {
   allocation_tracking::Counts counts{};
 };
 
-template <bool Polarity> [[nodiscard]] constexpr auto make_stress_execution_binding() noexcept {
-  if constexpr (Polarity) {
+template <PostGainTransform Transform>
+[[nodiscard]] constexpr auto make_stress_execution_binding() noexcept {
+  if constexpr (Transform == PostGainTransform::polarity) {
     return StaticExecutionBinding::gain_polarity(kParameterIds);
+  } else if constexpr (Transform == PostGainTransform::saturation) {
+    return StaticExecutionBinding::gain_saturation(kParameterIds);
   } else {
     return StaticExecutionBinding::gain_only(kParameterIds);
   }
@@ -161,8 +177,8 @@ template <typename Sample>
   }
 }
 
-template <typename Sample, bool Polarity> [[nodiscard]] StressResult run() noexcept {
-  constexpr auto execution_binding = make_stress_execution_binding<Polarity>();
+template <typename Sample, PostGainTransform Transform> [[nodiscard]] StressResult run() noexcept {
+  constexpr auto execution_binding = make_stress_execution_binding<Transform>();
 
   std::array<std::array<Sample, kMaximumSamples>, 2> input{};
   std::array<std::array<Sample, kMaximumSamples>, 2> output{};
@@ -181,7 +197,7 @@ template <typename Sample, bool Polarity> [[nodiscard]] StressResult run() noexc
     const auto gain_normalized = static_cast<double>(block % 5U) * 0.25;
     const bool bypass = (block % 7U) == 0U;
     gain_source.set(gain_normalized);
-    bypass_source.set(bypass ? 1.0 : 0.0);
+    bypass_source.set_bypass(bypass, sample_count);
     for (std::int32_t channel = 0; channel < channel_count; ++channel) {
       for (std::int32_t sample = 0; sample < sample_count; ++sample) {
         input[static_cast<std::size_t>(channel)][static_cast<std::size_t>(sample)] =
@@ -201,7 +217,15 @@ template <typename Sample, bool Polarity> [[nodiscard]] StressResult run() noexc
         const auto source =
             input[static_cast<std::size_t>(channel)][static_cast<std::size_t>(sample)];
         const auto active = static_cast<Sample>(source * static_cast<Sample>(linear));
-        const auto expected = bypass ? source : (Polarity ? static_cast<Sample>(-active) : active);
+        const auto transformed =
+            Transform == PostGainTransform::saturation
+                ? std::tanh(active)
+                : (Transform == PostGainTransform::polarity ? -active : active);
+        const auto sample_bypass =
+            sample_count >= 3 && sample >= sample_count / 3 && sample < (sample_count * 2) / 3
+                ? !bypass
+                : bypass;
+        const auto expected = sample_bypass ? source : transformed;
         if (!near(output[static_cast<std::size_t>(channel)][static_cast<std::size_t>(sample)],
                   expected)) {
           result.ok = false;
@@ -226,7 +250,7 @@ template <typename Sample, bool Polarity> [[nodiscard]] StressResult run() noexc
                  static_cast<unsigned long long>(result.counts.deallocations));
     return false;
   }
-  std::printf("%s passed: %llu blocks, %llu channel-samples, allocation 0\n", label,
+  std::printf("%s passed: %llu blocks, %llu channel-samples, allocation 0, deallocation 0\n", label,
               static_cast<unsigned long long>(result.blocks),
               static_cast<unsigned long long>(result.samples));
   return true;
@@ -234,9 +258,11 @@ template <typename Sample, bool Polarity> [[nodiscard]] StressResult run() noexc
 } // namespace
 
 int main() {
-  const bool a = report("Gain Float32", run<float, false>());
-  const bool b = report("Gain Float64", run<double, false>());
-  const bool c = report("Gain+Polarity Float32", run<float, true>());
-  const bool d = report("Gain+Polarity Float64", run<double, true>());
-  return a && b && c && d ? EXIT_SUCCESS : EXIT_FAILURE;
+  const bool a = report("Gain Float32", run<float, PostGainTransform::identity>());
+  const bool b = report("Gain Float64", run<double, PostGainTransform::identity>());
+  const bool c = report("Gain+Polarity Float32", run<float, PostGainTransform::polarity>());
+  const bool d = report("Gain+Polarity Float64", run<double, PostGainTransform::polarity>());
+  const bool e = report("Gain+Saturation Float32", run<float, PostGainTransform::saturation>());
+  const bool f = report("Gain+Saturation Float64", run<double, PostGainTransform::saturation>());
+  return a && b && c && d && e && f ? EXIT_SUCCESS : EXIT_FAILURE;
 }

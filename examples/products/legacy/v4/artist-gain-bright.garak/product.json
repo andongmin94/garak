@@ -1,8 +1,8 @@
 {
-  "schemaVersion": 5,
-  "productId": "d1331806-9ae0-4971-b83f-871d4af677b5",
+  "schemaVersion": 4,
+  "productId": "c8a56d90-7e4b-4af1-91d3-2b6c8e0f1357",
   "vendor": "Garak Test Artist",
-  "name": "Artist Gain Inverted",
+  "name": "Artist Gain Bright",
   "version": "0.1.0",
   "category": "Fx",
   "template": {
@@ -10,10 +10,10 @@
     "version": 1
   },
   "defaults": {
-    "gainDb": 0
+    "gainDb": 3
   },
   "graph": {
-    "schemaVersion": 3,
+    "schemaVersion": 2,
     "nodes": [
       {
         "id": "input",
@@ -23,11 +23,6 @@
       {
         "id": "gain",
         "type": "garak.gain",
-        "implementationVersion": 1
-      },
-      {
-        "id": "polarity",
-        "type": "garak.polarity",
         "implementationVersion": 1
       },
       {
@@ -50,16 +45,6 @@
       {
         "from": {
           "nodeId": "gain",
-          "port": "audio"
-        },
-        "to": {
-          "nodeId": "polarity",
-          "port": "audio"
-        }
-      },
-      {
-        "from": {
-          "nodeId": "polarity",
           "port": "audio"
         },
         "to": {
