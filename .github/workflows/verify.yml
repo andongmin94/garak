@@ -126,7 +126,15 @@ jobs:
       - name: Verify four-product Debug export, inspector and official Validator
         run: ./tools/product-compiler/scripts/verify_headless_export_no_build.ps1 -Configuration Debug
       - name: Verify Debug legacy migration export parity
-        run: ./tools/product-compiler/scripts/verify_project_migration_export_parity.ps1 -Configuration Debug
+        run: |
+          try {
+            & ./tools/product-compiler/scripts/verify_project_migration_export_parity.ps1 -Configuration Debug
+          } catch {
+            $message = "$($_.Exception.Message)`n$($_.InvocationInfo.PositionMessage)"
+            $escaped = $message.Replace('%', '%25').Replace("`r", '%0D').Replace("`n", '%0A')
+            Write-Output "::error title=Debug legacy migration export parity::$escaped"
+            throw
+          }
       - run: ctest --preset product-runtime-debug-test --no-tests=error
       - run: pnpm --dir studio verify:product-workflow --configuration Debug
       - run: cmake --preset product-runtime-release --fresh
@@ -134,7 +142,15 @@ jobs:
       - name: Verify four-product Release export, inspector and official Validator
         run: ./tools/product-compiler/scripts/verify_headless_export_no_build.ps1 -Configuration Release
       - name: Verify Release legacy migration export parity
-        run: ./tools/product-compiler/scripts/verify_project_migration_export_parity.ps1 -Configuration Release
+        run: |
+          try {
+            & ./tools/product-compiler/scripts/verify_project_migration_export_parity.ps1 -Configuration Release
+          } catch {
+            $message = "$($_.Exception.Message)`n$($_.InvocationInfo.PositionMessage)"
+            $escaped = $message.Replace('%', '%25').Replace("`r", '%0D').Replace("`n", '%0A')
+            Write-Output "::error title=Release legacy migration export parity::$escaped"
+            throw
+          }
       - run: ctest --preset product-runtime-release-test --no-tests=error
       - run: pnpm --dir studio verify:product-workflow --configuration Release
       - run: cmake --preset product-runtime-werror --fresh
