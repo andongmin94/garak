@@ -1,11 +1,11 @@
 # Garak VST3 Adapter
 
-- 기준일: 2026-09-30
+- 기준일: 2026-10-01
 - Active implementation: `native/adapters/vst3/product_runtime_v1`
 - Persistent contract: `native/runtime/product_v1`
 - Reusable DSP: `native/dsp/gain`, `native/dsp/saturation`
 - Static graph contract: `native/runtime/static_graph`, `GARAKGRF` 1.2
-- 문서 상태: Phase 3D2 current implementation; Windows acceptance pending
+- 문서 상태: Phase 3D2 accepted Windows VST3 contract
 - Official SDK: `steinbergmedia/vst3sdk` `v3.8.0_build_66`
 - Exact superproject pin: `9fad9770f2ae8542ab1a548a68c1ad1ac690abe0`
 
@@ -142,7 +142,7 @@ pnpm product:export --project examples/products/artist-gain-saturated.garak --co
 ctest --preset product-runtime-release-test --no-tests=error
 ```
 
-CTest includes current Product Runtime DSP/contract/compatibility tests, Warm/Bright/Inverted/Saturated loaded-module smoke, inspector parity and official standard/extensive validator runs. Acceptance requires the clean exact final source Windows matrix; historical Phase 3D1 results do not establish Phase 3D2 success. See [current status](../status/current.md).
+CTest includes current Product Runtime DSP/contract/compatibility tests, Warm/Bright/Inverted/Saturated loaded-module smoke, inspector parity and official standard/extensive validator runs. Exact implementation source `b0c8fd8eeb3aa6290b0d211808cc0c25c38f27ab`의 [clean Linux + Windows run 36736534651](https://github.com/andongmin94/garak/actions/runs/36736534651)에서 Phase 3D2 four-product Debug/Release acceptance가 성공했다. Detailed results는 [current status](../status/current.md)와 [Phase 3D2 validation](../status/phase-3d2-saturation-validation.md)를 따른다.
 
 ## 미검증 release boundary
 

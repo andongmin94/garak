@@ -33,7 +33,7 @@ macOS/AU 결과를 Windows 결과로 일반화하지 않는다.
 
 ## 현재 canonical product path
 
-현재 canonical Windows x64 제품 경로는 다음 하나다. 수용된 기준선은 Phase 3D1이며 Phase 3D2 Saturation 변경은 [current status](docs/status/current.md)의 acceptance 상태를 따른다.
+현재 canonical Windows x64 제품 경로는 다음 하나다. 수용된 기준선은 Phase 3D2 — Saturation Node이며 exact implementation acceptance evidence는 [current status](docs/status/current.md)를 따른다.
 
 ```text
 unpacked .garak project

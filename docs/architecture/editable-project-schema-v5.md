@@ -1,6 +1,6 @@
 # Editable Project Schema v5
 
-- 문서 상태: Phase 3D2 current implementation contract; acceptance pending
+- 문서 상태: Phase 3D2 accepted current schema contract
 - Project schema version: `5`
 - Embedded graph source version: `3`
 - Supported legacy project input: schema `1`, `2`, `3`, `4`

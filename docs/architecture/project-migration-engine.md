@@ -1,6 +1,6 @@
 # Garak Project Migration Engine
 
-- 상태: current schema v5 migration contract; Phase 3D2 acceptance pending
+- 상태: Phase 3D2 accepted current schema v5 migration contract
 - Owner: Product Compiler
 - Supported source versions: `1`, `2`, `3`, `4`, `5`
 - Current target version: `5`

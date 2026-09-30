@@ -1,7 +1,7 @@
 # Garak Project Model
 
-- 문서 상태: Phase 3D2 editable project schema v5 / graph source v3 implementation contract; acceptance pending
-- 최종 갱신: 2026-09-30
+- 문서 상태: Phase 3D2 accepted editable project schema v5 / graph source v3 contract
+- 최종 갱신: 2026-10-01
 - 권위 범위: `.garak` semantic model, product identity, node version reference, project schema와 migration
 - 관련 문서: [v0.1 제품 요구사항](../product/v0.1-prd.md), [시스템 개요](system-overview.md), [모듈 경계](module-boundaries.md), [Minimal Garak Product Project](minimal-garak-product-project.md), [Editable Project Schema v5](editable-project-schema-v5.md), [Historical Editable Project Schema v3](editable-project-schema-v3.md), [Editable Project Schema v2](editable-project-schema-v2.md), [Project Migration Engine](project-migration-engine.md), [Parameter와 state](parameter-and-state.md), [Interface Designer](interface-designer.md), [Runtime과 export](runtime-and-export.md), [ADR 0007](../adr/0007-editable-project-schema-migration-policy.md)
 

@@ -1,7 +1,7 @@
 # Garak Runtime and Export
 
-- 문서 상태: Phase 3D2 current implementation contract; acceptance pending
-- 최종 갱신: 2026-09-30
+- 문서 상태: Phase 3D2 accepted runtime/export contract
+- 최종 갱신: 2026-10-01
 - Current editable project: schema v5 / graph source v3
 - Current compiled formats: `GARAKCPD` 1.0, `GARAKGRF` 1.2, `GARAKPST` 1.0
 - Windows x64 runtime strategy: prebuilt Product Runtime + product data
@@ -166,9 +166,9 @@ Studio Product workspace는 headless compiler/export path의 frontend다.
 - Main은 Product Compiler callable workflow를 직접 사용하며 compiler/export semantics를 재구현하지 않는다.
 - Current graph는 main-owned session data이며 ordinary product metadata/default editing이 graph를 암묵적으로 변경하지 않는다.
 
-## Accepted baseline and current acceptance
+## Current acceptance and historical baseline
 
-Phase 3D2는 In Progress이며 current source의 clean Windows four-product acceptance는 pending이다. Linux 결과와 남은 gates는 [current status](../status/current.md)를 따른다. 다음 기록은 accepted Phase 3D1 baseline이다.
+Phase 3D2는 exact implementation source `b0c8fd8eeb3aa6290b0d211808cc0c25c38f27ab`의 [clean Linux + Windows run 36736534651](https://github.com/andongmin94/garak/actions/runs/36736534651)에서 수용됐다. Four-product Debug/Release export, inspector, official Validator, loaded-module/CTest, Studio workflow와 legacy migration actual-export parity를 포함한다. 자세한 결과는 [current status](../status/current.md)와 [Phase 3D2 validation](../status/phase-3d2-saturation-validation.md)를 따른다. 아래 Phase 3D1 기록은 historical accepted baseline으로 보존한다.
 
 Phase 3D1 exact verified source:
 

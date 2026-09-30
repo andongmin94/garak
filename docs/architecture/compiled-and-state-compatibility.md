@@ -1,6 +1,6 @@
 # Compiled Artifact and Plug-in State Compatibility
 
-- 문서 상태: Phase 3D2 current implementation contract; acceptance pending
+- 문서 상태: Phase 3D2 accepted current contract
 - Editable project schema: `5`
 - Embedded graph source: `3`
 - Compiled product: `GARAKCPD` `1.0`

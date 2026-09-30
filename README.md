@@ -4,7 +4,7 @@ Garak(가락)은 음악가와 창작자가 자기 사운드, control language, i
 
 ## 현재 제품 경로
 
-Phase 3D2에서 구현·검증 중인 Windows x64 vertical slice는 다음 경로다. Accepted 기준선은 아래 Phase 3D1 기록이며, 현재 변경의 Windows acceptance는 아직 남아 있다.
+Phase 3D2에서 수용한 Windows x64 vertical slice는 다음 경로를 실제로 통과한다.
 
 ```text
 unpacked .garak project schema v5 / graph source v3
@@ -36,24 +36,21 @@ Native Runtime은 C++20이며 생성된 VST3에는 Electron, Chromium, Node.js �
 
 ## 현재 검증 상태
 
-**Phase 3D2 — Saturation Node는 In Progress이며 Windows acceptance는 pending이다.** Current source의 검증 결과는 [`docs/status/current.md`](docs/status/current.md)에 기록한다.
+**Phase 3D2 — Saturation Node는 PASS / Complete다.**
 
-**Accepted 기준선인 Phase 3D1 — Polarity Node는 PASS / Complete다.** 아래 기록은 Phase 3D1 exact source에 대한 증거이며 Phase 3D2 acceptance를 뜻하지 않는다.
-
-- exact verified source: `96ba29cf009eab00980405d7de456b5f1d431956`
-- clean Linux + Windows acceptance run: `34193494228`
+- exact verified implementation source: `b0c8fd8eeb3aa6290b0d211808cc0c25c38f27ab`
+- clean Linux + Windows acceptance run: [36736534651](https://github.com/andongmin94/garak/actions/runs/36736534651)
 - Product Compiler format/lint/typecheck/test: success
 - Studio format/lint/typecheck/test/build: success
-- Linux Debug/Release, warnings-as-errors, clang-format, clang-tidy: success
+- Linux Native Debug/Release, Clang warnings-as-errors, clang-format와 clang-tidy: success
 - Windows Debug/Release Product Runtime clean build: success
-- Warm/Bright/Inverted actual export: success
-- first-party inspector + official VST3 Validator normal/extensive: success
-- Debug/Release CTest + Studio product workflow: success
-- MSVC `/WX`: success
-- Windows clang-tidy: success
+- Warm/Bright/Inverted/Saturated actual export, first-party inspector와 official VST3 Validator normal/extensive: success
+- supported legacy v1/v2/v3/v4→v5 migration actual-export parity, Debug/Release: success
+- Windows Debug/Release CTest와 Studio product workflow: success
+- MSVC `/WX`, Windows clang-tidy와 source-clean checks: success
 - tracked-source mutation: `0`
 
-Historical Phase 3B/3C acceptance evidence는 [`docs/status/current.md`](docs/status/current.md)와 completed ExecPlans에 남아 있다.
+별도 local Linux 검증에는 Windows-only junction test 한 개가 skip된다. Local test counts와 exact implementation acceptance 기록은 [`docs/status/current.md`](docs/status/current.md)와 [Phase 3D2 validation](docs/status/phase-3d2-saturation-validation.md)을 따른다. 위 SHA는 검증한 구현 source이며 이후 완료 기록을 추가하는 documentation commit의 SHA를 뜻하지 않는다. Historical Phase 3B/3C/3D1 acceptance evidence는 current status와 completed ExecPlans에 보존한다.
 
 ## 현재 persistent contract
 
@@ -140,10 +137,10 @@ Debug:
 cmake --preset product-runtime-debug --fresh
 cmake --build --preset product-runtime-debug-build --clean-first
 
-pnpm product:export --project examples/products/artist-gain-warm.garak --configuration Debug --output out/exports/debug --force --validate
-pnpm product:export --project examples/products/artist-gain-bright.garak --configuration Debug --output out/exports/debug --force --validate
-pnpm product:export --project examples/products/artist-gain-inverted.garak --configuration Debug --output out/exports/debug --force --validate
-pnpm product:export --project examples/products/artist-gain-saturated.garak --configuration Debug --output out/exports/debug --force --validate
+pnpm product:export --project examples/products/artist-gain-warm.garak --configuration Debug --output out/exports/phase-3d2/debug --force --validate
+pnpm product:export --project examples/products/artist-gain-bright.garak --configuration Debug --output out/exports/phase-3d2/debug --force --validate
+pnpm product:export --project examples/products/artist-gain-inverted.garak --configuration Debug --output out/exports/phase-3d2/debug --force --validate
+pnpm product:export --project examples/products/artist-gain-saturated.garak --configuration Debug --output out/exports/phase-3d2/debug --force --validate
 
 ctest --preset product-runtime-debug-test --no-tests=error
 pnpm --dir studio verify:product-workflow --configuration Debug
@@ -155,10 +152,10 @@ Release:
 cmake --preset product-runtime-release --fresh
 cmake --build --preset product-runtime-release-build --clean-first
 
-pnpm product:export --project examples/products/artist-gain-warm.garak --configuration Release --output out/exports/release --force --validate
-pnpm product:export --project examples/products/artist-gain-bright.garak --configuration Release --output out/exports/release --force --validate
-pnpm product:export --project examples/products/artist-gain-inverted.garak --configuration Release --output out/exports/release --force --validate
-pnpm product:export --project examples/products/artist-gain-saturated.garak --configuration Release --output out/exports/release --force --validate
+pnpm product:export --project examples/products/artist-gain-warm.garak --configuration Release --output out/exports/phase-3d2/release --force --validate
+pnpm product:export --project examples/products/artist-gain-bright.garak --configuration Release --output out/exports/phase-3d2/release --force --validate
+pnpm product:export --project examples/products/artist-gain-inverted.garak --configuration Release --output out/exports/phase-3d2/release --force --validate
+pnpm product:export --project examples/products/artist-gain-saturated.garak --configuration Release --output out/exports/phase-3d2/release --force --validate
 
 ctest --preset product-runtime-release-test --no-tests=error
 pnpm --dir studio verify:product-workflow --configuration Release
@@ -180,7 +177,7 @@ cmake --build --preset product-runtime-clang-tidy-build --clean-first
 - Phase 3B — Realtime Safety Instrumentation and Long-run Runtime Stress: Complete
 - Phase 3C — Editable Static Graph Project Contract and Compiled Plan: Complete
 - Phase 3D1 — Polarity Node: Complete
-- Phase 3D2 — Saturation Node: In Progress, Windows acceptance pending
+- Phase 3D2 — Saturation Node: Complete
 
 Phase 3D는 node를 하나씩 working vertical slice로 수용한다. Pan, Dry/Wet, Biquad, Tilt EQ 또는 generic graph engine을 다음 increment가 요구하기 전에 미리 구현하지 않는다.
 
@@ -189,7 +186,8 @@ Phase 3D는 node를 하나씩 working vertical slice로 수용한다. Pan, Dry/W
 - [Repository constitution](AGENTS.md)
 - [Roadmap](ROADMAP.md)
 - [Current status](docs/status/current.md)
-- [Active Phase 3D2 ExecPlan](plans/0019-phase-3d2-saturation-node.md)
+- [Phase 3D2 validation](docs/status/phase-3d2-saturation-validation.md)
+- [Completed Phase 3D2 ExecPlan](plans/0019-phase-3d2-saturation-node.md)
 - [Accepted Phase 3D1 ExecPlan](plans/0018-phase-3d1-polarity-node.md)
 - [Editable Project Schema v5](docs/architecture/editable-project-schema-v5.md)
 - [Compiled/state compatibility](docs/architecture/compiled-and-state-compatibility.md)

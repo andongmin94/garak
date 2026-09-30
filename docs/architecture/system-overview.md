@@ -1,7 +1,7 @@
 # Garak System Overview
 
-- 문서 상태: Phase 3D2 current source/runtime implementation contract; acceptance pending
-- 최종 갱신: 2026-09-30
+- 문서 상태: Phase 3D2 accepted current source/runtime contract
+- 최종 갱신: 2026-10-01
 - 권위 범위: 전체 시스템 문맥, 최상위 구성 요소와 authoring-to-runtime 흐름
 - 관련 문서: [제품 비전](../product/vision.md), [v0.1 제품 요구사항](../product/v0.1-prd.md), [모듈 경계](module-boundaries.md), [프로젝트 모델](project-model.md), [Runtime과 export](runtime-and-export.md), [Minimal Garak Product Project](minimal-garak-product-project.md), [Editable Project Schema v5](editable-project-schema-v5.md), [Historical Editable Project Schema v3](editable-project-schema-v3.md), [Editable Project Schema v2](editable-project-schema-v2.md), [Project Migration Engine](project-migration-engine.md), [ADR 0005](../adr/0005-windows-v0x-prebuilt-product-runtime.md), [ADR 0007](../adr/0007-editable-project-schema-migration-policy.md)
 
@@ -150,7 +150,7 @@ Authoring audition은 같은 project 의미를 입력으로 사용하지만 expo
 5. Phase 3C1 — Runtime-consumed compiled graph resource — 완료
 6. Phase 3C2/3C3 — Editable schema v3와 compiled graph compatibility — 완료
 7. Phase 3D1 — Polarity Node, schema v4 / graph v2 / `GARAKGRF` 1.1 — accepted
-8. Phase 3D2 — Saturation Node, schema v5 / graph v3 / `GARAKGRF` 1.2 — In Progress, Windows acceptance pending
+8. Phase 3D2 — Saturation Node, schema v5 / graph v3 / `GARAKGRF` 1.2 — Complete
 9. 후속 product capability를 단계적으로 구현한 뒤 첫 상용 배포 전 cross-platform release gate
 
 Release gate에는 macOS arm64/x86_64 및 Universal VST3, macOS AU, signing/notarization, installer와
@@ -160,7 +160,7 @@ AU이며 macOS/AU를 제거하거나 Windows 결과로 대체하지 않는다. F
 
 ## Reference product가 검증하는 경로
 
-Current increment의 reference products는 Warm/Bright/Inverted/Saturated다. Warm/Bright는 Gain-only, Inverted는 Gain→Polarity, Saturated는 Gain→Saturation을 사용한다. 네 제품은 configuration별 동일 prebuilt Runtime을 재사용하며 product identity와 data는 제품별이다. Phase 3D1은 accepted 기준선이고 Phase 3D2 acceptance 상태는 [current status](../status/current.md)를 따른다.
+Current increment의 reference products는 Warm/Bright/Inverted/Saturated다. Warm/Bright는 Gain-only, Inverted는 Gain→Polarity, Saturated는 Gain→Saturation을 사용한다. 네 제품은 configuration별 동일 prebuilt Runtime을 재사용하며 product identity와 data는 제품별이다. Phase 3D2는 accepted 기준선이며 exact implementation evidence는 [current status](../status/current.md)를 따른다.
 
 `ANDONGMIN — BLOOM`은 architecture 기능을 따로 시연하는 demo가 아니라 다음 경계를 모두 통과하는 첫 수직 증거이다.
 

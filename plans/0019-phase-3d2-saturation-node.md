@@ -1,8 +1,8 @@
 # ExecPlan 0019 — Phase 3D2 Saturation Node
 
-- Status: In Progress
+- Status: Complete
 - Started: 2026-09-08
-- Updated: 2026-09-30
+- Updated: 2026-10-01
 - Owner: Product Compiler, Native static graph Runtime and Studio product workflow
 
 ## 목적
@@ -15,7 +15,7 @@ Phase 3D1에서 수용한 exact static graph vertical slice 위에 두 번째 �
 Garak이 단순 선형 부호 반전 외에 실제 비선형 sound operation도 project-owned graph로 표현하고 생성 플러그인에서 실행할 수 있게 된다.
 Saturation 제품은 active processing에서 Gain 결과에 고정 soft saturation을 적용하고, host Bypass에서는 Saturation을 포함한 전체 product graph를 우회해 원신호를 그대로 통과시킨다.
 
-## 현재 저장소 상태
+## 계획 시작 시 기준선 (Phase 3D1)
 
 - Starting `main`: `dd69817e8ca33e42924613f8dc8177118a75c480`
 - Phase 3D1 exact verified source: `96ba29cf009eab00980405d7de456b5f1d431956`
@@ -112,8 +112,8 @@ Bypassed samples continue to copy exact dry input, so no second callback pass or
 8. [x] Extend compatibility/resource/static-graph/realtime stress tests for old 1.0/1.1, current 1.2 and all three plans.
 9. [x] Add `Artist Gain Saturated` and extend headless export, inspector, loaded-module and Studio workflow coverage.
 10. [x] Run Product Compiler, Studio, Native Debug/Release, warnings-as-errors and clang-tidy gates; fix all failures.
-11. [ ] Run clean exact-main Windows Debug/Release four-product export/Validator/CTest/Studio workflow plus `/WX`, clang-tidy and clean-tree.
-12. [ ] Update README, roadmap, current status, compatibility/runtime architecture and this ExecPlan; mark Complete only after green acceptance.
+11. [x] Run clean exact-main Windows Debug/Release four-product export/Validator/CTest/Studio workflow plus `/WX`, clang-tidy and clean-tree.
+12. [x] Update README, roadmap, current status, compatibility/runtime architecture and this ExecPlan; mark Complete only after green acceptance.
 13. [x] Remove any temporary verification workflow from final `main`; permanent `Verify` CI covers Linux and Windows.
 
 ## 변경 대상 파일
@@ -206,6 +206,7 @@ Authoritative Windows acceptance is a clean x64 checkout of the exact final `mai
 - 2026-10-01: Node PATH fix commit `7d6c8b31a094ef3a2cec548784cc68a73c9a8eab` / run `36733190540` passed Linux and the Windows Debug/Release four-product export, legacy migration parity, CTest and Studio workflow gates. Windows then failed the MSVC warnings-as-errors build; clang-tidy was skipped. Public annotations contain only exit 1, so preserve native build output in report artifacts and emit the actual compiler diagnostics as annotations before identifying the source correction. The warning policy and build exit code remain authoritative.
 - 2026-10-01: The user reported exhausted GitHub Actions capacity without knowing whether it was minutes or storage. The repository is publicly visible and uses standard `ubuntu-24.04`/`windows-latest` runners. GitHub's official billing documentation states that these public-repository executions are free and ordinary workflow logs/job summaries do not count toward artifact storage. Disable artifact upload before further verification so new runs add no artifact storage; keep complete build output in ordinary logs and actual failure annotations. No billing setting or existing artifact is changed.
 - 2026-10-01: Diagnostic commit `aad315f3b75c0ad8ddca4035454fb764d5daa2e2` / run `36735435526` again passed Linux and Windows Debug/Release export, parity, CTest, Studio workflow and source-clean gates. `/WX` annotations exposed `native/tests/static_graph_tests.cpp(296): warning C4702: unreachable code`, promoted by C2220. The Saturation specialization returned inside `if constexpr` before a trailing alternative return. Make the alternative an explicit `else` branch without changing test expectations or the warning policy. Windows clang-tidy remained skipped in this failed run; artifact upload was disabled.
+- 2026-10-01: The explicit-else correction in exact main `b0c8fd8eeb3aa6290b0d211808cc0c25c38f27ab` passed the complete [Verify run 36736534651](https://github.com/andongmin94/garak/actions/runs/36736534651). Linux job `109959594107` and Windows job `109959593481` concluded success. Every required Windows step 1–34, including `/WX`, clang-tidy and final source-clean checks, succeeded; no required gate was skipped. The Windows job completed at `2026-09-30 15:34:47 UTC` (`2026-10-01` Asia/Seoul). No artifact or cache upload was performed.
 - 2026-09-08: `AGENTS.md` still names only Warm/Bright as current reference products although Phase 3D1 accepted Inverted. This stale current statement must be corrected before Phase 3D2 completion and does not change engineering policy.
 - 2026-09-08: Current static binding represents the optional post-Gain operation as `has_polarity` boolean. Saturation is the point where an exact enum-like post-Gain transform representation becomes simpler than accumulating feature booleans.
 
@@ -221,7 +222,14 @@ Authoritative Windows acceptance is a clean x64 checkout of the exact final `mai
 
 ## 완료 기록
 
-Implementation and Linux validation are complete; Windows acceptance is pending, so Phase 3D2 remains In Progress.
+Phase 3D2 is Complete. Implementation, complete Linux/Windows acceptance and current documentation are synchronized with the exact verified implementation below.
+
+- Exact verified implementation: `b0c8fd8eeb3aa6290b0d211808cc0c25c38f27ab` on main.
+- Full clean Linux + Windows acceptance: [run 36736534651](https://github.com/andongmin94/garak/actions/runs/36736534651).
+- Detailed acceptance and diagnosed failures: [Phase 3D2 validation](../docs/status/phase-3d2-saturation-validation.md). The verified implementation SHA identifies the tested code; a subsequent documentation-only commit is a distinct main SHA and receives the same permanent CI verification.
+- Windows Compiler/Studio quality gates, Debug/Release Product Runtime clean builds, four-product repeated actual export/inspector/official Validator, legacy actual-export parity, loaded-module/CTest, Studio workflow, MSVC `/WX`, clang-tidy and source-clean checks all PASS. Required Windows gate skips/failures: zero. Ordinary workflow logs and public step outcomes are the execution evidence; Windows test counts are not inferred from inaccessible raw logs.
+
+Additional directly observed local Linux evidence:
 
 - Product Compiler format/lint/typecheck PASS; 111 tests executed, 110 passed, 0 failed, 1 Windows-only junction case skipped.
 - Studio format/lint/typecheck/test/build PASS; 19 tests passed, none skipped.
@@ -234,8 +242,8 @@ Implementation and Linux validation are complete; Windows acceptance is pending,
 - Permanent CI contains the full Windows Debug/Release matrix, four-product repeated export, nine legacy/current export parity pairs, inspector topology rejection, official Validator, loaded-module tests, Studio workflow, `/WX`, clang-tidy and source-mutation checks. Ordinary workflow logs preserve execution evidence; artifact upload is disabled to avoid additional artifact storage.
 - Current architecture/status/roadmap and current engineering command paths are synchronized. Historical accepted evidence is preserved.
 
-Actual Windows execution is required before step 11, final acceptance, and Complete status can be recorded. Package declarations, pnpm lockfile, public Parameter IDs, `GARAKCPD` 1.0 and `GARAKPST` 1.0 remain unchanged.
+Package declarations, pnpm lockfile, public Parameter IDs, `GARAKCPD` 1.0 and `GARAKPST` 1.0 remain unchanged.
 
 ## 다음 단계
 
-Run the permanent clean exact-main Linux/Windows CI against the completed implementation, diagnose any failed required gate, and record successful Windows acceptance before closing this increment. No later node or Phase 4 work starts while this gate remains outstanding.
+Select the next single DSP node and create a separate ExecPlan before beginning another increment. Phase 4 and release work remain separate roadmap milestones.

@@ -1,18 +1,17 @@
 # Garak Current Status
 
-- 기준일: 2026-09-30
+- 기준일: 2026-10-01
 - 개발 브랜치: `main` 하나
-- 권위 문서: current source tree → `ROADMAP.md` → active ExecPlan
-- 수용된 기준선: **Phase 3D1 — Polarity Node, PASS / Complete**
-- Phase 3D1 exact verified source: `96ba29cf009eab00980405d7de456b5f1d431956`
-- Phase 3D1 clean Linux + Windows acceptance run: `34193494228`
-- 현재 increment: **Phase 3D2 — Saturation Node, In Progress**
-- 활성 계획: [`plans/0019-phase-3d2-saturation-node.md`](../../plans/0019-phase-3d2-saturation-node.md)
-- Phase 3D2 Windows exact-source acceptance: **pending**
+- 권위 문서: current source tree → `ROADMAP.md` → completed ExecPlan
+- 수용된 기준선: **Phase 3D2 — Saturation Node, PASS / Complete**
+- Phase 3D2 exact verified implementation source: `b0c8fd8eeb3aa6290b0d211808cc0c25c38f27ab`
+- Phase 3D2 clean Linux + Windows acceptance run: [36736534651](https://github.com/andongmin94/garak/actions/runs/36736534651)
+- 완료된 계획: [`plans/0019-phase-3d2-saturation-node.md`](../../plans/0019-phase-3d2-saturation-node.md)
+- 다음 increment: 하나의 추가 DSP node 선택과 별도 ExecPlan 작성
 
-## 현재 구현·검증 중인 제품 경로
+## 현재 수용된 제품 경로
 
-아래는 Phase 3D2 current source contract다. 아직 accepted Phase 3D1의 Windows 결과를 현재 변경의 검증 결과로 사용할 수 없다.
+아래는 Phase 3D2 exact implementation source의 clean Linux/Windows acceptance를 통과한 current product contract다. 검증 SHA는 구현 source를 식별하며 이 완료 기록을 추가하는 후속 documentation commit의 SHA를 뜻하지 않는다.
 
 ```text
 .garak project schema v5 / graph source v3
@@ -65,24 +64,31 @@
 - Polarity/Saturation plan의 logical buffer count는 3이지만 callback에서는 하나의 optional post-Gain transform을 Gain active pass에 fuse하며 dynamic scratch allocation을 하지 않는다.
 - callback에서는 allocation/free, lock/wait, I/O, logging/string formatting, graph mutation과 exception propagation을 허용하지 않는다.
 
-## Phase 3D2 검증 상태
+## Phase 3D2 acceptance evidence
 
-2026-09-30 Linux cloud working tree에서 확인한 결과다. 아직 clean exact-final-source Windows acceptance 기록은 아니다.
+Exact implementation source `b0c8fd8eeb3aa6290b0d211808cc0c25c38f27ab`를 clean Linux/Windows checkout에서 검증한 [run 36736534651](https://github.com/andongmin94/garak/actions/runs/36736534651)의 결과다. [Linux job](https://github.com/andongmin94/garak/actions/runs/36736534651/job/109959594107)과 [Windows job](https://github.com/andongmin94/garak/actions/runs/36736534651/job/109959593481)이 모두 성공했다. Client date는 2026-10-01 Asia/Seoul이며 CI timestamps는 UTC를 사용한다.
 
-| Linux 범위 | 확인 결과 |
+| 범위 | 확인 결과 |
 | --- | --- |
-| Product Compiler format/lint/typecheck | 성공 |
-| Product Compiler tests | 111개 중 110개 성공, 0개 실패, Windows-only junction test 1개 skip |
-| Studio format/lint/typecheck/test/build | 성공; tests 19개 성공, 0개 실패/skip |
-| First-party Native clang-format 19 dry-run | 49개 files 성공 |
-| Native Debug build + CTest | 9/9 성공 |
-| Clang 19 warnings-as-errors build + CTest | 9/9 성공 |
-| Clang 19 clang-tidy build | 성공 |
-| Native Release build + CTest | 9/9 성공 |
-| Pinned recursive VST3 SDK checkout | exact pin 초기화 성공 |
-| VST3 adapter/Saturated loaded-module test static checks | Clang 19 warnings-as-errors syntax checks 성공; Saturated test clang-tidy 성공 |
+| Linux Product Compiler format/lint/typecheck/test | 성공 |
+| Linux Studio format/lint/typecheck/test/build | 성공 |
+| Linux first-party Native clang-format | 성공 |
+| Linux Native Debug/Release build + CTest | 성공 |
+| Linux Clang warnings-as-errors build + CTest | 성공 |
+| Linux Clang clang-tidy build | 성공 |
+| Windows Product Compiler/Studio quality gates | 성공 |
+| Windows Debug/Release Product Runtime clean build | 성공 |
+| Windows Warm/Bright/Inverted/Saturated actual export | Debug/Release 모두 성공 |
+| First-party inspector와 official VST3 Validator | 네 제품 Debug/Release normal/extensive 성공 |
+| Legacy v1/v2/v3/v4→v5 actual migration export parity | Debug/Release 모두 성공; compiled product/graph, Runtime binary와 moduleinfo parity |
+| Windows Debug/Release CTest | 성공; 두 configuration 모두 `--no-tests=error` gate 실행 |
+| Studio Debug/Release product workflow | Saturated 포함 성공 |
+| MSVC `/WX`와 Windows clang-tidy | 성공 |
+| Exact-source clean checks | 성공; tracked-source mutation `0` |
 
-Windows Debug/Release four-product export, inspector, loaded-module tests, official Validator, Studio workflow, MSVC `/WX`, Windows clang-tidy와 clean exact-source acceptance는 아직 pending이다. Linux 결과와 SDK syntax/static checks는 Windows-only junction test, Windows module loading, actual export와 official Validator acceptance를 대체하지 않는다.
+별도 local Linux cloud 검증에서는 Product Compiler 111개 중 110개 성공/0개 실패/Windows-only junction 1개 skip, Studio 19개 성공/0개 실패/0개 skip, Native Debug/Release 및 Clang warnings-as-errors 각각 9/9를 확인했다. 이 숫자는 local Linux output에서 확인한 수치이며 Windows executed test count는 추정하지 않는다.
+
+Windows Compiler tests와 actual export/loaded-module/Validator gates가 성공했으며 SDK syntax checks를 이 acceptance 대신 사용하지 않았다. Evidence는 ordinary workflow logs, required step outcomes와 failure annotations이며 Actions artifact/cache 업로드에 의존하지 않는다. Detailed commands, failed-run diagnosis와 exact implementation evidence는 [Phase 3D2 validation](phase-3d2-saturation-validation.md)에 있다.
 
 ## 검증된 Phase 기준선
 
@@ -93,6 +99,7 @@ Windows Debug/Release four-product export, inspector, loaded-module tests, offic
 | Phase 3C2 editable schema v3 | `b727afb4cd1471dbd61ce775355be60e040c7000` | `33622226202` | Complete |
 | Phase 3C3 compatibility matrix | `d60667d8806e5dac7963ae928dcf98dc377cf0f7` | `33657806095` | Complete |
 | Phase 3D1 Polarity | `96ba29cf009eab00980405d7de456b5f1d431956` | `34193494228` | Complete |
+| Phase 3D2 Saturation | `b0c8fd8eeb3aa6290b0d211808cc0c25c38f27ab` | [36736534651](https://github.com/andongmin94/garak/actions/runs/36736534651) | Complete |
 
 ## Phase 3D1 acceptance evidence
 
@@ -120,11 +127,11 @@ Windows x64:
 
 ## 다음 단계
 
-[ExecPlan 0019](../../plans/0019-phase-3d2-saturation-node.md)의 Phase 3D2 Saturation 구현과 Linux gates를 마친 뒤 exact final source의 clean Windows acceptance matrix를 실행한다. 모든 required gates의 실제 증거가 확보되기 전에는 Complete로 바꾸거나 다음 increment를 시작하지 않는다.
+다음 하나의 DSP node를 선택하고 별도 ExecPlan을 작성한 뒤 source → compiler → Runtime → actual export까지 검증한다. Phase 4/5/6와 cross-platform release 작업은 roadmap의 별도 milestones로 남는다.
 
 ## 아직 완료하지 않은 영역
 
-- Phase 3D2 Windows acceptance와 이후 추가 DSP nodes
+- Saturation 이후 추가 DSP nodes
 - arbitrary graph, split/merge, feedback, sidechain
 - parameter/macro system
 - functional Sound/Control graph authoring UI

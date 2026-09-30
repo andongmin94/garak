@@ -1,7 +1,7 @@
 # Garak Module Boundaries
 
-- 문서 상태: Phase 3D2 current project/static graph/Studio implementation boundaries; acceptance pending
-- 최종 갱신: 2026-09-30
+- 문서 상태: Phase 3D2 accepted current project/static graph/Studio boundaries
+- 최종 갱신: 2026-10-01
 - 권위 범위: first-party 책임, dependency direction, public contract와 third-party adapter 경계
 - 관련 문서: [시스템 개요](system-overview.md), [프로젝트 모델](project-model.md), [Project Migration Engine](project-migration-engine.md), [Runtime과 export](runtime-and-export.md), [의존성 정책](dependency-policy.md), [Product Identity Derivation](product-identity-derivation.md), [Compiled Product Data v1](compiled-product-data-v1.md), [Product State v1](product-state-v1.md), [ADR 0002](../adr/0002-no-juce-and-adapter-boundaries.md), [ADR 0005](../adr/0005-windows-v0x-prebuilt-product-runtime.md), [ADR 0006](../adr/0006-studio-product-workflow-boundary.md), [ADR 0007](../adr/0007-editable-project-schema-migration-policy.md)
 
